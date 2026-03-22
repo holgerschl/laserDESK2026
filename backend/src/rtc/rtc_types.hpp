@@ -26,11 +26,11 @@ struct RtcConnectConfig {
   std::string expected_bios_eth_tag;
 
   /// Phase G.4: after `R_DC_CONFIG_LIST` + `R_DC_GET_INPUT_POINTER`, stream `R_LC_*` list commands
-  /// (see `docs/telegrams.h` / `rif/remote_list_commands.hpp`). **Off by default** for safe defaults.
+  /// (see package `telegrams.h` / `rif/remote_list_commands.hpp`). **Off by default** for safe defaults.
   bool dxf_rif_list_upload{false};
   /// Scales DXF coordinates to scanner units (see `dxf_rif_list_mapper.cpp`).
   double dxf_rif_bits_per_mm{128.0};
-  /// Arguments to `R_DC_CONFIG_LIST` (1) — same as `rtc6_rif_wrapper::config_list`.
+  /// Arguments to `R_DC_CONFIG_LIST` (1) — same as SCANLAB Remote Interface `config_list`.
   std::uint32_t rif_config_list_mem1{1u};
   std::uint32_t rif_config_list_mem2{2u};
 };

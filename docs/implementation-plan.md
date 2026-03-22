@@ -162,7 +162,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 
 ### Phase G – DXF demo asset and MVP scope (laser job from DXF)
 
-**Status:** **In progress (MVP slice + G.4 mapper done):** ASCII DXF **LINE** parser + REST `/api/v1/jobs/dxf` + mock/ethernet **`load_dxf_job`**. **G.4:** `RtcJobPlan`, `dxf_rif_list_mapper`, optional ethernet list upload behind **`dxf_rif_list_upload`** on `POST /rtc/connect` (`R_DC_CONFIG_LIST` + `R_LC_*` IDs aligned with [`docs/telegrams.h`](../telegrams.h) / [`backend/src/rtc/rif/remote_list_commands.hpp`](../backend/src/rtc/rif/remote_list_commands.hpp)). Frontend **`/dxf`** + Playwright **`dxf-demo.spec.ts`**. **Deferred:** richer list semantics (speeds, laser on/off); extend parser beyond LINE as needed.
+**Status:** **In progress (MVP slice + G.4 mapper done):** ASCII DXF **LINE** parser + REST `/api/v1/jobs/dxf` + mock/ethernet **`load_dxf_job`**. **G.4:** `RtcJobPlan`, `dxf_rif_list_mapper`, optional ethernet list upload behind **`dxf_rif_list_upload`** on `POST /rtc/connect` (`R_DC_CONFIG_LIST` + `R_LC_*` IDs in [`backend/src/rtc/rif/remote_list_commands.hpp`](../backend/src/rtc/rif/remote_list_commands.hpp), sync with SCANLAB package `telegrams.h`). Frontend **`/dxf`** + Playwright **`dxf-demo.spec.ts`**. **Deferred:** richer list semantics (speeds, laser on/off); extend parser beyond LINE as needed.
 
 **Objectives**
 

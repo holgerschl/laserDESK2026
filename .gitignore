@@ -14,6 +14,11 @@ frontend/build/
 frontend/test-results/
 frontend/playwright-report/
 
+# SCANLAB RTC6 SDK (do not commit vendor headers/wrappers; copy from software package locally)
+docs/telegrams.h
+docs/rtc6_rif_wrapper.cpp
+docs/rtc6_rif_wrapper.h
+
 # OS / editor
 .DS_Store
 Thumbs.db

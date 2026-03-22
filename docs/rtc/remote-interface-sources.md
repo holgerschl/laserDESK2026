@@ -45,7 +45,7 @@ The **RTC6 software package** ZIP from SCANLAB (e.g. linked from the Projektplan
 
 ## 5. Open work (beyond MVP slice)
 
-- **Phase G.4 (repo):** DXF → **`R_LC_JUMP_XY_ABS` / `R_LC_MARK_XYZT_ABS`** / **`R_LC_END_OF_LIST`** (numeric IDs from `docs/telegrams.h`, mirrored in `backend/src/rtc/rif/remote_list_commands.hpp`), optional **`R_DC_CONFIG_LIST`**; enable with `dxf_rif_list_upload` on `POST /rtc/connect`. Reference wrapper: `docs/rtc6_rif_wrapper.cpp`.
+- **Phase G.4 (repo):** DXF → **`R_LC_JUMP_XY_ABS` / `R_LC_MARK_XYZT_ABS`** / **`R_LC_END_OF_LIST`** (numeric IDs in `backend/src/rtc/rif/remote_list_commands.hpp`, sync with SCANLAB package **`telegrams.h`**), optional **`R_DC_CONFIG_LIST`**; enable with `dxf_rif_list_upload` on `POST /rtc/connect`.
 - Automatic **version / BIOS-ETH** readback if a suitable Remote Command exists in your package revision.
 
 ---
