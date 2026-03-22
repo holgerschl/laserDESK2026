@@ -1,0 +1,89 @@
+# Windows .exe + macOS universal binary for GitHub Releases.
+# - Push tag v*: release with that tag name.
+# - Push to main (backend/ or this workflow changed): Release v0.0.<run_number> with both assets.
+# - workflow_dispatch: same as push to main.
+# Path filters apply only to branch pushes; tag pushes always run (GitHub behaviour).
+name: Release backend
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+    paths:
+      - 'backend/**'
+      - '.github/workflows/release-backend.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -S backend -B backend/build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build Release
+        run: cmake --build backend/build --config Release
+
+      - name: Stage Windows binary
+        shell: pwsh
+        run: Copy-Item backend/build/Release/laserdesk_backend.exe -Destination laserdesk_backend.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: laserdesk_backend-windows-amd64
+          path: laserdesk_backend.exe
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -S backend -B backend/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+
+      - name: Build Release
+        run: cmake --build backend/build --parallel
+
+      - name: Test
+        run: ctest --test-dir backend/build --output-on-failure
+
+      - name: Package macOS universal binary
+        run: |
+          cp backend/build/laserdesk_backend laserdesk_backend-macos
+          chmod +x laserdesk_backend-macos
+          tar czvf laserdesk_backend-macos.tar.gz laserdesk_backend-macos
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: laserdesk_backend-macos-universal
+          path: laserdesk_backend-macos.tar.gz
+
+  release:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: '*'
+          merge-multiple: true
+          path: release-assets
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v0.0.{0}', github.run_number) }}
+          files: |
+            release-assets/laserdesk_backend.exe
+            release-assets/laserdesk_backend-macos.tar.gz
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -4,9 +4,11 @@
 
 	const RELEASE_EXE =
 		'https://github.com/holgerschl/laserDESK2026/releases/latest/download/laserdesk_backend.exe';
+	const RELEASE_MACOS_TAR =
+		'https://github.com/holgerschl/laserDESK2026/releases/latest/download/laserdesk_backend-macos.tar.gz';
 	const RELEASES_LATEST = 'https://github.com/holgerschl/laserDESK2026/releases/latest';
 	const RELEASE_WORKFLOW =
-		'https://github.com/holgerschl/laserDESK2026/actions/workflows/release-backend-windows.yml';
+		'https://github.com/holgerschl/laserDESK2026/actions/workflows/release-backend.yml';
 </script>
 
 <svelte:head>
@@ -17,10 +19,12 @@
 	<h1 style="margin-top:0">Usage</h1>
 	<p class="ldk-muted" style="margin-top:0">
 		You use the app in the browser. A small program (<code>laserdesk_backend</code>) must run on <strong>your
-			PC</strong> (Windows) so the page can talk to it — you do not need to host the website yourself.
+			computer</strong> so the page can talk to it — you do not need to host the website yourself. On Windows, use
+		the pre-built <code>.exe</code> from Releases; on a MacBook, use
+		<a href={RELEASE_MACOS_TAR}>laserdesk_backend-macos.tar.gz</a> or build from source (section below).
 	</p>
 
-	<h2>Quick start</h2>
+	<h2>Quick start (Windows)</h2>
 	<ol>
 		<li>
 			<strong>Download</strong>
@@ -46,6 +50,57 @@
 		use an origin you trust.
 	</p>
 
+	<h2>MacBook (macOS)</h2>
+	<p class="ldk-muted" style="margin-top:0">
+		The UI is the same (<a href="{base}/workflow">Workflow</a> on the hosted site or local dev). Full build details:
+		<a href="https://github.com/holgerschl/laserDESK2026/blob/main/backend/README.md">backend/README.md</a>.
+	</p>
+	<ol>
+		<li>
+			<strong>Download</strong>
+			<a href={RELEASE_MACOS_TAR} data-testid="download-backend-macos-tar">laserdesk_backend-macos.tar.gz</a>
+			(universal binary for Apple Silicon and Intel, from GitHub Releases). Extract it next to where you want to run
+			from, e.g.:
+			<pre class="ldk-pre">tar xzf laserdesk_backend-macos.tar.gz</pre>
+			This creates <code>laserdesk_backend-macos</code> (executable bit preserved).
+		</li>
+		<li>
+			<strong>Run the backend</strong> — if you use the <strong>hosted</strong> app in the browser, set CORS to your
+			page origin (same as Windows). Example for the public demo:
+			<pre class="ldk-pre">cd /path/to/folder/with/the/binary
+export LASERDESK_CORS_ORIGIN="https://holgerschl.github.io"
+./laserdesk_backend-macos --port 8080</pre>
+			Leave the terminal open while you use the site. For <strong>local UI only</strong>, you can omit
+			<code>LASERDESK_CORS_ORIGIN</code> and use the optional dev step below.
+		</li>
+		<li>
+			<strong>Build from source instead</strong> — clone the repo, install Xcode Command Line Tools and CMake, then:
+			<pre class="ldk-pre">xcode-select --install
+cmake -S backend -B backend/build -DCMAKE_BUILD_TYPE=Release
+cmake --build backend/build --parallel</pre>
+			Binary: <code>backend/build/laserdesk_backend</code>. Or use
+			<code>chmod +x scripts/run-backend-macos.sh</code> and
+			<pre class="ldk-pre">export LASERDESK_CORS_ORIGIN="https://holgerschl.github.io"
+./scripts/run-backend-macos.sh</pre>
+		</li>
+		<li>
+			<strong>Optional — run the web UI on the Mac:</strong> in another terminal,
+			<pre class="ldk-pre">cd frontend
+npm install
+npm run dev</pre>
+			Open the printed URL; the dev server proxies <code>/api</code> to <code>http://127.0.0.1:8080</code>. Override
+			with <code>LASERDESK_BACKEND_URL</code> if the backend uses another port.
+		</li>
+		<li>
+			<strong>Use the workflow</strong> — same as Windows: open <a href="{base}/workflow">Workflow</a> (hosted) with
+			API base <code>http://127.0.0.1:8080/api/v1</code>, or use the local dev URL after <code>npm run dev</code>.
+		</li>
+	</ol>
+	<p class="ldk-muted">
+		Safari and Chrome may ask for permission to reach the local network when the page is HTTPS (e.g. GitHub Pages) and
+		the API is on <code>localhost</code>. Allow it, or use local <code>npm run dev</code> to avoid cross-origin calls.
+	</p>
+
 	<h2>Only if you need it</h2>
 	<p class="ldk-muted" style="margin-top:0">
 		Change the line below if your backend is not on port 8080 or not at <code>127.0.0.1</code>. Saved in this browser
@@ -56,10 +111,10 @@
 	<details class="ldk-doc-details">
 		<summary>Download 404, developers, RTC window</summary>
 		<p class="ldk-muted">
-			<strong>404 on the exe link:</strong> no release is published yet. Check
+			<strong>404 on a download link:</strong> no release is published yet. Check
 			<a href={RELEASES_LATEST}>Releases</a> or trigger
-			<a href={RELEASE_WORKFLOW}>Release Windows backend</a> in Actions. Building from source:
-			<code>backend/README.md</code> in the repo.
+			<a href={RELEASE_WORKFLOW}>Release backend</a> in Actions (Windows <code>.exe</code> + macOS
+			<code>.tar.gz</code>). Building from source: <code>backend/README.md</code> in the repo.
 		</p>
 		<p class="ldk-muted">
 			<strong>Local development:</strong> run the backend on 8080, then from <code>frontend/</code> run

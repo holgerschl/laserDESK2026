@@ -136,7 +136,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 **Objectives**
 
 - Publish the **static frontend** to **GitHub Pages** under the user/org project URL (target: `https://holgerschl.github.io/laserDESK2026/` — repository name **`laserDESK2026`** under [github.com/holgerschl](https://github.com/holgerschl); use a single slash, not `//`).
-- Provide a **Windows `laserdesk_backend.exe`** via **GitHub Releases** (CI build).
+- Provide **Windows `laserdesk_backend.exe`** and **macOS `laserdesk_backend-macos.tar.gz`** (universal) via **GitHub Releases** (CI build).
 - Ship **usage and installation** documentation as part of the deployed site (`/usage`) plus repository `README` links.
 - *(Earlier Phase 5 scope)* CI for unit/E2E can be extended in the same workflow folder; not all jobs are required for Pages/releases.
 
@@ -148,7 +148,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 | Frontend CI | [`.github/workflows/frontend-ci.yml`](../.github/workflows/frontend-ci.yml) — `svelte-check` + static build |
 | E2E CI | [`.github/workflows/e2e.yml`](../.github/workflows/e2e.yml) — build backend on Ubuntu, **Playwright** against mock RTC |
 | Backend CI | [`.github/workflows/backend-ci.yml`](../.github/workflows/backend-ci.yml) — unit tests |
-| Windows release workflow | [`.github/workflows/release-backend-windows.yml`](../.github/workflows/release-backend-windows.yml) — artifact on manual run; **Release + `.exe`** on `v*` tags |
+| Backend release workflow | [`.github/workflows/release-backend.yml`](../.github/workflows/release-backend.yml) — **Release** with Windows `.exe` + macOS `laserdesk_backend-macos.tar.gz` (universal); `v*` tags or `main` / manual |
 | User-facing HTML docs | [`frontend/src/routes/usage/+page.svelte`](../frontend/src/routes/usage/+page.svelte) → deployed at `…/laserDESK2026/usage/` |
 | API base + CORS | [`frontend/src/lib/api/config.ts`](../frontend/src/lib/api/config.ts), [`backend/src/main.cpp`](../backend/src/main.cpp) (`LASERDESK_CORS_ORIGIN`) |
 
@@ -157,8 +157,8 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 1. Create public repo **`holgerschl/laserDESK2026`** (or rename local folder to match), `git remote add origin …`, push `main`.
 2. **Settings → Pages → Build and deployment → Source: GitHub Actions** (first deploy may ask to approve the `github-pages` environment). If workflows stay red or the site is 404, see [`docs/github-pages-setup.md`](github-pages-setup.md).
 3. Push to `main` (or run **Deploy GitHub Pages** manually) to publish the site.
-4. Run **Release Windows backend** once, or push tag `v0.1.0` to create a Release with `laserdesk_backend.exe`.
-5. Users: download `.exe`, set `LASERDESK_CORS_ORIGIN` to `https://holgerschl.github.io`, open hosted **Usage** page and save API base `http://127.0.0.1:8080/api/v1`.
+4. Run **Release backend** once, or push tag `v0.1.0` to create a Release with `laserdesk_backend.exe` and `laserdesk_backend-macos.tar.gz`.
+5. Users: download `.exe` or macOS `.tar.gz`, set `LASERDESK_CORS_ORIGIN` to `https://holgerschl.github.io`, open hosted **Usage** page and save API base `http://127.0.0.1:8080/api/v1`.
 
 ### Phase G – DXF demo asset and MVP scope (laser job from DXF)
 
