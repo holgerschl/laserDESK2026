@@ -6,15 +6,23 @@ const E2E_API = 'http://127.0.0.1:18080/api/v1';
 test.describe('DXF Phase G demo', () => {
 	test('load demo from static, parse, load RTC, run', async ({ page }) => {
 		// RTC session is one per backend process; reset so we never rely on UI race (disconnect disabled before first refresh).
-		await page.request.post(`${E2E_API}/rtc/disconnect`);
+		const disc = await page.request.post(`${E2E_API}/rtc/disconnect`);
+		expect(disc.status(), 'API disconnect should succeed').toBe(204);
 
-		await page.goto('/dxf');
+		await page.goto('/dxf', { waitUntil: 'load' });
+		// /dxf mount runs refreshRtc(); wait until status is shown (not "—") so Connect is reliable in CI.
+		await expect(page.getByTestId('dxf-rtc-state')).toContainText('disconnected', { timeout: 30_000 });
 
-		const connectWait = page.waitForResponse(
-			(r) => r.url().includes('/api/v1/rtc/connect') && r.status() === 204
-		);
+		const connectRespPromise = page.waitForResponse((r) => {
+			const req = r.request();
+			return req.url().includes('/api/v1/rtc/connect') && req.method() === 'POST';
+		});
 		await page.getByTestId('dxf-connect-mock').click();
-		await connectWait;
+		const connectResp = await connectRespPromise;
+		expect(
+			connectResp.status(),
+			`POST /rtc/connect expected 204, got body: ${(await connectResp.text()).slice(0, 500)}`
+		).toBe(204);
 		await expect(page.getByTestId('dxf-disconnect')).toBeEnabled();
 
 		const parseWait = page.waitForResponse(
