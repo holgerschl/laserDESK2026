@@ -2,7 +2,7 @@
 	import { base } from '$app/paths';
 	import { onDestroy, onMount } from 'svelte';
 	import * as api from '$lib/api/laserdesk';
-	import { getApiBase } from '$lib/api/config';
+	import { getApiBase, LASERDESK_API_BASE_CHANGED_EVENT } from '$lib/api/config';
 	import { openRtcChannel, postRtcLog } from '$lib/laser/rtcChannel';
 	import type { WorkflowDefinition, WorkflowStep } from '$lib/workflow/types';
 	import { assertValidWorkflow } from '$lib/workflow/validate';
@@ -25,7 +25,7 @@
 
 	let bc: ReturnType<typeof openRtcChannel> | null = null;
 
-	const apiBaseDisplay = getApiBase();
+	let apiBaseDisplay = $state('');
 
 	let connectionState = $derived.by(() => {
 		if (!rtcJson) return '—';
@@ -47,7 +47,13 @@
 		} catch {
 			bc = null;
 		}
+		apiBaseDisplay = getApiBase();
+		const onApiBaseChanged = () => {
+			apiBaseDisplay = getApiBase();
+		};
+		window.addEventListener(LASERDESK_API_BASE_CHANGED_EVENT, onApiBaseChanged);
 		void loadWorkflow();
+		return () => window.removeEventListener(LASERDESK_API_BASE_CHANGED_EVENT, onApiBaseChanged);
 	});
 
 	onDestroy(() => {
@@ -182,7 +188,7 @@
 {:else}
 	<p class="ldk-muted">{workflow.description}</p>
 	<p class="ldk-muted" data-testid="workflow-api-base">
-		API base: <code>{apiBaseDisplay}</code>
+		API base: <code>{apiBaseDisplay || '…'}</code>
 	</p>
 
 	<div class="ldk-steps" role="tablist" aria-label="Workflow steps">

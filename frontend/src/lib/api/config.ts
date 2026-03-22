@@ -4,6 +4,9 @@ import { env } from '$env/dynamic/public';
 /** localStorage key for full API root, e.g. `http://127.0.0.1:8080/api/v1` */
 export const API_BASE_STORAGE_KEY = 'laserdesk_api_base_v1';
 
+/** Fired on `window` when the saved API base changes (same tab). */
+export const LASERDESK_API_BASE_CHANGED_EVENT = 'laserdesk-api-base-changed';
+
 const DEFAULT_RELATIVE = '/api/v1';
 
 /** Default when the UI is served from a host other than this machine (e.g. GitHub Pages). */
