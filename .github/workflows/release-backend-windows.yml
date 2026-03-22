@@ -1,13 +1,21 @@
 # Windows x64 executable for laserdesk_backend (GitHub Releases).
-# - Push tag v*: release tagged with that version.
-# - workflow_dispatch: also creates a Release (tag v0.0.<run_number>) so /releases/latest/download/ works
-#   without a manual git tag.
+# - Push tag v*: release with that tag name.
+# - Push to main (backend/ or this workflow changed): creates Release v0.0.<run_number> so the site download link works
+#   without remembering to click “Run workflow”.
+# - workflow_dispatch: same as manual run (tag v0.0.<run_number>).
+# Path filters apply only to branch pushes; tag pushes always run (GitHub behaviour).
 name: Release Windows backend
 
 on:
   workflow_dispatch:
   push:
-    tags: ['v*']
+    branches:
+      - main
+    tags:
+      - 'v*'
+    paths:
+      - 'backend/**'
+      - '.github/workflows/release-backend-windows.yml'
 
 permissions:
   contents: write
@@ -31,11 +39,11 @@ jobs:
           name: laserdesk_backend-windows-amd64
           path: backend/build/Release/laserdesk_backend.exe
 
-      - name: Create GitHub Release (tags or manual run)
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+      - name: Create GitHub Release
+        if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v0.0.{0}', github.run_number) || github.ref_name }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v0.0.{0}', github.run_number) }}
           files: backend/build/Release/laserdesk_backend.exe
           generate_release_notes: true
         env:

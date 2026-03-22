@@ -36,9 +36,10 @@
 			— direct link. All releases:
 			<a href={RELEASES_LATEST}>GitHub Releases</a>.
 			<span class="ldk-muted"
-				>GitHub shows a <strong>404 page</strong> until at least one Release exists. Fix:
-				<a href={RELEASE_WORKFLOW}>open the “Release Windows backend” workflow</a> and click
-				<strong>Run workflow</strong> (publishes <code>laserdesk_backend.exe</code>), or push a version tag such as
+				>GitHub shows a <strong>404 page</strong> until CI has finished publishing at least one Release (usually a few
+				minutes after a push to <code>main</code> that touches <code>backend/</code> or the release workflow). You can
+				also start it manually:
+				<a href={RELEASE_WORKFLOW}>Actions → Release Windows backend → Run workflow</a>, or push a tag such as
 				<code>v0.1.0</code>.</span
 			>
 		</li>
