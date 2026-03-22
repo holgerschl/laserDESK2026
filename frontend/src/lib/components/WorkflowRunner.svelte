@@ -40,6 +40,8 @@
 	let rtcConnected = $derived(connectionState !== 'disconnected' && connectionState !== '—');
 	let jobRunning = $derived(connectionState === 'running');
 	let canStartJob = $derived(connectionState === 'loaded');
+	/** Allow Connect unless execution is running (backend may already be connected, e.g. --rtc-demo). */
+	let connectDisabled = $derived(busy || connectionState === 'running');
 
 	onMount(() => {
 		try {
@@ -229,8 +231,14 @@
 							type="button"
 							class="ldk-btn"
 							data-testid="connect-mock"
-							disabled={busy || rtcConnected}
-							title={busy ? undefined : rtcConnected ? 'Already connected' : undefined}
+							disabled={connectDisabled}
+							title={busy
+								? undefined
+								: connectionState === 'running'
+									? 'Stop execution before reconnecting'
+									: rtcConnected
+										? 'Reconnect (resets RTC session) or use Disconnect'
+										: undefined}
 							onclick={() => doConnectMock()}>Connect (mock)</button
 						>
 						<button

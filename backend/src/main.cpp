@@ -13,7 +13,7 @@ void print_usage(const char* argv0) {
             << "  --port N      Listen port (default 8080 or LASERDESK_PORT)\n"
             << "  --rtc-demo    Auto-connect mock RTC on startup\n"
             << "Environment:\n"
-            << "  LASERDESK_CORS_ORIGIN   e.g. https://user.github.io for browser UIs on another origin\n";
+            << "  LASERDESK_CORS_ORIGIN   e.g. https://user.github.io (HTTPS UI → localhost; enables PNA headers)\n";
 }
 
 int parse_args(int argc, char** argv, int& port, bool& rtc_demo) {
@@ -63,7 +63,8 @@ int main(int argc, char** argv) {
     httplib::Headers hdrs;
     hdrs.emplace("Access-Control-Allow-Origin", cors);
     hdrs.emplace("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    hdrs.emplace("Access-Control-Allow-Headers", "Content-Type");
+    hdrs.emplace("Access-Control-Allow-Headers", "Content-Type, Access-Control-Request-Private-Network");
+    hdrs.emplace("Access-Control-Allow-Private-Network", "true");
     hdrs.emplace("Access-Control-Max-Age", "86400");
     svr.set_default_headers(std::move(hdrs));
     svr.Options(".*", [](const httplib::Request&, httplib::Response& res) { res.status = 204; });

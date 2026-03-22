@@ -51,7 +51,7 @@ Environment: `LASERDESK_PORT` if `--port` omitted.
 
 `LASERDESK_CORS_ORIGIN=https://holgerschl.github.io`
 
-(Use your exact Pages origin, no path.) The server then sends `Access-Control-Allow-Origin` and handles `OPTIONS` preflight. Omit for same-origin or local dev with Vite proxy.
+(Use your exact Pages origin, no path.) The server then sends `Access-Control-Allow-Origin`, handles `OPTIONS` preflight, and **`Access-Control-Allow-Private-Network: true`** so Chromium can allow an HTTPS page to call `http://127.0.0.1` on your PC. Omit `LASERDESK_CORS_ORIGIN` for same-origin or local dev with Vite proxy. If the browser shows a local-network permission prompt, allow it.
 
 ## API (`/api/v1/`)
 

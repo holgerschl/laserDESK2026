@@ -22,8 +22,9 @@ test.describe('Reference minimal-demo workflow', () => {
 		);
 		await page.getByTestId('connect-mock').click();
 		await connectWait;
-		await expect(page.getByTestId('connect-mock')).toBeDisabled();
 		await expect(page.getByTestId('disconnect-rtc')).toBeEnabled();
+		// Connect stays enabled so users can reconnect; only disabled while execution is running.
+		await expect(page.getByTestId('connect-step-state')).toContainText('connected');
 
 		await page.getByRole('button', { name: 'Job parameters' }).click();
 		await page.getByTestId('param-label').fill('e2e-demo');
