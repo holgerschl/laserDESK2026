@@ -14,87 +14,68 @@
 </svelte:head>
 
 <article class="ldk-doc">
-	<h1 style="margin-top:0">Usage and installation</h1>
-	<p class="ldk-muted">
-		laserDESK 2026 is split into a <strong>browser UI</strong> (Svelte Kit) and a <strong>local REST backend</strong>
-		(<code>laserdesk_backend</code>) that talks to mock or real RTC. Source repository:
-		<a href="https://github.com/holgerschl/laserDESK2026">github.com/holgerschl/laserDESK2026</a>.
+	<h1 style="margin-top:0">Usage</h1>
+	<p class="ldk-muted" style="margin-top:0">
+		You use the app in the browser. A small program (<code>laserdesk_backend</code>) must run on <strong>your
+			PC</strong> (Windows) so the page can talk to it — you do not need to host the website yourself.
 	</p>
 
-	<h2>Hosted web app (GitHub Pages)</h2>
-	<p>
-		The public UI is published at
-		<a href="https://holgerschl.github.io/laserDESK2026/">https://holgerschl.github.io/laserDESK2026/</a>
-		(adjust if your repository name differs). This page is the default landing; the workflow UI is under
-		<a href="{base}/workflow">Workflow</a>. The backend does <strong>not</strong> run on GitHub — it must run on your
-		computer (or lab PC) while you use the site.
-	</p>
+	<h2>Quick start</h2>
 	<ol>
 		<li>
-			<strong>Download the Windows backend:</strong>
-			<a href={RELEASE_EXE} data-testid="download-backend-exe">laserdesk_backend.exe (latest Release)</a>
-			— direct link. All releases:
-			<a href={RELEASES_LATEST}>GitHub Releases</a>.
-			<span class="ldk-muted"
-				>GitHub shows a <strong>404 page</strong> until CI has finished publishing at least one Release (usually a few
-				minutes after a push to <code>main</code> that touches <code>backend/</code> or the release workflow). You can
-				also start it manually:
-				<a href={RELEASE_WORKFLOW}>Actions → Release Windows backend → Run workflow</a>, or push a tag such as
-				<code>v0.1.0</code>.</span
-			>
+			<strong>Download</strong>
+			<a href={RELEASE_EXE} data-testid="download-backend-exe">laserdesk_backend.exe</a>
+			(Windows, from GitHub Releases).
 		</li>
 		<li>
-			Open PowerShell in the folder containing the executable and run (example — use your GitHub Pages origin):
+			<strong>Start the backend</strong> — PowerShell, folder with the exe. Set
+			<code>LASERDESK_CORS_ORIGIN</code> to the <strong>same origin</strong> as the site in your address bar (scheme +
+			host, no path). For the public demo that is usually:
 			<pre class="ldk-pre">$env:LASERDESK_CORS_ORIGIN = "https://holgerschl.github.io"
 .\laserdesk_backend.exe --port 8080</pre>
+			Leave the window open while you use the app.
 		</li>
 		<li>
-			Open <a href="{base}/workflow">Workflow</a>: the API base defaults to <code>http://127.0.0.1:8080/api/v1</code> on
-			hosted sites (adjust and save if your backend uses another port). Then run the reference flow (Connect mock →
-			load job → run).
+			<strong>Use the workflow</strong> — open <a href="{base}/workflow">Workflow</a>, then
+			<em>Connect (mock)</em> → register job → <em>Start</em>. (Default API address is already
+			<code>http://127.0.0.1:8080/api/v1</code> for the hosted app.)
 		</li>
 	</ol>
 	<p class="ldk-muted">
-		CORS is required because the page is served from <code>github.io</code> while the API is on <code>localhost</code>.
-		Only use <code>LASERDESK_CORS_ORIGIN</code> with the exact Pages URL you trust; omit it for local-only use.
+		The website and the backend are on different addresses; CORS tells the browser that combination is allowed. Only
+		use an origin you trust.
 	</p>
 
-	<h2>Backend executable (Windows)</h2>
-	<p>
-		CI attaches <code>laserdesk_backend.exe</code> to <a href={RELEASES_LATEST}>Releases</a>. Download again:
-		<a href={RELEASE_EXE}>latest <code>laserdesk_backend.exe</code></a>. To build from source, see
-		<code>backend/README.md</code> in the repository (CMake, C++17).
-	</p>
-
-	<h2>Local development</h2>
-	<ol>
-		<li>Build and run the backend: <code>laserdesk_backend --port 8080</code> (optional <code>--rtc-demo</code>).</li>
-		<li>
-			From <code>frontend/</code>: <code>npm install</code>, then <code>npm run dev</code> (Vite proxies
-			<code>/api</code> to the backend; set <code>LASERDESK_BACKEND_URL</code> if not using port 8080).
-		</li>
-		<li>Open the printed dev URL; API defaults to same-origin <code>/api/v1</code>.</li>
-	</ol>
-
-	<h2>Configure API URL (browser)</h2>
-	<p class="ldk-muted">
-		When the UI and API are not on the same origin, the saved URL below is used for all REST calls. It is stored only
-		in this browser (localStorage).
+	<h2>Only if you need it</h2>
+	<p class="ldk-muted" style="margin-top:0">
+		Change the line below if your backend is not on port 8080 or not at <code>127.0.0.1</code>. Saved in this browser
+		only.
 	</p>
 	<ApiBaseSettings />
 
-	<h2>RTC monitor and BroadcastChannel</h2>
-	<p>
-		The <a href="{base}/rtc">RTC window</a> shows health/status and log lines sent from the workflow view via
-		<code>BroadcastChannel</code> <code>laserdesk-rtc-v1</code>. Open both routes in the same browser profile.
-	</p>
-
-	<h2>Further reading</h2>
-	<ul>
-		<li><a href="https://github.com/holgerschl/laserDESK2026/blob/main/README.md">Repository README</a></li>
-		<li><a href="https://github.com/holgerschl/laserDESK2026/blob/main/docs/implementation-plan.md">Implementation plan</a></li>
-		<li><a href="https://github.com/holgerschl">github.com/holgerschl</a> — account overview</li>
-	</ul>
+	<details class="ldk-doc-details">
+		<summary>Download 404, developers, RTC window</summary>
+		<p class="ldk-muted">
+			<strong>404 on the exe link:</strong> no release is published yet. Check
+			<a href={RELEASES_LATEST}>Releases</a> or trigger
+			<a href={RELEASE_WORKFLOW}>Release Windows backend</a> in Actions. Building from source:
+			<code>backend/README.md</code> in the repo.
+		</p>
+		<p class="ldk-muted">
+			<strong>Local development:</strong> run the backend on 8080, then from <code>frontend/</code> run
+			<code>npm install</code> and <code>npm run dev</code> — the dev server proxies <code>/api</code> (see repo
+			README).
+		</p>
+		<p class="ldk-muted">
+			<strong>RTC window</strong> (<a href="{base}/rtc">open</a>): extra health/status and logs from the workflow via
+			the browser’s <code>BroadcastChannel</code>; use the same browser profile for both tabs.
+		</p>
+		<ul>
+			<li><a href="https://github.com/holgerschl/laserDESK2026">Repository</a></li>
+			<li><a href="https://github.com/holgerschl/laserDESK2026/blob/main/README.md">README</a></li>
+			<li><a href="https://github.com/holgerschl/laserDESK2026/blob/main/docs/implementation-plan.md">Implementation plan</a></li>
+		</ul>
+	</details>
 </article>
 
 <style>
@@ -110,5 +91,19 @@
 	}
 	.ldk-doc li {
 		margin-bottom: 0.35rem;
+	}
+	.ldk-doc-details {
+		margin-top: 1.5rem;
+		padding: 0.75rem 1rem;
+		border: 1px solid #d8dee6;
+		border-radius: 6px;
+		background: #fafbfc;
+	}
+	.ldk-doc-details summary {
+		cursor: pointer;
+		font-weight: 600;
+	}
+	.ldk-doc-details > :not(summary) {
+		margin-top: 0.75rem;
 	}
 </style>
