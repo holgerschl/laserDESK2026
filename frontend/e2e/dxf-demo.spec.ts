@@ -19,10 +19,17 @@ test.describe('DXF Phase G demo', () => {
 		});
 		await page.getByTestId('dxf-connect-mock').click();
 		const connectResp = await connectRespPromise;
-		expect(
-			connectResp.status(),
-			`POST /rtc/connect expected 204, got body: ${(await connectResp.text()).slice(0, 500)}`
-		).toBe(204);
+		const connectStatus = connectResp.status();
+		// Do not call response.text() for 204 — CDP often has no body buffer (breaks the assertion message on success).
+		let connectDetail = '';
+		if (connectStatus !== 204) {
+			try {
+				connectDetail = ` — ${(await connectResp.text()).slice(0, 500)}`;
+			} catch {
+				connectDetail = ' — (body unavailable)';
+			}
+		}
+		expect(connectStatus, `POST /rtc/connect expected 204, got ${connectStatus}${connectDetail}`).toBe(204);
 		await expect(page.getByTestId('dxf-disconnect')).toBeEnabled();
 
 		const parseWait = page.waitForResponse(
