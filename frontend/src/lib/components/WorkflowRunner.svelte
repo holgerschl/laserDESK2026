@@ -15,6 +15,7 @@
 	let loadError = $state<string | null>(null);
 	let stepIndex = $state(0);
 	let apiError = $state<string | null>(null);
+	let successHint = $state<string | null>(null);
 	let busy = $state(false);
 	let jobId = $state<string | null>(null);
 	let paramValues = $state<Record<string, string>>({});
@@ -32,6 +33,10 @@
 			return '—';
 		}
 	});
+
+	let rtcConnected = $derived(connectionState !== 'disconnected' && connectionState !== '—');
+	let jobRunning = $derived(connectionState === 'running');
+	let canStartJob = $derived(connectionState === 'loaded');
 
 	onMount(() => {
 		try {
@@ -67,6 +72,11 @@
 			}
 			paramValues = next;
 			postRtcLog(bc, `Workflow loaded: ${w.id} v${w.version}`);
+			try {
+				await fetchStatusOnly();
+			} catch (e) {
+				apiError = e instanceof Error ? e.message : String(e);
+			}
 		} catch (e) {
 			loadError = e instanceof Error ? e.message : String(e);
 		}
@@ -84,6 +94,7 @@
 
 	async function withBusy<T>(fn: () => Promise<T>): Promise<T | void> {
 		apiError = null;
+		successHint = null;
 		busy = true;
 		try {
 			return await fn();
@@ -94,11 +105,18 @@
 		}
 	}
 
+	async function fetchStatusOnly(): Promise<void> {
+		const [h, s] = await Promise.all([api.getHealth(), api.getRtcStatus()]);
+		healthJson = JSON.stringify(h, null, 2);
+		rtcJson = JSON.stringify(s, null, 2);
+	}
+
 	async function doConnectMock() {
 		await withBusy(async () => {
 			await api.postRtcConnect({ mode: 'mock' });
 			log('RTC connect: mock');
-			await refreshStatus();
+			await fetchStatusOnly();
+			successHint = 'Connected (mock).';
 		});
 	}
 
@@ -107,7 +125,8 @@
 			await api.postRtcDisconnect();
 			jobId = null;
 			log('RTC disconnect');
-			await refreshStatus();
+			await fetchStatusOnly();
+			successHint = 'Disconnected.';
 		});
 	}
 
@@ -121,7 +140,8 @@
 			const r = await api.postMinimalDemoJob(labelForJob());
 			jobId = r.job_id;
 			log(`Job registered: ${r.job_id}`);
-			await refreshStatus();
+			await fetchStatusOnly();
+			successHint = `Job registered (${r.job_id}). You can start execution.`;
 		});
 	}
 
@@ -129,7 +149,8 @@
 		await withBusy(async () => {
 			await api.postMinimalDemoRun();
 			log('Run: start');
-			await refreshStatus();
+			await fetchStatusOnly();
+			successHint = 'Execution started.';
 		});
 	}
 
@@ -137,15 +158,15 @@
 		await withBusy(async () => {
 			await api.postMinimalDemoStop();
 			log('Run: stop');
-			await refreshStatus();
+			await fetchStatusOnly();
+			successHint = 'Execution stopped.';
 		});
 	}
 
 	async function refreshStatus() {
 		await withBusy(async () => {
-			const [h, s] = await Promise.all([api.getHealth(), api.getRtcStatus()]);
-			healthJson = JSON.stringify(h, null, 2);
-			rtcJson = JSON.stringify(s, null, 2);
+			await fetchStatusOnly();
+			successHint = 'Status refreshed.';
 		});
 	}
 </script>
@@ -174,6 +195,9 @@
 	{#if apiError}
 		<p class="ldk-error" role="alert">{apiError}</p>
 	{/if}
+	{#if successHint}
+		<p class="ldk-success" role="status" aria-live="polite">{successHint}</p>
+	{/if}
 
 	<div class="ldk-card">
 		{#key stepIndex}
@@ -185,19 +209,24 @@
 				{/if}
 
 				{#if step.kind === 'connect'}
+					<p class="ldk-muted" style="margin-top:0">
+						Connection: <strong data-testid="connect-step-state">{connectionState}</strong>
+					</p>
 					<div class="ldk-row">
 						<button
 							type="button"
 							class="ldk-btn"
 							data-testid="connect-mock"
-							disabled={busy}
+							disabled={busy || rtcConnected}
+							title={busy ? undefined : rtcConnected ? 'Already connected' : undefined}
 							onclick={() => doConnectMock()}>Connect (mock)</button
 						>
 						<button
 							type="button"
 							class="ldk-btn secondary"
 							data-testid="disconnect-rtc"
-							disabled={busy}
+							disabled={busy || !rtcConnected}
+							title={busy ? undefined : !rtcConnected ? 'Not connected' : undefined}
 							onclick={() => doDisconnect()}>Disconnect</button
 						>
 					</div>
@@ -229,19 +258,33 @@
 						<p class="ldk-muted" data-testid="job-id">Job id: {jobId}</p>
 					{/if}
 				{:else if step.kind === 'run'}
+					<p class="ldk-muted" style="margin-top:0">
+						Execution: <strong data-testid="run-step-state">{jobRunning ? 'running' : 'stopped'}</strong>
+						<span class="ldk-muted"> · RTC: {connectionState}</span>
+					</p>
 					<div class="ldk-row">
 						<button
 							type="button"
 							class="ldk-btn"
 							data-testid="start-run"
-							disabled={busy}
+							disabled={busy || jobRunning || !canStartJob}
+							title={busy
+								? undefined
+								: jobRunning
+									? 'Already running'
+									: !rtcConnected
+										? 'Connect first'
+										: !canStartJob
+											? 'Load a job first'
+											: undefined}
 							onclick={() => doRun()}>Start</button
 						>
 						<button
 							type="button"
 							class="ldk-btn danger"
 							data-testid="stop-run"
-							disabled={busy}
+							disabled={busy || !jobRunning}
+							title={busy ? undefined : !jobRunning ? 'Not running' : undefined}
 							onclick={() => doStop()}>Stop</button
 						>
 					</div>

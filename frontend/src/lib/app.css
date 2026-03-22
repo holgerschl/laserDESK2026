@@ -163,3 +163,9 @@ button:focus-visible {
 	font-size: 0.9rem;
 	margin: 0.25rem 0;
 }
+
+.ldk-success {
+	color: #0d5f2c;
+	font-size: 0.9rem;
+	margin: 0.25rem 0;
+}

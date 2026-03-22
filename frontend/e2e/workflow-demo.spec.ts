@@ -7,11 +7,23 @@ test.describe('Reference minimal-demo workflow', () => {
 		await expect(page.getByRole('tablist', { name: 'Workflow steps' })).toBeVisible();
 
 		await page.getByRole('button', { name: 'RTC session' }).click();
+		// Reused e2e backend may still hold a session from a prior run.
+		const disconnectBtn = page.getByTestId('disconnect-rtc');
+		if (await disconnectBtn.isEnabled()) {
+			const disconnectWait = page.waitForResponse(
+				(r) => r.url().includes('/api/v1/rtc/disconnect') && r.status() === 204
+			);
+			await disconnectBtn.click();
+			await disconnectWait;
+		}
+
 		const connectWait = page.waitForResponse(
 			(r) => r.url().includes('/api/v1/rtc/connect') && r.status() === 204
 		);
 		await page.getByTestId('connect-mock').click();
 		await connectWait;
+		await expect(page.getByTestId('connect-mock')).toBeDisabled();
+		await expect(page.getByTestId('disconnect-rtc')).toBeEnabled();
 
 		await page.getByRole('button', { name: 'Job parameters' }).click();
 		await page.getByTestId('param-label').fill('e2e-demo');
@@ -30,6 +42,8 @@ test.describe('Reference minimal-demo workflow', () => {
 		);
 		await page.getByTestId('start-run').click();
 		await runWait;
+		await expect(page.getByTestId('start-run')).toBeDisabled();
+		await expect(page.getByTestId('stop-run')).toBeEnabled();
 
 		await page.getByRole('button', { name: 'RTC status' }).click();
 		await page.getByTestId('refresh-status').click();
