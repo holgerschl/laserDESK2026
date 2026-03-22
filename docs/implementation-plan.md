@@ -182,6 +182,8 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 - Parser: start with **ASCII DXF** subset needed for `SCANLABLogo.dxf` (LINE, LWPOLYLINE, ARC, CIRCLE, etc. as present); add tests with the demo file.
 - RTC mapping: align with **RTC6 software package** list / Remote List Command documentation; keep generation behind `IRtcClient` so mock and ethernet share the same job descriptor.
 
+**Next-step plan (milestones, API sketch, risks):** [`docs/requirements/phase-g-dxf-implementation-plan.md`](requirements/phase-g-dxf-implementation-plan.md)
+
 ---
 
 ## 5. Dependencies and prerequisites
@@ -201,6 +203,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 | Version skew (firmware, BIOS-ETH, DLL/package) | **Query and display** versions at connect; fail fast with actionable messages; document supported combinations. |
 | Scope creep (“must match laserDESK 1.6 everywhere”) | Enforce **MVP catalog**; defer `.sld` import, full geometry editor, and Premium-only features unless listed. |
 | Confusion between laserDESK remote and RTC6 Remote Interface | ADR + this section; separate integration tracks if both are ever needed. |
+| DXF scope / RTC list mapping underestimated | Follow [`phase-g-dxf-implementation-plan.md`](requirements/phase-g-dxf-implementation-plan.md) milestones; LINE-only first; time-box **B-08** spike on package examples. |
 
 ---
 
@@ -225,6 +228,7 @@ These live in **`docs/`** (same folder as this file for the HTML/PDFs):
 - `frontend/` – Svelte Kit app and Playwright specs (Phase E).
 - `.github/workflows/` – Pages deploy, Windows backend release, backend CI (Phase F).
 - `demo/dxf/SCANLABLogo.dxf` – Phase G reference DXF (copy also under `frontend/static/demo/dxf/`).
+- `docs/requirements/phase-g-dxf-implementation-plan.md` – Phase G engineering breakdown.
 
 ---
 

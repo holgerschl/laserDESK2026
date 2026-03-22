@@ -18,6 +18,7 @@ Until the repo is published, build and run locally (see below and Phase F in [`d
 | [Implementation plan](docs/implementation-plan.md) | Phased technical plan and Phase A artifacts |
 | [Projektplan (HTML)](docs/laserDESK_2026_Projektplan.html) | SCANLAB project proposal (workflow centricity) |
 | [MVP feature catalog](docs/requirements/mvp-feature-katalog.md) | In/out scope for the first increment |
+| [Phase G DXF plan](docs/requirements/phase-g-dxf-implementation-plan.md) | Next step: parse, UI, API, RTC mapping |
 | [ADR 0001 – RTC6 Ethernet](docs/adr/0001-rtc6-ethernet-remote-interface.md) | MVP integration decision |
 
 ### SCANLAB manuals (in `docs/`)

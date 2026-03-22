@@ -52,6 +52,8 @@ Bounded scope for the first shippable increment. Anything not listed here is **o
 
 **Reference demo asset (Phase G):** `demo/dxf/SCANLABLogo.dxf` (copy of SCANLAB logo DXF from internal `ui/DemoFiles`; same bytes under `frontend/static/demo/dxf/` for static hosting).
 
+**Implementation plan (next step):** [`phase-g-dxf-implementation-plan.md`](phase-g-dxf-implementation-plan.md)
+
 ---
 
 ## 3. Explicitly out of MVP
