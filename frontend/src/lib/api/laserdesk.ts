@@ -5,14 +5,25 @@ async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
 	try {
 		return await fetch(url, init);
 	} catch (e) {
-		if (e instanceof TypeError) {
+		const msg = e instanceof Error ? e.message : String(e);
+		const domNet =
+			typeof DOMException !== 'undefined' &&
+			e instanceof DOMException &&
+			(e.name === 'NetworkError' || e.name === 'SecurityError');
+		const networkLike =
+			e instanceof TypeError ||
+			domNet ||
+			/Failed to fetch|NetworkError|network error|Load failed|NETWORK_FAILED/i.test(msg);
+		if (networkLike) {
 			const origin =
 				typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
+			const host = url.replace(/\/api\/v1.*$/, '') || url;
 			throw new Error(
-				`Cannot reach the backend (${url.replace(/\/api\/v1.*$/, '') || url}). ` +
+				`Cannot reach the backend (${host}). ` +
 					`If you opened this app from another site (e.g. GitHub Pages), run laserdesk_backend with ` +
-					`LASERDESK_CORS_ORIGIN set exactly to that site’s origin (e.g. ${origin || 'https://your-user.github.io'}, no path). ` +
-					`Match the API base URL port. If Chrome asks to allow access to your local network, choose Allow.`
+					`LASERDESK_CORS_ORIGIN set exactly to this page’s origin (e.g. ${origin || 'https://your-user.github.io'}, no path). ` +
+					`Use a current backend build (Private Network / CORS headers). Match the API base port. ` +
+					`If the browser asks to allow local network access, choose Allow. (${msg})`
 			);
 		}
 		throw e;

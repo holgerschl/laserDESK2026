@@ -43,6 +43,100 @@
 	/** Allow Connect unless execution is running (backend may already be connected, e.g. --rtc-demo). */
 	let connectDisabled = $derived(busy || connectionState === 'running');
 
+	type StatusKind = 'info' | 'ok' | 'err';
+	interface StatusEntry {
+		ts: number;
+		kind: StatusKind;
+		msg: string;
+	}
+	const STATUS_LOG_MAX = 150;
+	let statusLog = $state<StatusEntry[]>([]);
+
+	function pushStatus(kind: StatusKind, msg: string) {
+		const line = msg.trim();
+		if (!line) return;
+		statusLog = [...statusLog.slice(-(STATUS_LOG_MAX - 1)), { ts: Date.now(), kind, msg: line }];
+	}
+
+	function fmtStatusTime(ts: number) {
+		try {
+			return new Date(ts).toLocaleTimeString(undefined, {
+				hour: '2-digit',
+				minute: '2-digit',
+				second: '2-digit',
+				hour12: false
+			});
+		} catch {
+			return '';
+		}
+	}
+
+	let statusLogText = $derived(
+		statusLog
+			.map(({ ts, kind, msg }) => {
+				const tag = kind === 'err' ? 'ERR' : kind === 'ok' ? 'OK ' : 'INFO';
+				return `[${fmtStatusTime(ts)}] ${tag}  ${msg}`;
+			})
+			.join('\n')
+	);
+
+	function clearStatusLog() {
+		statusLog = [];
+	}
+
+	let prevApiErr = $state<string | null>(null);
+	let prevSuccess = $state<string | null>(null);
+	let prevConn = $state<string | null>(null);
+	let prevLoadErr = $state<string | null>(null);
+
+	$effect(() => {
+		const e = apiError;
+		if (!e) {
+			prevApiErr = null;
+			return;
+		}
+		if (e !== prevApiErr) {
+			prevApiErr = e;
+			pushStatus('err', e);
+		}
+	});
+
+	$effect(() => {
+		const h = successHint;
+		if (!h) {
+			prevSuccess = null;
+			return;
+		}
+		if (h !== prevSuccess) {
+			prevSuccess = h;
+			pushStatus('ok', h);
+		}
+	});
+
+	$effect(() => {
+		const le = loadError;
+		if (!le) {
+			prevLoadErr = null;
+			return;
+		}
+		if (le !== prevLoadErr) {
+			prevLoadErr = le;
+			pushStatus('err', `Workflow file: ${le}`);
+		}
+	});
+
+	$effect(() => {
+		if (!workflow) {
+			prevConn = null;
+			return;
+		}
+		const c = connectionState;
+		if (c !== prevConn) {
+			prevConn = c;
+			pushStatus('info', `Connection state: ${c}`);
+		}
+	});
+
 	onMount(() => {
 		try {
 			bc = openRtcChannel();
@@ -50,8 +144,11 @@
 			bc = null;
 		}
 		apiBaseDisplay = getApiBase();
+		pushStatus('info', `Page origin: ${window.location.origin}`);
+		pushStatus('info', `API base: ${getApiBase()}`);
 		const onApiBaseChanged = () => {
 			apiBaseDisplay = getApiBase();
+			pushStatus('info', `API base (updated): ${getApiBase()}`);
 		};
 		window.addEventListener(LASERDESK_API_BASE_CHANGED_EVENT, onApiBaseChanged);
 		void loadWorkflow();
@@ -182,6 +279,27 @@
 	}
 </script>
 
+<div class="ldk-card ldk-status-panel" data-testid="workflow-status-log">
+	<div class="ldk-status-panel-head">
+		<h2 class="ldk-status-panel-title">Status log</h2>
+		<button type="button" class="ldk-btn secondary" data-testid="status-log-clear" onclick={clearStatusLog}
+			>Clear log</button
+		>
+	</div>
+	<p class="ldk-muted" style="margin:0 0 0.5rem;font-size:0.85rem">
+		Current API base: <code data-testid="workflow-api-base">{apiBaseDisplay || '…'}</code>
+	</p>
+	{#if apiError}
+		<p class="ldk-error" role="alert" data-testid="workflow-api-error">{apiError}</p>
+	{/if}
+	{#if successHint}
+		<p class="ldk-success" role="status">{successHint}</p>
+	{/if}
+	<div role="log" aria-live="polite" aria-relevant="additions" class="ldk-status-log-region">
+		<pre class="ldk-pre ldk-status-log-pre" data-testid="workflow-status-log-body">{statusLogText || '(no events yet)'}</pre>
+	</div>
+</div>
+
 {#if loadError}
 	<p class="ldk-error" role="alert">Failed to load workflow: {loadError}</p>
 	<button type="button" class="ldk-btn secondary" onclick={() => loadWorkflow()}>Retry</button>
@@ -189,9 +307,6 @@
 	<p class="ldk-muted">Loading workflow…</p>
 {:else}
 	<p class="ldk-muted">{workflow.description}</p>
-	<p class="ldk-muted" data-testid="workflow-api-base">
-		API base: <code>{apiBaseDisplay || '…'}</code>
-	</p>
 
 	<div class="ldk-steps" role="tablist" aria-label="Workflow steps">
 		{#each workflow.steps as s, i (s.id)}
@@ -205,13 +320,6 @@
 			</button>
 		{/each}
 	</div>
-
-	{#if apiError}
-		<p class="ldk-error" role="alert">{apiError}</p>
-	{/if}
-	{#if successHint}
-		<p class="ldk-success" role="status" aria-live="polite">{successHint}</p>
-	{/if}
 
 	<div class="ldk-card">
 		{#key stepIndex}
@@ -336,3 +444,32 @@
 		{/key}
 	</div>
 {/if}
+
+<style>
+	.ldk-status-panel {
+		margin-bottom: 1rem;
+	}
+	.ldk-status-panel-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		margin-bottom: 0.35rem;
+	}
+	.ldk-status-panel-title {
+		margin: 0;
+		font-size: 1.05rem;
+	}
+	.ldk-status-log-region {
+		margin-top: 0.5rem;
+	}
+	.ldk-status-log-pre {
+		margin: 0;
+		max-height: 14rem;
+		font-size: 0.8rem;
+		line-height: 1.35;
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+</style>
