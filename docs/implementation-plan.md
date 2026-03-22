@@ -162,7 +162,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 
 ### Phase G – DXF demo asset and MVP scope (laser job from DXF)
 
-**Status:** **In progress (MVP slice done):** ASCII DXF **LINE** parser + REST `/api/v1/jobs/dxf` + mock/ethernet **`load_dxf_job`** (ethernet does not yet stream list buffer to the board — see G.4 in [`phase-g-dxf-implementation-plan.md`](requirements/phase-g-dxf-implementation-plan.md)). Frontend **`/dxf`** (static demo fetch, SVG preview, entity table, RTC load/run) + Playwright **`dxf-demo.spec.ts`**. **Deferred:** full **B-08** RTC list telegram mapping; extend parser beyond LINE as needed.
+**Status:** **In progress (MVP slice + G.4 mapper done):** ASCII DXF **LINE** parser + REST `/api/v1/jobs/dxf` + mock/ethernet **`load_dxf_job`**. **G.4:** `RtcJobPlan`, `dxf_rif_list_mapper`, optional ethernet list upload behind **`dxf_rif_list_upload`** on `POST /rtc/connect` (`R_DC_CONFIG_LIST` + `R_LC_*` IDs aligned with [`docs/telegrams.h`](../telegrams.h) / [`backend/src/rtc/rif/remote_list_commands.hpp`](../backend/src/rtc/rif/remote_list_commands.hpp)). Frontend **`/dxf`** + Playwright **`dxf-demo.spec.ts`**. **Deferred:** richer list semantics (speeds, laser on/off); extend parser beyond LINE as needed.
 
 **Objectives**
 
@@ -213,7 +213,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 - Frontend completes **at least one workflow** end-to-end against that API.
 - **Playwright** passes against mock backend in CI (see `.github/workflows/e2e.yml`).
 - Core backend code remains **portable** (no mandatory Windows RTC DLL in the long-term path).
-- **Phase G:** Demo **DXF** loaded and displayed with **entity list** + preview; parsed output drives **mock** execution; **Ethernet** uses the same load path without full list download yet — see **Phase G** status above and [`phase-g-dxf-implementation-plan.md`](requirements/phase-g-dxf-implementation-plan.md).
+- **Phase G:** Demo **DXF** loaded and displayed with **entity list** + preview; parsed output drives **mock** execution; **Ethernet** can optionally stream a **G.4** list image when connecting with `dxf_rif_list_upload: true` — see **Phase G** status above and [`phase-g-dxf-implementation-plan.md`](requirements/phase-g-dxf-implementation-plan.md).
 
 ---
 

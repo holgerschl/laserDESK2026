@@ -1,5 +1,7 @@
 #include "ethernet_rtc_client.hpp"
 
+#include "job/dxf_rif_list_mapper.hpp"
+#include "job/rtc_job_plan.hpp"
 #include "job_id.hpp"
 
 namespace laserdesk::rtc {
@@ -96,6 +98,10 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
   timeout_ms_ = cfg.recv_timeout_ms > 0 ? cfg.recv_timeout_ms : 800;
   package_tag_ = cfg.expected_package_tag;
   bios_tag_ = cfg.expected_bios_eth_tag;
+  dxf_rif_list_upload_ = cfg.dxf_rif_list_upload;
+  dxf_rif_bits_per_mm_ = cfg.dxf_rif_bits_per_mm > 0.0 ? cfg.dxf_rif_bits_per_mm : 128.0;
+  rif_config_list_mem1_ = cfg.rif_config_list_mem1;
+  rif_config_list_mem2_ = cfg.rif_config_list_mem2;
 
   std::string oerr = udp_.open(cfg.host, static_cast<std::uint16_t>(cfg.port));
   if (!oerr.empty()) {
@@ -129,6 +135,10 @@ void EthernetRtcClient::disconnect() {
   last_job_label_.clear();
   dxf_line_count_.reset();
   dxf_source_name_.reset();
+  dxf_rif_list_upload_ = false;
+  dxf_rif_bits_per_mm_ = 128.0;
+  rif_config_list_mem1_ = 1u;
+  rif_config_list_mem2_ = 2u;
 }
 
 std::variant<RtcStatus, RtcError> EthernetRtcClient::get_status() const {
@@ -196,11 +206,47 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
   if (n == 0) return err("DXF_PARSE_ERROR", "DXF job line_count is zero");
 
   rif::ParsedAnswer ans;
+
+  if (dxf_rif_list_upload_) {
+    if (auto e = send_remote_control(
+            {rif::kRdcConfigList, rif_config_list_mem1_, rif_config_list_mem2_}, ans)) {
+      return e;
+    }
+    if (auto e = check_answer(ans, rif::kRdcConfigList, 2u)) {
+      return e;
+    }
+  }
+
   if (auto e = send_remote_control({rif::kRdcGetInputPointer}, ans)) {
     return e;
   }
   if (auto e = check_answer(ans, rif::kRdcGetInputPointer, 3u)) {
     return e;
+  }
+
+  if (dxf_rif_list_upload_) {
+    job::RtcJobPlan plan;
+    std::string perr;
+    if (!job::parse_rtc_job_plan_from_dxf_json(job_document, plan, perr)) {
+      return err("DXF_PARSE_ERROR", perr);
+    }
+    job::DxfRifListMapParams mp;
+    mp.bits_per_mm = dxf_rif_bits_per_mm_;
+    std::vector<std::vector<std::uint32_t>> seq;
+    if (!job::build_dxf_rif_list_upload_sequence(plan, mp, seq, perr)) {
+      return err("RTC_INTERNAL", perr);
+    }
+    for (const auto& words : seq) {
+      if (words.empty()) {
+        return err("RTC_INTERNAL", "empty RIF list command");
+      }
+      if (auto e = send_remote_control(words, ans)) {
+        return e;
+      }
+      if (auto e = check_answer(ans, words[0], 2u)) {
+        return e;
+      }
+    }
   }
 
   dxf_line_count_ = n;

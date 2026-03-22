@@ -56,6 +56,8 @@
 		const line = msg.trim();
 		if (!line) return;
 		statusLog = [...statusLog.slice(-(STATUS_LOG_MAX - 1)), { ts: Date.now(), kind, msg: line }];
+		const tag = kind === 'err' ? 'ERR' : kind === 'ok' ? 'OK' : 'INFO';
+		postRtcLog(bc, `[${tag}] ${line}`);
 	}
 
 	function fmtStatusTime(ts: number) {

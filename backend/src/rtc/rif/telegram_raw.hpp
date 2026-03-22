@@ -12,7 +12,8 @@ constexpr std::uint32_t kTgmVersion01000000 = 0x01000000u;
 constexpr std::uint32_t kTypeCommand = 0u;
 constexpr std::uint32_t kTypeAnswer = 1u;
 
-/// Remote Control Command IDs (manual §16.10.9, Page 1102+).
+/// Remote Control Command IDs (manual §16.10.9; numeric values = SCANLAB `telegrams.h` / `docs/telegrams.h`).
+constexpr std::uint32_t kRdcConfigList = 1u;
 constexpr std::uint32_t kRdcGetInputPointer = 4u;
 constexpr std::uint32_t kRdcExecuteListPos = 15u;
 constexpr std::uint32_t kRdcStopExecution = 16u;

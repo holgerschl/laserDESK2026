@@ -109,6 +109,14 @@ int BackendSession::handle_post_rtc_connect(const nlohmann::json& body, nlohmann
       cfg.expected_package_tag = body["expected_package_tag"].get<std::string>();
     if (body.contains("expected_bios_eth_tag") && body["expected_bios_eth_tag"].is_string())
       cfg.expected_bios_eth_tag = body["expected_bios_eth_tag"].get<std::string>();
+    if (body.contains("dxf_rif_list_upload") && body["dxf_rif_list_upload"].is_boolean())
+      cfg.dxf_rif_list_upload = body["dxf_rif_list_upload"].get<bool>();
+    if (body.contains("dxf_rif_bits_per_mm") && body["dxf_rif_bits_per_mm"].is_number())
+      cfg.dxf_rif_bits_per_mm = body["dxf_rif_bits_per_mm"].get<double>();
+    if (body.contains("rif_config_list_mem1") && body["rif_config_list_mem1"].is_number_unsigned())
+      cfg.rif_config_list_mem1 = body["rif_config_list_mem1"].get<std::uint32_t>();
+    if (body.contains("rif_config_list_mem2") && body["rif_config_list_mem2"].is_number_unsigned())
+      cfg.rif_config_list_mem2 = body["rif_config_list_mem2"].get<std::uint32_t>();
     if (auto e = rtc_->connect(cfg)) {
       err_out = error_json(*e);
       rtc_.reset();

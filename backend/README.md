@@ -82,15 +82,23 @@ Environment: `LASERDESK_PORT` if `--port` omitted.
   "tgm_format": 0,
   "recv_timeout_ms": 800,
   "expected_package_tag": "1.22.0",
-  "expected_bios_eth_tag": "from-lab-notes"
+  "expected_bios_eth_tag": "from-lab-notes",
+  "dxf_rif_list_upload": false,
+  "dxf_rif_bits_per_mm": 128,
+  "rif_config_list_mem1": 1,
+  "rif_config_list_mem2": 2
 }
 ```
+
+- **`dxf_rif_list_upload`**: optional, default **false**. If **true**, load sends **`R_DC_CONFIG_LIST`** (1), **`R_DC_GET_INPUT_POINTER`** (4), then one UDP telegram per list command: **`R_LC_JUMP_XY_ABS`** / **`R_LC_MARK_XYZT_ABS`** per DXF LINE and **`R_LC_END_OF_LIST`** (IDs from SCANLAB `docs/telegrams.h`, mirrored in `src/rtc/rif/remote_list_commands.hpp`).
+- **`dxf_rif_bits_per_mm`**: scales DXF coordinates to scanner units (see `src/rtc/job/dxf_rif_list_mapper.cpp`).
+- **`rif_config_list_mem1` / `rif_config_list_mem2`**: passed to **`R_DC_CONFIG_LIST`** (same as `rtc6_rif_wrapper::config_list`).
 
 - **`port`**: defaults to **5020** if omitted — **confirm** with your RTC6 package / `eth_get_port_numbers` (see `docs/rtc/bring-up-checklist-phase-c.md`).
 - **`tgm_format`**: must match `eth_set_remote_tgm_format` on the board (RAW is typical; default `0` may need changing per site).
 
 On connect, the client sends **`R_DC_GET_STATUS` (31)** as a handshake.  
-**Load / run / stop** use **`R_DC_GET_INPUT_POINTER` (4)**, **`R_DC_EXECUTE_LIST_POS` (15)** with list `1` pos `0`, and **`R_DC_STOP_EXECUTION` (16)** — minimal vertical slice only; real jobs need Remote **List** commands from the SCANLAB package.
+**Load / run / stop** use **`R_DC_GET_INPUT_POINTER` (4)**, **`R_DC_EXECUTE_LIST_POS` (15)** with list `1` pos `0`, and **`R_DC_STOP_EXECUTION` (16)** — minimal vertical slice. Optional **DXF list build** (`dxf_rif_list_upload`) adds **`R_DC_CONFIG_LIST` (1)** and **`R_LC_*`** jump/mark telegrams per `docs/telegrams.h`.
 
 ## Layout
 
@@ -101,10 +109,14 @@ backend/
     main.cpp
     rtc/
       job_id.cpp
+      job/              # Phase G.4: RtcJobPlan + DXF → RIF list sequence
+        rtc_job_plan.*
+        dxf_rif_list_mapper.*
       mock_rtc_client.*
       ethernet_rtc_client.*
       rif/              # Remote Interface framing + UDP (Asio)
         telegram_raw.*
+        remote_list_commands.hpp
         udp_channel.*
     http/
       api_router.*

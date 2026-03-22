@@ -65,11 +65,13 @@ Start minimal: **N lines** → **N mark segments** in user units; document scale
 - Extend **`IRtcClient`** (or session layer): **load** parsed job → state **loaded**; **start** iterates segments (or simulates duration); **stop** unchanged.
 - Unit tests: parse demo → load → start → status **running** then **loaded**/idle per mock rules.
 
-### G.4 – RTC mapper (**B-08**)
+### G.4 – RTC mapper (**B-08**) — **implemented (repo)**
 
-- Map `RtcJobPlan` to **UDP telegrams** / list writes per SCANLAB docs (Remote List Commands, list buffer).
-- Likely **separate module** `backend/src/rtc/dxf/` or `job/` — keep **`rif/`** transport unchanged.
-- **Ethernet:** behind feature flag or same API as mock; integration test optional with `LASERDESK_RTC6_HOST`.
+- **`RtcJobPlan`** + parse from DXF job JSON: `backend/src/rtc/job/rtc_job_plan.*`
+- **List command sequence:** `backend/src/rtc/job/dxf_rif_list_mapper.*` — per LINE: **`R_LC_JUMP_XY_ABS`** + **`R_LC_MARK_XYZT_ABS`** (then **`R_LC_END_OF_LIST`**); IDs from **`docs/telegrams.h`**, mirrored in `backend/src/rtc/rif/remote_list_commands.hpp`. Aligns with **`docs/rtc6_rif_wrapper.cpp`** (`jump_xy_abs` / `mark_xyzt_abs` / `set_end_of_list`).
+- **`EthernetRtcClient::load_dxf_job`:** when **`dxf_rif_list_upload: true`**, sends **`R_DC_CONFIG_LIST`**, **`R_DC_GET_INPUT_POINTER`**, then one UDP telegram per list command (default **false** on connect).
+- **Unit tests:** `backend/tests/test_dxf_rif_list_mapper.cpp`
+- **Integration:** optional hardware test still via `LASERDESK_RTC6_HOST` (no automated assertion on list content yet).
 
 ### G.5 – Frontend (**F-05…F-07**)
 

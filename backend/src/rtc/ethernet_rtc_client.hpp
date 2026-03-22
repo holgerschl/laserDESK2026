@@ -7,6 +7,7 @@
 #include <nlohmann/json.hpp>
 
 #include <cstddef>
+#include <cstdint>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -48,6 +49,10 @@ class EthernetRtcClient final : public IRtcClient {
   std::string last_job_id_;
   std::optional<std::size_t> dxf_line_count_;
   std::optional<std::string> dxf_source_name_;
+  bool dxf_rif_list_upload_{false};
+  double dxf_rif_bits_per_mm_{128.0};
+  std::uint32_t rif_config_list_mem1_{1u};
+  std::uint32_t rif_config_list_mem2_{2u};
 };
 
 }  // namespace laserdesk::rtc
