@@ -55,6 +55,37 @@
 		}
 	}
 
+	/** ~12 ticks across span; returns step in drawing units (treated as mm in UI). */
+	function niceMmStep(span: number): number {
+		if (!Number.isFinite(span) || span <= 0) return 1;
+		const raw = span / 12;
+		const exp = Math.floor(Math.log10(raw));
+		const f = raw / Math.pow(10, exp);
+		let nf = 1;
+		if (f <= 1) nf = 1;
+		else if (f <= 2) nf = 2;
+		else if (f <= 5) nf = 5;
+		else nf = 10;
+		return nf * Math.pow(10, exp);
+	}
+
+	function mmTicks(minV: number, maxV: number, step: number): number[] {
+		const ticks: number[] = [];
+		const start = Math.ceil((minV - 1e-9) / step) * step;
+		let v = start;
+		for (let n = 0; n < 400 && v <= maxV + 1e-9; n++, v += step) {
+			ticks.push(Number(v.toPrecision(14)));
+		}
+		return ticks;
+	}
+
+	function fmtMmLabel(v: number): string {
+		const a = Math.abs(v);
+		if (a >= 100) return v.toFixed(0);
+		if (a >= 10) return v.toFixed(1);
+		return v.toFixed(2);
+	}
+
 	function svgLayout(entities: DxfJobEntity[]) {
 		let minX = Infinity;
 		let minY = Infinity;
@@ -71,7 +102,21 @@
 		const w = maxX - minX + 2 * padX;
 		const h = maxY - minY + 2 * padY;
 		const flip = (yw: number) => maxY + minY - yw;
-		return { minX: minX - padX, minY: minY - padY, maxX: maxX + padX, maxY: maxY + padY, w, h, flip };
+		return {
+			minX: minX - padX,
+			minY: minY - padY,
+			maxX: maxX + padX,
+			maxY: maxY + padY,
+			w,
+			h,
+			flip,
+			worldMinX: minX,
+			worldMaxX: maxX,
+			worldMinY: minY,
+			worldMaxY: maxY,
+			viewWorldMinY: minY - padY,
+			viewWorldMaxY: maxY + padY
+		};
 	}
 
 	$effect(() => {
@@ -222,11 +267,18 @@
 		</p>
 
 		{#if layout}
-			{@const previewStroke = Math.max(Math.max(layout.w, layout.h) * 0.018, 0.35)}
-			{@const axisStroke = Math.max(previewStroke * 0.55, 0.2)}
-			{@const labelSize = Math.max(Math.max(layout.w, layout.h) * 0.045, 0.9)}
+			{@const previewStroke = Math.max(Math.max(layout.w, layout.h) * 0.004, 0.09)}
+			{@const axisStroke = Math.max(previewStroke * 0.7, 0.1)}
+			{@const labelSize = Math.max(Math.max(layout.w, layout.h) * 0.034, 0.65)}
 			{@const y0 = layout.flip(0)}
-			{@const hitStroke = Math.max(previewStroke * 14, Math.max(layout.w, layout.h) * 0.055)}
+			{@const hitStroke = Math.max(previewStroke * 2.6, Math.max(layout.w, layout.h) * 0.0055)}
+			{@const tickStepX = niceMmStep(layout.w)}
+			{@const tickStepY = niceMmStep(layout.h)}
+			{@const xs = mmTicks(layout.minX, layout.maxX, tickStepX)}
+			{@const ysW = mmTicks(layout.viewWorldMinY, layout.viewWorldMaxY, tickStepY)}
+			{@const bottomY = layout.minY + layout.h}
+			{@const tickLen = Math.max(Math.max(layout.w, layout.h) * 0.014, 0.22)}
+			{@const tickFont = Math.max(Math.max(layout.w, layout.h) * 0.026, 0.5)}
 			{@const xAxisInView = y0 >= layout.minY && y0 <= layout.minY + layout.h}
 			{@const yAxisInView = 0 >= layout.minX && 0 <= layout.maxX}
 			<div class="ldk-dxf-preview" data-testid="dxf-svg-wrap">
@@ -235,6 +287,7 @@
 					width="100%"
 					height="320"
 					preserveAspectRatio="xMidYMid meet"
+					overflow="visible"
 					role="img"
 					aria-label="DXF line preview with coordinate axes"
 				>
@@ -248,6 +301,46 @@
 							stroke="#cbd5e1"
 							stroke-width={axisStroke}
 						/>
+						<!-- mm ticks along bottom (X) and left (Y); labels assume drawing units = mm -->
+						{#each xs as xt (xt)}
+							{#if xt >= layout.minX - 1e-9 && xt <= layout.maxX + 1e-9}
+								<line
+									x1={xt}
+									y1={bottomY}
+									x2={xt}
+									y2={bottomY + tickLen}
+									stroke="#94a3b8"
+									stroke-width={axisStroke}
+								/>
+								<text
+									x={xt}
+									y={bottomY + tickLen + tickFont * 0.92}
+									fill="#64748b"
+									font-size={tickFont}
+									font-family="system-ui, Segoe UI, sans-serif"
+									text-anchor="middle">{fmtMmLabel(xt)}</text>
+							{/if}
+						{/each}
+						{#each ysW as yt (yt)}
+							{@const ys = layout.flip(yt)}
+							{#if ys >= layout.minY - 1e-9 && ys <= bottomY + 1e-9}
+								<line
+									x1={layout.minX - tickLen}
+									y1={ys}
+									x2={layout.minX}
+									y2={ys}
+									stroke="#94a3b8"
+									stroke-width={axisStroke}
+								/>
+								<text
+									x={layout.minX - tickLen - tickFont * 0.25}
+									y={ys + tickFont * 0.32}
+									fill="#64748b"
+									font-size={tickFont}
+									font-family="system-ui, Segoe UI, sans-serif"
+									text-anchor="end">{fmtMmLabel(yt)}</text>
+							{/if}
+						{/each}
 						{#if xAxisInView}
 							<line
 								x1={layout.minX}
@@ -304,7 +397,7 @@
 								fill="none"
 								pointer-events="none"
 								stroke={selectedIndex === i ? '#059669' : '#246'}
-								stroke-width={selectedIndex === i ? previewStroke * 1.5 : previewStroke}
+								stroke-width={selectedIndex === i ? previewStroke * 1.22 : previewStroke}
 								stroke-linecap="round"
 								stroke-linejoin="round"
 							/>
@@ -325,8 +418,8 @@
 					{/each}
 				</svg>
 				<p class="ldk-muted dxf-coords-caption">
-					Axes in <strong>DXF drawing units</strong>: origin at (0, 0); <strong>+Y</strong> points up on screen (SVG
-					vertical flipped vs CAD).
+					Axes and tick labels use <strong>DXF drawing units as millimetres</strong> (demo assumption). Origin at
+					(0, 0); <strong>+Y</strong> points up on screen (vertical flip vs CAD).
 				</p>
 			</div>
 		{/if}
@@ -395,9 +488,12 @@
 		background: #fafbfc;
 		margin-bottom: 0.75rem;
 		min-height: 200px;
+		overflow: visible;
+		padding-bottom: 1.35rem;
 	}
 	.ldk-dxf-preview :global(svg) {
 		display: block;
+		overflow: visible;
 	}
 	:global(.dxf-entity-hit) {
 		cursor: pointer;
