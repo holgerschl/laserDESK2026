@@ -23,6 +23,7 @@
 		<nav class="ldk-nav" aria-label="Main">
 			<a href="{base}/usage" data-testid="nav-usage">Usage</a>
 			<a href="{base}/workflow" data-testid="nav-workflow">Workflow</a>
+			<a href="{base}/dxf" data-testid="nav-dxf">DXF demo</a>
 			<a href="{base}/rtc" data-testid="nav-rtc">RTC window</a>
 		</nav>
 	</header>

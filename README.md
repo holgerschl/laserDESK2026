@@ -6,7 +6,7 @@ Workflow-centric laser processing UI (Svelte Kit) and backend (RTC6 via Ethernet
 
 - Web app: [https://holgerschl.github.io/laserDESK2026/](https://holgerschl.github.io/laserDESK2026/) (project site; repo should be **`laserDESK2026`** under [holgerschl](https://github.com/holgerschl))
 - Usage / installation (same site): […/laserDESK2026/usage/](https://holgerschl.github.io/laserDESK2026/usage/)
-- Backend binaries: **Releases** on [github.com/holgerschl/laserDESK2026](https://github.com/holgerschl/laserDESK2026) (`laserdesk_backend.exe`, `laserdesk_backend-macos.tar.gz`)
+- Backend binaries: **Releases** on [github.com/holgerschl/laserDESK2026](https://github.com/holgerschl/laserDESK2026) (`laserdesk_backend.exe`, `laserdesk_backend-macos.tar.gz` — macOS **arm64** / Apple Silicon)
 
 Until the repo is published, build and run locally (see below and Phase F in [`docs/implementation-plan.md`](docs/implementation-plan.md)).
 

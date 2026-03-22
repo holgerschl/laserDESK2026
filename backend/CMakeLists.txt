@@ -36,6 +36,7 @@ if(NOT asio_POPULATED)
 endif()
 
 add_library(laserdesk_rtc_core STATIC
+  src/dxf/ascii_dxf_lines.cpp
   src/rtc/job_id.cpp
   src/rtc/mock_rtc_client.cpp
   src/rtc/ethernet_rtc_client.cpp
@@ -71,9 +72,13 @@ FetchContent_MakeAvailable(googletest)
 add_executable(laserdesk_tests
   tests/test_mock_rtc.cpp
   tests/test_backend_session.cpp
+  tests/test_backend_session_dxf.cpp
+  tests/test_dxf_parse.cpp
   tests/test_telegram_raw.cpp
   tests/test_ethernet_integration.cpp
 )
 target_link_libraries(laserdesk_tests PRIVATE laserdesk_rtc_core GTest::gtest_main)
+target_compile_definitions(laserdesk_tests PRIVATE
+  LASERDESK_TEST_DXF_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/../demo/dxf/SCANLABLogo.dxf")
 include(GoogleTest)
 gtest_discover_tests(laserdesk_tests)

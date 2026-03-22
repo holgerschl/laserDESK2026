@@ -15,6 +15,7 @@ class MockRtcClient final : public IRtcClient {
   void disconnect() override;
   std::variant<RtcStatus, RtcError> get_status() const override;
   std::variant<std::string, RtcError> load_minimal_job(const std::string& label) override;
+  std::optional<RtcError> load_dxf_job(const nlohmann::json& job_document) override;
   std::optional<RtcError> start_execution() override;
   std::optional<RtcError> stop_execution() override;
 
@@ -34,6 +35,8 @@ class MockRtcClient final : public IRtcClient {
   State state_{State::Disconnected};
   std::string current_label_;
   std::string current_job_id_;
+  std::optional<std::size_t> dxf_line_count_;
+  std::optional<std::string> dxf_source_name_;
   std::optional<RtcError> latched_error_;
 };
 

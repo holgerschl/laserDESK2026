@@ -60,6 +60,9 @@ Environment: `LASERDESK_PORT` if `--port` omitted.
 - `POST /rtc/connect` — see below
 - `POST /rtc/disconnect`
 - `POST /jobs/minimal-demo` (+ optional `label`), `/run`, `/stop`
+- `POST /jobs/dxf` — parse ASCII DXF (**LINE** entities): JSON `{"source":"demo"}` (needs repo `demo/dxf/` or `LASERDESK_DEMO_DXF`), or `{"dxf_text":"…","source_name":"…"}`, or multipart field `file`
+- `GET /jobs/dxf/{job_id}` — parsed job + entities
+- `POST /jobs/dxf/{job_id}/load`, `/run`, `/stop` — load into RTC session (same run/stop as minimal-demo)
 
 ### `POST /rtc/connect` body
 

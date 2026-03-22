@@ -4,7 +4,12 @@
 #include "rif/telegram_raw.hpp"
 #include "rif/udp_channel.hpp"
 
+#include <nlohmann/json.hpp>
+
+#include <cstddef>
 #include <mutex>
+#include <optional>
+#include <string>
 #include <vector>
 
 namespace laserdesk::rtc {
@@ -17,6 +22,7 @@ class EthernetRtcClient final : public IRtcClient {
   void disconnect() override;
   std::variant<RtcStatus, RtcError> get_status() const override;
   std::variant<std::string, RtcError> load_minimal_job(const std::string& label) override;
+  std::optional<RtcError> load_dxf_job(const nlohmann::json& job_document) override;
   std::optional<RtcError> start_execution() override;
   std::optional<RtcError> stop_execution() override;
 
@@ -40,6 +46,8 @@ class EthernetRtcClient final : public IRtcClient {
   std::string bios_tag_;
   std::string last_job_label_;
   std::string last_job_id_;
+  std::optional<std::size_t> dxf_line_count_;
+  std::optional<std::string> dxf_source_name_;
 };
 
 }  // namespace laserdesk::rtc

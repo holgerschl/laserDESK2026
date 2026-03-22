@@ -1,6 +1,7 @@
 #include "rtc/mock_rtc_client.hpp"
 
 #include <gtest/gtest.h>
+#include <nlohmann/json.hpp>
 #include <variant>
 
 using laserdesk::rtc::MockRtcClient;
@@ -69,4 +70,19 @@ TEST(MockRtc, DisconnectResets) {
   rtc.disconnect();
   auto st = rtc.get_status();
   ASSERT_TRUE(std::holds_alternative<laserdesk::rtc::RtcError>(st));
+}
+
+TEST(MockRtc, LoadDxfJobStartStop) {
+  MockRtcClient rtc;
+  ASSERT_FALSE(rtc.connect(RtcConnectConfig{RtcConnectConfig::Mode::Mock}).has_value());
+  nlohmann::json job{{"source_name", "t.dxf"},
+                      {"line_count", 2},
+                      {"entities", nlohmann::json::array({{{"type", "line"}}, {{"type", "line"}}})}};
+  ASSERT_FALSE(rtc.load_dxf_job(job).has_value());
+  auto st = std::get<laserdesk::rtc::RtcStatus>(rtc.get_status());
+  EXPECT_EQ(st.connection_state, "loaded");
+  ASSERT_TRUE(st.active_dxf_line_count.has_value());
+  EXPECT_EQ(*st.active_dxf_line_count, 2u);
+  ASSERT_FALSE(rtc.start_execution().has_value());
+  ASSERT_FALSE(rtc.stop_execution().has_value());
 }

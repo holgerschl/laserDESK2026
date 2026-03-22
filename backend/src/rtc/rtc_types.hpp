@@ -37,6 +37,9 @@ struct RtcStatus {
   /// Last successful R_DC_GET_STATUS (31) values when rtc_mode == ethernet.
   std::optional<std::uint32_t> remote_status_register;
   std::optional<std::uint32_t> remote_pos_register;
+  /// Set when a DXF-derived job is loaded (Phase G).
+  std::optional<std::size_t> active_dxf_line_count;
+  std::optional<std::string> active_dxf_source_name;
 };
 
 inline const char* kHealthOk = "ok";

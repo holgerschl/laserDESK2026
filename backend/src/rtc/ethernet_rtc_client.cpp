@@ -60,6 +60,8 @@ RtcStatus EthernetRtcClient::build_status(const rif::ParsedAnswer* g) const {
     s.remote_status_register = g->pl_words[2];
     s.remote_pos_register = g->pl_words[3];
   }
+  if (dxf_line_count_) s.active_dxf_line_count = dxf_line_count_;
+  if (dxf_source_name_) s.active_dxf_source_name = dxf_source_name_;
   return s;
 }
 
@@ -113,6 +115,8 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
   state_ = State::ConnectedIdle;
   last_job_id_.clear();
   last_job_label_.clear();
+  dxf_line_count_.reset();
+  dxf_source_name_.reset();
   return std::nullopt;
 }
 
@@ -123,6 +127,8 @@ void EthernetRtcClient::disconnect() {
   seq_ = 0;
   last_job_id_.clear();
   last_job_label_.clear();
+  dxf_line_count_.reset();
+  dxf_source_name_.reset();
 }
 
 std::variant<RtcStatus, RtcError> EthernetRtcClient::get_status() const {
@@ -162,8 +168,47 @@ std::variant<std::string, RtcError> EthernetRtcClient::load_minimal_job(const st
 
   last_job_label_ = label.empty() ? "phase-a-demo" : label;
   last_job_id_ = make_demo_job_id();
+  dxf_line_count_.reset();
+  dxf_source_name_.reset();
   state_ = State::Loaded;
   return last_job_id_;
+}
+
+std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& job_document) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (state_ == State::Disconnected) {
+    return err("RTC_NOT_CONNECTED", "RTC session not established");
+  }
+  if (state_ == State::Running) {
+    return err("RTC_BUSY", "Cannot load job while running");
+  }
+  if (state_ == State::Error) {
+    return err("RTC_INTERNAL", "RTC in error state; disconnect");
+  }
+  if (!job_document.contains("entities") || !job_document["entities"].is_array() ||
+      job_document["entities"].empty()) {
+    return err("DXF_PARSE_ERROR", "DXF job has no entities");
+  }
+  if (!job_document.contains("line_count") || !job_document["line_count"].is_number_integer()) {
+    return err("DXF_PARSE_ERROR", "DXF job missing line_count");
+  }
+  const auto n = job_document["line_count"].get<std::size_t>();
+  if (n == 0) return err("DXF_PARSE_ERROR", "DXF job line_count is zero");
+
+  rif::ParsedAnswer ans;
+  if (auto e = send_remote_control({rif::kRdcGetInputPointer}, ans)) {
+    return e;
+  }
+  if (auto e = check_answer(ans, rif::kRdcGetInputPointer, 3u)) {
+    return e;
+  }
+
+  dxf_line_count_ = n;
+  dxf_source_name_ = job_document.value("source_name", "dxf");
+  last_job_label_.clear();
+  last_job_id_.clear();
+  state_ = State::Loaded;
+  return std::nullopt;
 }
 
 std::optional<RtcError> EthernetRtcClient::start_execution() {

@@ -59,7 +59,7 @@
 		<li>
 			<strong>Download</strong>
 			<a href={RELEASE_MACOS_TAR} data-testid="download-backend-macos-tar">laserdesk_backend-macos.tar.gz</a>
-			(universal binary for Apple Silicon and Intel, from GitHub Releases). Extract it next to where you want to run
+			(<strong>Apple Silicon</strong> arm64 build from GitHub Actions; Intel Mac: build from source below). Extract it next to where you want to run
 			from, e.g.:
 			<pre class="ldk-pre">tar xzf laserdesk_backend-macos.tar.gz</pre>
 			This creates <code>laserdesk_backend-macos</code> (executable bit preserved).

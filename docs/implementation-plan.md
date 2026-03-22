@@ -136,7 +136,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 **Objectives**
 
 - Publish the **static frontend** to **GitHub Pages** under the user/org project URL (target: `https://holgerschl.github.io/laserDESK2026/` — repository name **`laserDESK2026`** under [github.com/holgerschl](https://github.com/holgerschl); use a single slash, not `//`).
-- Provide **Windows `laserdesk_backend.exe`** and **macOS `laserdesk_backend-macos.tar.gz`** (universal) via **GitHub Releases** (CI build).
+- Provide **Windows `laserdesk_backend.exe`** and **macOS `laserdesk_backend-macos.tar.gz`** (arm64, Apple Silicon) via **GitHub Releases** (CI build).
 - Ship **usage and installation** documentation as part of the deployed site (`/usage`) plus repository `README` links.
 - *(Earlier Phase 5 scope)* CI for unit/E2E can be extended in the same workflow folder; not all jobs are required for Pages/releases.
 
@@ -148,8 +148,8 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 | Frontend CI | [`.github/workflows/frontend-ci.yml`](../.github/workflows/frontend-ci.yml) — `svelte-check` + static build |
 | E2E CI | [`.github/workflows/e2e.yml`](../.github/workflows/e2e.yml) — build backend on Ubuntu, **Playwright** against mock RTC |
 | Backend CI | [`.github/workflows/backend-ci.yml`](../.github/workflows/backend-ci.yml) — unit tests |
-| Backend release workflow | [`.github/workflows/release-backend.yml`](../.github/workflows/release-backend.yml) — **Release** with Windows `.exe` + macOS `laserdesk_backend-macos.tar.gz` (universal); `v*` tags or `main` / manual |
-| User-facing HTML docs | [`frontend/src/routes/usage/+page.svelte`](../frontend/src/routes/usage/+page.svelte) → deployed at `…/laserDESK2026/usage/` |
+| Backend release workflow | [`.github/workflows/release-backend.yml`](../.github/workflows/release-backend.yml) — **Release** with Windows `.exe` + macOS `laserdesk_backend-macos.tar.gz` (arm64); `v*` tags or `main` / manual |
+| User-facing HTML docs | [`frontend/src/routes/usage/+page.svelte`](../frontend/src/routes/usage/+page.svelte) → deployed at `…/laserDESK2026/usage/`; DXF demo [`frontend/src/routes/dxf/+page.svelte`](../frontend/src/routes/dxf/+page.svelte) |
 | API base + CORS | [`frontend/src/lib/api/config.ts`](../frontend/src/lib/api/config.ts), [`backend/src/main.cpp`](../backend/src/main.cpp) (`LASERDESK_CORS_ORIGIN`) |
 
 **Maintainer checklist (not automated here)**
@@ -162,7 +162,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 
 ### Phase G – DXF demo asset and MVP scope (laser job from DXF)
 
-**Status:** Catalog + demo file in repo — **implementation** of B-07…B-09, F-05…F-07, X-03 is **not** done in this increment (tracked in [`docs/requirements/mvp-feature-katalog.md`](requirements/mvp-feature-katalog.md)).
+**Status:** **In progress (MVP slice done):** ASCII DXF **LINE** parser + REST `/api/v1/jobs/dxf` + mock/ethernet **`load_dxf_job`** (ethernet does not yet stream list buffer to the board — see G.4 in [`phase-g-dxf-implementation-plan.md`](requirements/phase-g-dxf-implementation-plan.md)). Frontend **`/dxf`** (static demo fetch, SVG preview, entity table, RTC load/run) + Playwright **`dxf-demo.spec.ts`**. **Deferred:** full **B-08** RTC list telegram mapping; extend parser beyond LINE as needed.
 
 **Objectives**
 
@@ -213,7 +213,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 - Frontend completes **at least one workflow** end-to-end against that API.
 - **Playwright** passes against mock backend in CI (see `.github/workflows/e2e.yml`).
 - Core backend code remains **portable** (no mandatory Windows RTC DLL in the long-term path).
-- **Phase G (when implemented):** Demo **DXF** loaded and displayed with **entity/job list**; parsed output drives **mock** (then ethernet) execution per catalog **B-07…B-09**, **F-05…F-07**, **X-03**.
+- **Phase G:** Demo **DXF** loaded and displayed with **entity list** + preview; parsed output drives **mock** execution; **Ethernet** uses the same load path without full list download yet — see **Phase G** status above and [`phase-g-dxf-implementation-plan.md`](requirements/phase-g-dxf-implementation-plan.md).
 
 ---
 
@@ -229,6 +229,7 @@ These live in **`docs/`** (same folder as this file for the HTML/PDFs):
 - `.github/workflows/` – Pages deploy, Windows backend release, backend CI (Phase F).
 - `demo/dxf/SCANLABLogo.dxf` – Phase G reference DXF (copy also under `frontend/static/demo/dxf/`).
 - `docs/requirements/phase-g-dxf-implementation-plan.md` – Phase G engineering breakdown.
+- `backend/src/dxf/`, `frontend/src/routes/dxf/+page.svelte`, `frontend/e2e/dxf-demo.spec.ts` – Phase G implementation (LINE parser, REST, UI, E2E).
 
 ---
 

@@ -2,6 +2,8 @@
 
 #include "job_id.hpp"
 
+#include <nlohmann/json.hpp>
+
 namespace laserdesk::rtc {
 
 std::unique_ptr<IRtcClient> make_mock_rtc_client() {
@@ -38,6 +40,8 @@ RtcStatus MockRtcClient::build_status() const {
     s.alignment_ok = true;
   }
   if (latched_error_) s.last_error = latched_error_;
+  if (dxf_line_count_) s.active_dxf_line_count = dxf_line_count_;
+  if (dxf_source_name_) s.active_dxf_source_name = dxf_source_name_;
   return s;
 }
 
@@ -50,6 +54,8 @@ std::optional<RtcError> MockRtcClient::connect(const RtcConnectConfig& cfg) {
   latched_error_.reset();
   current_label_.clear();
   current_job_id_.clear();
+  dxf_line_count_.reset();
+  dxf_source_name_.reset();
   return std::nullopt;
 }
 
@@ -59,6 +65,8 @@ void MockRtcClient::disconnect() {
   latched_error_.reset();
   current_label_.clear();
   current_job_id_.clear();
+  dxf_line_count_.reset();
+  dxf_source_name_.reset();
 }
 
 std::variant<RtcStatus, RtcError> MockRtcClient::get_status() const {
@@ -82,8 +90,38 @@ std::variant<std::string, RtcError> MockRtcClient::load_minimal_job(const std::s
   }
   current_label_ = label.empty() ? "phase-a-demo" : label;
   current_job_id_ = make_demo_job_id();
+  dxf_line_count_.reset();
+  dxf_source_name_.reset();
   state_ = State::Loaded;
   return current_job_id_;
+}
+
+std::optional<RtcError> MockRtcClient::load_dxf_job(const nlohmann::json& job_document) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (state_ == State::Disconnected) {
+    return err("RTC_NOT_CONNECTED", "RTC session not established");
+  }
+  if (state_ == State::Running) {
+    return err("RTC_BUSY", "Cannot load job while running");
+  }
+  if (state_ == State::Error) {
+    return err("RTC_INTERNAL", "RTC in error state; disconnect or reset");
+  }
+  if (!job_document.contains("entities") || !job_document["entities"].is_array() ||
+      job_document["entities"].empty()) {
+    return err("DXF_PARSE_ERROR", "DXF job has no entities");
+  }
+  if (!job_document.contains("line_count") || !job_document["line_count"].is_number_integer()) {
+    return err("DXF_PARSE_ERROR", "DXF job missing line_count");
+  }
+  const auto n = job_document["line_count"].get<std::size_t>();
+  if (n == 0) return err("DXF_PARSE_ERROR", "DXF job line_count is zero");
+  dxf_line_count_ = n;
+  dxf_source_name_ = job_document.value("source_name", "dxf");
+  current_label_.clear();
+  current_job_id_.clear();
+  state_ = State::Loaded;
+  return std::nullopt;
 }
 
 std::optional<RtcError> MockRtcClient::start_execution() {

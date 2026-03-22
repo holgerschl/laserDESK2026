@@ -44,6 +44,8 @@ export interface RtcStatusJson {
 	remote_status?: number;
 	remote_pos?: number;
 	last_error?: { code: string; message: string };
+	dxf_line_count?: number;
+	dxf_source_name?: string;
 }
 
 export interface ApiErrorBody {
@@ -104,5 +106,73 @@ export async function postMinimalDemoRun(): Promise<void> {
 
 export async function postMinimalDemoStop(): Promise<void> {
 	const res = await apiFetch(`${getApiBase()}/jobs/minimal-demo/stop`, { method: 'POST' });
+	if (!res.ok) throw new Error(await readError(res));
+}
+
+export interface DxfJobEntity {
+	index: number;
+	type: string;
+	layer: string;
+	x0: number;
+	y0: number;
+	z0: number;
+	x1: number;
+	y1: number;
+	z1: number;
+	length: number;
+}
+
+export interface DxfJobResponse {
+	job_id: string;
+	source_name: string;
+	kind: string;
+	line_count: number;
+	entities: DxfJobEntity[];
+}
+
+export async function postJobsDxfDemo(): Promise<{ job_id: string }> {
+	const res = await apiFetch(`${getApiBase()}/jobs/dxf`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ source: 'demo' })
+	});
+	if (!res.ok) throw new Error(await readError(res));
+	return res.json() as Promise<{ job_id: string }>;
+}
+
+export async function postJobsDxfText(dxfText: string, sourceName: string): Promise<{ job_id: string }> {
+	const res = await apiFetch(`${getApiBase()}/jobs/dxf`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ dxf_text: dxfText, source_name: sourceName })
+	});
+	if (!res.ok) throw new Error(await readError(res));
+	return res.json() as Promise<{ job_id: string }>;
+}
+
+export async function getJobsDxf(jobId: string): Promise<DxfJobResponse> {
+	const res = await apiFetch(`${getApiBase()}/jobs/dxf/${encodeURIComponent(jobId)}`);
+	if (!res.ok) throw new Error(await readError(res));
+	return res.json() as Promise<DxfJobResponse>;
+}
+
+export async function postJobsDxfLoad(jobId: string): Promise<void> {
+	const res = await apiFetch(`${getApiBase()}/jobs/dxf/${encodeURIComponent(jobId)}/load`, {
+		method: 'POST'
+	});
+	if (!res.ok) throw new Error(await readError(res));
+}
+
+export async function postJobsDxfRun(jobId: string): Promise<void> {
+	const res = await apiFetch(`${getApiBase()}/jobs/dxf/${encodeURIComponent(jobId)}/run`, {
+		method: 'POST'
+	});
+	if (!res.ok) throw new Error(await readError(res));
+}
+
+export async function postJobsDxfStop(jobId: string): Promise<void> {
+	const res = await apiFetch(`${getApiBase()}/jobs/dxf/${encodeURIComponent(jobId)}/stop`, {
+		method: 'POST'
+	});
 	if (!res.ok) throw new Error(await readError(res));
 }

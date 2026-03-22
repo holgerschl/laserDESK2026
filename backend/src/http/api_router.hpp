@@ -6,6 +6,8 @@
 #include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
+#include <string>
+#include <unordered_map>
 
 namespace laserdesk::http_api {
 
@@ -26,12 +28,19 @@ class BackendSession {
   int handle_post_minimal_demo_run(nlohmann::json& err_out);
   int handle_post_minimal_demo_stop(nlohmann::json& err_out);
 
+  int handle_post_jobs_dxf(const httplib::Request& req, nlohmann::json& out, nlohmann::json& err_out);
+  int handle_get_jobs_dxf(const std::string& job_id, nlohmann::json& out, nlohmann::json& err_out);
+  int handle_post_jobs_dxf_load(const std::string& job_id, nlohmann::json& err_out);
+  int handle_post_jobs_dxf_run(nlohmann::json& err_out);
+  int handle_post_jobs_dxf_stop(nlohmann::json& err_out);
+
   /// Pre-connect mock for --rtc-demo
   void auto_demo_connect_mock();
 
  private:
   mutable std::mutex mutex_;
   std::unique_ptr<rtc::IRtcClient> rtc_;
+  std::unordered_map<std::string, nlohmann::json> dxf_jobs_;
 };
 
 void register_api_routes(httplib::Server& svr, BackendSession& session);

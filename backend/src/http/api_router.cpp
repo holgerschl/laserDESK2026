@@ -1,7 +1,13 @@
 #include "api_router.hpp"
 
+#include "dxf/ascii_dxf_lines.hpp"
 #include "rtc/ethernet_rtc_client.hpp"
+#include "rtc/job_id.hpp"
 #include "rtc/mock_rtc_client.hpp"
+
+#include <cstdlib>
+#include <fstream>
+#include <iterator>
 
 namespace laserdesk::http_api {
 
@@ -9,6 +15,30 @@ namespace {
 
 nlohmann::json error_json(const rtc::RtcError& e) {
   return nlohmann::json{{"code", e.code}, {"message", e.message}};
+}
+
+constexpr std::size_t kMaxDxfUploadBytes = 20u * 1024u * 1024u;
+
+std::optional<std::string> read_file_all(const std::string& path) {
+  std::ifstream in(path, std::ios::binary);
+  if (!in) return std::nullopt;
+  std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  return data;
+}
+
+std::optional<std::string> load_demo_dxf_text() {
+  if (const char* env = std::getenv("LASERDESK_DEMO_DXF")) {
+    if (auto s = read_file_all(env)) return s;
+  }
+  static constexpr const char* kCandidates[] = {
+      "demo/dxf/SCANLABLogo.dxf",
+      "../demo/dxf/SCANLABLogo.dxf",
+      "../../demo/dxf/SCANLABLogo.dxf",
+  };
+  for (const char* p : kCandidates) {
+    if (auto s = read_file_all(p)) return s;
+  }
+  return std::nullopt;
 }
 
 }  // namespace
@@ -46,6 +76,8 @@ nlohmann::json BackendSession::handle_get_rtc_status() const {
   if (r.remote_status_register) j["remote_status"] = *r.remote_status_register;
   if (r.remote_pos_register) j["remote_pos"] = *r.remote_pos_register;
   if (r.last_error) j["last_error"] = error_json(*r.last_error);
+  if (r.active_dxf_line_count) j["dxf_line_count"] = *r.active_dxf_line_count;
+  if (r.active_dxf_source_name) j["dxf_source_name"] = *r.active_dxf_source_name;
   return j;
 }
 
@@ -151,6 +183,121 @@ int BackendSession::handle_post_minimal_demo_stop(nlohmann::json& err_out) {
   return 204;
 }
 
+int BackendSession::handle_post_jobs_dxf(const httplib::Request& req, nlohmann::json& out,
+                                           nlohmann::json& err_out) {
+  std::string source_name = "dxf";
+  std::string text;
+
+  if (req.has_file("file")) {
+    const httplib::MultipartFormData& f = req.get_file_value("file");
+    source_name = f.filename.empty() ? "upload.dxf" : f.filename;
+    text = f.content;
+  } else {
+    nlohmann::json body;
+    try {
+      body = nlohmann::json::parse(req.body.empty() ? "{}" : req.body);
+    } catch (...) {
+      err_out = error_json(rtc::RtcError{"DXF_PARSE_ERROR", "Invalid JSON body"});
+      return 400;
+    }
+    if (body.value("source", "") == "demo") {
+      auto demo = load_demo_dxf_text();
+      if (!demo) {
+        err_out = error_json(rtc::RtcError{
+            "DXF_PARSE_ERROR",
+            "Demo DXF not found. Set LASERDESK_DEMO_DXF or run from repo root (demo/dxf/SCANLABLogo.dxf)."});
+        return 404;
+      }
+      text = std::move(*demo);
+      source_name = "SCANLABLogo.dxf";
+    } else if (body.contains("dxf_text") && body["dxf_text"].is_string()) {
+      text = body["dxf_text"].get<std::string>();
+      if (body.contains("source_name") && body["source_name"].is_string())
+        source_name = body["source_name"].get<std::string>();
+    } else {
+      err_out = error_json(rtc::RtcError{
+          "DXF_PARSE_ERROR", R"(Use {"source":"demo"}, {"dxf_text":"..."}[, "source_name"], or multipart file field "file")"});
+      return 400;
+    }
+  }
+
+  if (text.size() > kMaxDxfUploadBytes) {
+    err_out = error_json(
+        rtc::RtcError{"DXF_PARSE_ERROR", "DXF payload too large (max 20 MiB)"});
+    return 413;
+  }
+
+  auto pr = dxf::parse_ascii_dxf_lines(source_name, text);
+  if (pr.error_code) {
+    err_out = nlohmann::json{{"code", *pr.error_code}, {"message", pr.error_message.value_or("")}};
+    return 400;
+  }
+
+  const std::string job_id = rtc::make_demo_job_id();
+  nlohmann::json doc = dxf::job_to_json(job_id, pr);
+
+  std::lock_guard<std::mutex> lock(mutex_);
+  dxf_jobs_[job_id] = doc;
+  out = nlohmann::json{{"job_id", job_id}};
+  return 200;
+}
+
+int BackendSession::handle_get_jobs_dxf(const std::string& job_id, nlohmann::json& out,
+                                        nlohmann::json& err_out) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  auto it = dxf_jobs_.find(job_id);
+  if (it == dxf_jobs_.end()) {
+    err_out = error_json(rtc::RtcError{"NOT_FOUND", "Unknown DXF job id"});
+    return 404;
+  }
+  out = it->second;
+  return 200;
+}
+
+int BackendSession::handle_post_jobs_dxf_load(const std::string& job_id, nlohmann::json& err_out) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!rtc_) {
+    err_out = error_json(rtc::RtcError{"RTC_NOT_CONNECTED", "RTC session not established"});
+    return 409;
+  }
+  auto it = dxf_jobs_.find(job_id);
+  if (it == dxf_jobs_.end()) {
+    err_out = error_json(rtc::RtcError{"NOT_FOUND", "Unknown DXF job id"});
+    return 404;
+  }
+  if (auto e = rtc_->load_dxf_job(it->second)) {
+    err_out = error_json(*e);
+    return 409;
+  }
+  return 204;
+}
+
+int BackendSession::handle_post_jobs_dxf_run(nlohmann::json& err_out) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!rtc_) {
+    err_out = error_json(rtc::RtcError{"RTC_NOT_CONNECTED", "RTC session not established"});
+    return 409;
+  }
+  if (auto e = rtc_->start_execution()) {
+    err_out = error_json(*e);
+    return 409;
+  }
+  return 204;
+}
+
+int BackendSession::handle_post_jobs_dxf_stop(nlohmann::json& err_out) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!rtc_) {
+    err_out = error_json(rtc::RtcError{"RTC_NOT_CONNECTED", "RTC session not established"});
+    return 409;
+  }
+  if (auto e = rtc_->stop_execution()) {
+    err_out = error_json(*e);
+    return 409;
+  }
+  return 204;
+}
+
 void BackendSession::auto_demo_connect_mock() {
   std::lock_guard<std::mutex> lock(mutex_);
   rtc_ = rtc::make_mock_rtc_client();
@@ -214,6 +361,41 @@ void register_api_routes(httplib::Server& svr, BackendSession& session) {
   svr.Post("/api/v1/jobs/minimal-demo/stop", [&](const httplib::Request&, httplib::Response& res) {
     nlohmann::json err;
     int code = session.handle_post_minimal_demo_stop(err);
+    res.status = code;
+    if (code != 204) res.set_content(err.dump(), "application/json");
+  });
+
+  svr.Post("/api/v1/jobs/dxf", [&](const httplib::Request& req, httplib::Response& res) {
+    nlohmann::json err, out;
+    int code = session.handle_post_jobs_dxf(req, out, err);
+    res.status = code;
+    res.set_content((code == 200 ? out : err).dump(), "application/json");
+  });
+
+  svr.Get(R"(/api/v1/jobs/dxf/([^/]+)$)", [&](const httplib::Request& req, httplib::Response& res) {
+    nlohmann::json err, out;
+    int code = session.handle_get_jobs_dxf(req.matches[1], out, err);
+    res.status = code;
+    res.set_content((code == 200 ? out : err).dump(), "application/json");
+  });
+
+  svr.Post(R"(/api/v1/jobs/dxf/([^/]+)/load)", [&](const httplib::Request& req, httplib::Response& res) {
+    nlohmann::json err;
+    int code = session.handle_post_jobs_dxf_load(req.matches[1], err);
+    res.status = code;
+    if (code != 204) res.set_content(err.dump(), "application/json");
+  });
+
+  svr.Post(R"(/api/v1/jobs/dxf/([^/]+)/run)", [&](const httplib::Request& req, httplib::Response& res) {
+    nlohmann::json err;
+    int code = session.handle_post_jobs_dxf_run(err);
+    res.status = code;
+    if (code != 204) res.set_content(err.dump(), "application/json");
+  });
+
+  svr.Post(R"(/api/v1/jobs/dxf/([^/]+)/stop)", [&](const httplib::Request& req, httplib::Response& res) {
+    nlohmann::json err;
+    int code = session.handle_post_jobs_dxf_stop(err);
     res.status = code;
     if (code != 204) res.set_content(err.dump(), "application/json");
   });
