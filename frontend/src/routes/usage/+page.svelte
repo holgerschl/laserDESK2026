@@ -49,11 +49,9 @@
 .\laserdesk_backend.exe --port 8080</pre>
 		</li>
 		<li>
-			On this page, set <strong>Backend API base URL</strong> (below) to
-			<code>http://127.0.0.1:8080/api/v1</code> and save.
-		</li>
-		<li>
-			Open <a href="{base}/workflow">Workflow</a> and run the reference flow (Connect mock → load job → run).
+			Open <a href="{base}/workflow">Workflow</a>: the API base defaults to <code>http://127.0.0.1:8080/api/v1</code> on
+			hosted sites (adjust and save if your backend uses another port). Then run the reference flow (Connect mock →
+			load job → run).
 		</li>
 	</ol>
 	<p class="ldk-muted">

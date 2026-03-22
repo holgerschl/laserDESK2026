@@ -2,6 +2,7 @@
 	import { base } from '$app/paths';
 	import { onDestroy, onMount } from 'svelte';
 	import * as api from '$lib/api/laserdesk';
+	import { getApiBase } from '$lib/api/config';
 	import { openRtcChannel, postRtcLog } from '$lib/laser/rtcChannel';
 	import type { WorkflowDefinition, WorkflowStep } from '$lib/workflow/types';
 	import { assertValidWorkflow } from '$lib/workflow/validate';
@@ -23,6 +24,8 @@
 	let healthJson = $state<string>('');
 
 	let bc: ReturnType<typeof openRtcChannel> | null = null;
+
+	const apiBaseDisplay = getApiBase();
 
 	let connectionState = $derived.by(() => {
 		if (!rtcJson) return '—';
@@ -178,6 +181,9 @@
 	<p class="ldk-muted">Loading workflow…</p>
 {:else}
 	<p class="ldk-muted">{workflow.description}</p>
+	<p class="ldk-muted" data-testid="workflow-api-base">
+		API base: <code>{apiBaseDisplay}</code>
+	</p>
 
 	<div class="ldk-steps" role="tablist" aria-label="Workflow steps">
 		{#each workflow.steps as s, i (s.id)}

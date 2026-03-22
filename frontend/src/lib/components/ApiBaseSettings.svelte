@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { API_BASE_STORAGE_KEY, getApiBase } from '$lib/api/config';
+	import { API_BASE_STORAGE_KEY, DEFAULT_LOCAL_BACKEND_API_BASE, getApiBase } from '$lib/api/config';
 
-	let input = $state('http://127.0.0.1:8080/api/v1');
+	let input = $state(DEFAULT_LOCAL_BACKEND_API_BASE);
 	let saved = $state(false);
 
 	onMount(() => {
@@ -29,7 +29,7 @@
 	function clearStored() {
 		try {
 			localStorage.removeItem(API_BASE_STORAGE_KEY);
-			input = 'http://127.0.0.1:8080/api/v1';
+			input = DEFAULT_LOCAL_BACKEND_API_BASE;
 			saved = true;
 			setTimeout(() => (saved = false), 2500);
 		} catch {
@@ -46,7 +46,12 @@
 	</p>
 	<div class="ldk-field" style="max-width:36rem">
 		<label for="api-base">API root</label>
-		<input id="api-base" type="url" bind:value={input} placeholder="http://127.0.0.1:8080/api/v1" />
+		<input
+			id="api-base"
+			type="url"
+			bind:value={input}
+			placeholder={DEFAULT_LOCAL_BACKEND_API_BASE}
+		/>
 	</div>
 	<div class="ldk-row">
 		<button type="button" class="ldk-btn" onclick={save}>Save in this browser</button>
