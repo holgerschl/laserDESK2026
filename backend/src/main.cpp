@@ -69,6 +69,8 @@ int main(int argc, char** argv) {
     svr.set_default_headers(std::move(hdrs));
     svr.Options(".*", [](const httplib::Request&, httplib::Response& res) { res.status = 204; });
     std::cerr << "[laserdesk_backend] CORS: Access-Control-Allow-Origin=" << cors << "\n";
+    std::cerr << "[laserdesk_backend] CORS: Access-Control-Allow-Private-Network=true (required for HTTPS "
+                 "pages → localhost in Chromium)\n";
   }
 
   laserdesk::http_api::BackendSession session;

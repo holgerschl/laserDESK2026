@@ -22,8 +22,8 @@ async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
 				`Cannot reach the backend (${host}). ` +
 					`If you opened this app from another site (e.g. GitHub Pages), run laserdesk_backend with ` +
 					`LASERDESK_CORS_ORIGIN set exactly to this page’s origin (e.g. ${origin || 'https://your-user.github.io'}, no path). ` +
-					`Use a current backend build (Private Network / CORS headers). Match the API base port. ` +
-					`If the browser asks to allow local network access, choose Allow. (${msg})`
+					`On startup the console must mention “Access-Control-Allow-Private-Network=true”; if not, replace the exe with the ` +
+					`latest from GitHub Releases. Match the API base port. If Chromium asks to allow local network access, choose Allow. (${msg})`
 			);
 		}
 		throw e;

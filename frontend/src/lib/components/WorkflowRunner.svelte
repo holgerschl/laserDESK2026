@@ -279,27 +279,6 @@
 	}
 </script>
 
-<div class="ldk-card ldk-status-panel" data-testid="workflow-status-log">
-	<div class="ldk-status-panel-head">
-		<h2 class="ldk-status-panel-title">Status log</h2>
-		<button type="button" class="ldk-btn secondary" data-testid="status-log-clear" onclick={clearStatusLog}
-			>Clear log</button
-		>
-	</div>
-	<p class="ldk-muted" style="margin:0 0 0.5rem;font-size:0.85rem">
-		Current API base: <code data-testid="workflow-api-base">{apiBaseDisplay || '…'}</code>
-	</p>
-	{#if apiError}
-		<p class="ldk-error" role="alert" data-testid="workflow-api-error">{apiError}</p>
-	{/if}
-	{#if successHint}
-		<p class="ldk-success" role="status">{successHint}</p>
-	{/if}
-	<div role="log" aria-live="polite" aria-relevant="additions" class="ldk-status-log-region">
-		<pre class="ldk-pre ldk-status-log-pre" data-testid="workflow-status-log-body">{statusLogText || '(no events yet)'}</pre>
-	</div>
-</div>
-
 {#if loadError}
 	<p class="ldk-error" role="alert">Failed to load workflow: {loadError}</p>
 	<button type="button" class="ldk-btn secondary" onclick={() => loadWorkflow()}>Retry</button>
@@ -443,11 +422,32 @@
 			{/if}
 		{/key}
 	</div>
+
+	<div class="ldk-card ldk-status-panel" data-testid="workflow-status-log">
+		<div class="ldk-status-panel-head">
+			<h2 class="ldk-status-panel-title">Status log</h2>
+			<button type="button" class="ldk-btn secondary" data-testid="status-log-clear" onclick={clearStatusLog}
+				>Clear log</button
+			>
+		</div>
+		<p class="ldk-muted" style="margin:0 0 0.5rem;font-size:0.85rem">
+			Current API base: <code data-testid="workflow-api-base">{apiBaseDisplay || '…'}</code>
+		</p>
+		{#if apiError}
+			<p class="ldk-error" role="alert" data-testid="workflow-api-error">{apiError}</p>
+		{/if}
+		{#if successHint}
+			<p class="ldk-success" role="status">{successHint}</p>
+		{/if}
+		<div role="log" aria-live="polite" aria-relevant="additions" class="ldk-status-log-region">
+			<pre class="ldk-pre ldk-status-log-pre" data-testid="workflow-status-log-body">{statusLogText || '(no events yet)'}</pre>
+		</div>
+	</div>
 {/if}
 
 <style>
 	.ldk-status-panel {
-		margin-bottom: 1rem;
+		margin-top: 1rem;
 	}
 	.ldk-status-panel-head {
 		display: flex;
