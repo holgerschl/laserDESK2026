@@ -1,7 +1,11 @@
 import { expect, test } from '@playwright/test';
 
+const E2E_API = 'http://127.0.0.1:18080/api/v1';
+
 test.describe('Reference minimal-demo workflow', () => {
 	test('connect mock, load job, run, see running state', async ({ page }) => {
+		await page.request.post(`${E2E_API}/rtc/disconnect`);
+
 		await page.goto('/workflow');
 
 		await expect(page.getByRole('tablist', { name: 'Workflow steps' })).toBeVisible();

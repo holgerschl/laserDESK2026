@@ -6,7 +6,11 @@ import { expect, test } from '@playwright/test';
  */
 const E2E_API_BASE = 'http://127.0.0.1:18080/api/v1';
 
-test.describe('Backend server connection', () => {
+test.describe.serial('Backend server connection', () => {
+	test.beforeEach(async ({ request }) => {
+		await request.post(`${E2E_API_BASE}/rtc/disconnect`);
+	});
+
 	test('GET /health responds', async ({ request }) => {
 		const res = await request.get(`${E2E_API_BASE}/health`);
 		expect(res.status()).toBe(200);
@@ -15,8 +19,6 @@ test.describe('Backend server connection', () => {
 	});
 
 	test('POST /rtc/connect (mock) returns 204 and status shows connected', async ({ request }) => {
-		await request.post(`${E2E_API_BASE}/rtc/disconnect`);
-
 		const connect = await request.post(`${E2E_API_BASE}/rtc/connect`, {
 			headers: { 'Content-Type': 'application/json' },
 			data: { mode: 'mock' }

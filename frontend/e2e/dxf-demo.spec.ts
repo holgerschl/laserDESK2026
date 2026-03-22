@@ -1,22 +1,21 @@
 import { expect, test } from '@playwright/test';
 
+/** Same backend as playwright.config webServer (e2e-backend.mjs on 18080). */
+const E2E_API = 'http://127.0.0.1:18080/api/v1';
+
 test.describe('DXF Phase G demo', () => {
 	test('load demo from static, parse, load RTC, run', async ({ page }) => {
-		await page.goto('/dxf');
+		// RTC session is one per backend process; reset so we never rely on UI race (disconnect disabled before first refresh).
+		await page.request.post(`${E2E_API}/rtc/disconnect`);
 
-		const disconnectBtn = page.getByTestId('dxf-disconnect');
-		if (await disconnectBtn.isEnabled()) {
-			await disconnectBtn.click();
-			await page.waitForResponse(
-				(r) => r.url().includes('/api/v1/rtc/disconnect') && r.status() === 204
-			);
-		}
+		await page.goto('/dxf');
 
 		const connectWait = page.waitForResponse(
 			(r) => r.url().includes('/api/v1/rtc/connect') && r.status() === 204
 		);
 		await page.getByTestId('dxf-connect-mock').click();
 		await connectWait;
+		await expect(page.getByTestId('dxf-disconnect')).toBeEnabled();
 
 		const parseWait = page.waitForResponse(
 			(r) =>
@@ -37,6 +36,8 @@ test.describe('DXF Phase G demo', () => {
 		await page.getByTestId('dxf-load-rtc').click();
 		await loadRtcWait;
 
+		await expect(page.getByTestId('dxf-start')).toBeEnabled({ timeout: 20_000 });
+
 		const runWait = page.waitForResponse(
 			(r) => r.url().includes('/api/v1/jobs/dxf/') && r.url().endsWith('/run') && r.status() === 204
 		);
@@ -44,6 +45,8 @@ test.describe('DXF Phase G demo', () => {
 		await runWait;
 
 		await expect(page.getByTestId('dxf-rtc-state')).toContainText('running');
+
+		await expect(page.getByTestId('dxf-stop')).toBeEnabled({ timeout: 15_000 });
 
 		const stopWait = page.waitForResponse(
 			(r) => r.url().includes('/api/v1/jobs/dxf/') && r.url().endsWith('/stop') && r.status() === 204
