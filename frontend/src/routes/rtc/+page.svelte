@@ -62,7 +62,8 @@
 	<button type="button" class="ldk-btn secondary" data-testid="rtc-refresh" onclick={() => refresh()}
 		>Refresh now</button
 	>
-	<a href="{base}/" data-testid="rtc-back-workflow">Back to workflow</a>
+	<a href="{base}/usage" data-testid="rtc-back-home">Usage</a>
+	<a href="{base}/workflow" data-testid="rtc-back-workflow">Workflow</a>
 </div>
 
 <div class="ldk-card">

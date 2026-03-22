@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { base } from '$app/paths';
 	import ApiBaseSettings from '$lib/components/ApiBaseSettings.svelte';
+
+	const RELEASE_EXE =
+		'https://github.com/holgerschl/laserDESK2026/releases/latest/download/laserdesk_backend.exe';
+	const RELEASES_LATEST = 'https://github.com/holgerschl/laserDESK2026/releases/latest';
 </script>
 
 <svelte:head>
@@ -19,22 +23,32 @@
 	<p>
 		The public UI is published at
 		<a href="https://holgerschl.github.io/laserDESK2026/">https://holgerschl.github.io/laserDESK2026/</a>
-		(adjust if your repository name differs). The backend does <strong>not</strong> run on GitHub — it must run on
-		your computer (or lab PC) while you use the site.
+		(adjust if your repository name differs). This page is the default landing; the workflow UI is under
+		<a href="{base}/workflow">Workflow</a>. The backend does <strong>not</strong> run on GitHub — it must run on your
+		computer (or lab PC) while you use the site.
 	</p>
 	<ol>
-		<li>Download <code>laserdesk_backend.exe</code> from the latest <strong>Release</strong> on GitHub (Windows x64).</li>
+		<li>
+			<strong>Download the Windows backend:</strong>
+			<a href={RELEASE_EXE} data-testid="download-backend-exe">laserdesk_backend.exe (latest Release)</a>
+			— direct link. All releases:
+			<a href={RELEASES_LATEST}>GitHub Releases</a>.
+			<span class="ldk-muted"
+				>(If the link 404s, no Release has been published yet — run the “Release Windows backend” workflow or push a
+				<code>v*</code> tag.)</span
+			>
+		</li>
 		<li>
 			Open PowerShell in the folder containing the executable and run (example — use your GitHub Pages origin):
 			<pre class="ldk-pre">$env:LASERDESK_CORS_ORIGIN = "https://holgerschl.github.io"
 .\laserdesk_backend.exe --port 8080</pre>
 		</li>
 		<li>
-			In the browser, open the <a href="{base}/usage">Usage</a> page on GitHub Pages, set <strong>API base URL</strong> to
-			<code>http://127.0.0.1:8080/api/v1</code>, and save.
+			On this page, set <strong>Backend API base URL</strong> (below) to
+			<code>http://127.0.0.1:8080/api/v1</code> and save.
 		</li>
 		<li>
-			Open <a href="{base}/">Workflow</a> and run the reference workflow (Connect mock → load job → run).
+			Open <a href="{base}/workflow">Workflow</a> and run the reference flow (Connect mock → load job → run).
 		</li>
 	</ol>
 	<p class="ldk-muted">
@@ -44,8 +58,8 @@
 
 	<h2>Backend executable (Windows)</h2>
 	<p>
-		Releases are built in CI and attached to GitHub <strong>Releases</strong> as
-		<code>laserdesk_backend.exe</code>. To build from source instead, see
+		CI attaches <code>laserdesk_backend.exe</code> to <a href={RELEASES_LATEST}>Releases</a>. Download again:
+		<a href={RELEASE_EXE}>latest <code>laserdesk_backend.exe</code></a>. To build from source, see
 		<code>backend/README.md</code> in the repository (CMake, C++17).
 	</p>
 

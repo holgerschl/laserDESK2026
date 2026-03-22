@@ -11,6 +11,7 @@
 	Reference workflow (mock backend). Steps load
 	<code>{base}/workflows/reference-minimal-demo.json</code>
 	— schema in repo: <code>docs/workflows/workflow-schema.json</code>.
+	<a href="{base}/usage">← Usage & installation</a>
 </p>
 
 <WorkflowRunner />

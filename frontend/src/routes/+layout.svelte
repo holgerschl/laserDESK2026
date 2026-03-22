@@ -21,15 +21,15 @@
 	<header class="ldk-header">
 		<h1>laserDESK 2026</h1>
 		<nav class="ldk-nav" aria-label="Main">
-			<a href="{base}/">Workflow</a>
+			<a href="{base}/usage" data-testid="nav-usage">Usage</a>
+			<a href="{base}/workflow" data-testid="nav-workflow">Workflow</a>
 			<a href="{base}/rtc" data-testid="nav-rtc">RTC window</a>
-			<a href="{base}/usage">Usage</a>
 		</nav>
 	</header>
 	{#if onGithubPages}
 		<p class="ldk-muted" style="margin:-0.5rem 0 1rem">
-			Hosted UI: configure your PC backend URL on the
-			<a href="{base}/usage">Usage</a> page and start <code>laserdesk_backend</code> with CORS (see there).
+			Hosted UI: set <strong>Backend API base URL</strong> below (or on Usage), start <code>laserdesk_backend</code> with
+			CORS — see <a href="{base}/usage">Usage</a>. Open the app under <a href="{base}/workflow">Workflow</a>.
 		</p>
 	{/if}
 	{@render children()}

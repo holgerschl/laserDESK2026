@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Reference minimal-demo workflow', () => {
 	test('connect mock, load job, run, see running state', async ({ page }) => {
-		await page.goto('/');
+		await page.goto('/workflow');
 
 		await expect(page.getByRole('tablist', { name: 'Workflow steps' })).toBeVisible();
 
