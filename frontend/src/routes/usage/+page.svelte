@@ -5,6 +5,8 @@
 	const RELEASE_EXE =
 		'https://github.com/holgerschl/laserDESK2026/releases/latest/download/laserdesk_backend.exe';
 	const RELEASES_LATEST = 'https://github.com/holgerschl/laserDESK2026/releases/latest';
+	const RELEASE_WORKFLOW =
+		'https://github.com/holgerschl/laserDESK2026/actions/workflows/release-backend-windows.yml';
 </script>
 
 <svelte:head>
@@ -34,8 +36,10 @@
 			— direct link. All releases:
 			<a href={RELEASES_LATEST}>GitHub Releases</a>.
 			<span class="ldk-muted"
-				>(If the link 404s, no Release has been published yet — run the “Release Windows backend” workflow or push a
-				<code>v*</code> tag.)</span
+				>GitHub shows a <strong>404 page</strong> until at least one Release exists. Fix:
+				<a href={RELEASE_WORKFLOW}>open the “Release Windows backend” workflow</a> and click
+				<strong>Run workflow</strong> (publishes <code>laserdesk_backend.exe</code>), or push a version tag such as
+				<code>v0.1.0</code>.</span
 			>
 		</li>
 		<li>
