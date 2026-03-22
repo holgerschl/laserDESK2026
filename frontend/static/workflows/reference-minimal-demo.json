@@ -1,0 +1,51 @@
+{
+	"id": "reference-minimal-demo",
+	"version": "1.0.0",
+	"title": "Minimal demo (mock RTC)",
+	"description": "Connect mock RTC, set an optional job label, load the minimal demo job, run and stop. Matches backend routes under /api/v1/jobs/minimal-demo.",
+	"steps": [
+		{
+			"id": "connect",
+			"title": "RTC session",
+			"description": "Establish a mock RTC session through the backend (no scanner hardware).",
+			"kind": "connect",
+			"connectOptions": { "defaultMode": "mock" }
+		},
+		{
+			"id": "params",
+			"title": "Job parameters",
+			"description": "Optional label passed when registering the minimal demo job.",
+			"kind": "parameters",
+			"parameterFields": [
+				{
+					"id": "label",
+					"label": "Job label",
+					"type": "string",
+					"default": "workflow-demo",
+					"apiBinding": "minimalJob.label"
+				}
+			]
+		},
+		{
+			"id": "load",
+			"title": "Load job",
+			"description": "Register the minimal demo job with the RTC session.",
+			"kind": "load-job",
+			"allowedActions": ["loadMinimalDemoJob"]
+		},
+		{
+			"id": "run",
+			"title": "Run control",
+			"description": "Start or stop execution of the loaded job.",
+			"kind": "run",
+			"allowedActions": ["startRun", "stopRun"]
+		},
+		{
+			"id": "status",
+			"title": "RTC status",
+			"description": "Poll backend RTC status (connection state and mock execution state).",
+			"kind": "status",
+			"allowedActions": ["refreshStatus"]
+		}
+	]
+}

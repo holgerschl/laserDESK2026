@@ -1,0 +1,26 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S backend -B backend/build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build backend/build --parallel
+
+      - name: Test
+        run: ctest --test-dir backend/build --output-on-failure

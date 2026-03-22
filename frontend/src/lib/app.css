@@ -1,0 +1,165 @@
+:root {
+	font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+	line-height: 1.45;
+	color: #0f1419;
+	background: #f4f6f8;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	min-height: 100vh;
+}
+
+a {
+	color: #0b5fff;
+}
+
+a:focus-visible,
+button:focus-visible {
+	outline: 2px solid #0b5fff;
+	outline-offset: 2px;
+}
+
+.ldk-shell {
+	max-width: 56rem;
+	margin: 0 auto;
+	padding: 1rem 1.25rem 2rem;
+}
+
+.ldk-header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 0.75rem;
+	margin-bottom: 1.25rem;
+	padding-bottom: 0.75rem;
+	border-bottom: 1px solid #d8dee6;
+}
+
+.ldk-header h1 {
+	margin: 0;
+	font-size: 1.35rem;
+	font-weight: 650;
+}
+
+.ldk-nav {
+	display: flex;
+	gap: 1rem;
+	font-size: 0.95rem;
+}
+
+.ldk-card {
+	background: #fff;
+	border: 1px solid #d8dee6;
+	border-radius: 8px;
+	padding: 1rem 1.1rem;
+	margin-bottom: 1rem;
+	box-shadow: 0 1px 2px rgb(15 20 25 / 4%);
+}
+
+.ldk-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+}
+
+.ldk-steps {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+	margin-bottom: 1rem;
+}
+
+.ldk-step-tab {
+	border: 1px solid #c5ced9;
+	background: #fff;
+	border-radius: 6px;
+	padding: 0.35rem 0.65rem;
+	font-size: 0.875rem;
+	cursor: pointer;
+}
+
+.ldk-step-tab:hover {
+	border-color: #0b5fff;
+}
+
+.ldk-step-tab[aria-current='step'] {
+	background: #e8f0ff;
+	border-color: #0b5fff;
+	font-weight: 600;
+}
+
+.ldk-btn {
+	border: none;
+	border-radius: 6px;
+	padding: 0.45rem 0.85rem;
+	font-size: 0.9rem;
+	cursor: pointer;
+	background: #0b5fff;
+	color: #fff;
+}
+
+.ldk-btn:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.ldk-btn.secondary {
+	background: #e9eef5;
+	color: #1a2430;
+}
+
+.ldk-btn.danger {
+	background: #c42b2b;
+}
+
+.ldk-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	margin-bottom: 0.75rem;
+	max-width: 24rem;
+}
+
+.ldk-field label {
+	font-size: 0.85rem;
+	font-weight: 600;
+}
+
+.ldk-field input,
+.ldk-field select {
+	padding: 0.4rem 0.5rem;
+	border-radius: 6px;
+	border: 1px solid #c5ced9;
+	font: inherit;
+}
+
+.ldk-muted {
+	color: #5c6b7a;
+	font-size: 0.9rem;
+}
+
+.ldk-pre {
+	font-family: ui-monospace, monospace;
+	font-size: 0.8rem;
+	background: #0f1419;
+	color: #e8ecf1;
+	padding: 0.75rem;
+	border-radius: 6px;
+	overflow: auto;
+	max-height: 14rem;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.ldk-error {
+	color: #a30f0f;
+	font-size: 0.9rem;
+	margin: 0.25rem 0;
+}

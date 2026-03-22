@@ -1,0 +1,44 @@
+#include "http/api_router.hpp"
+
+#include <gtest/gtest.h>
+#include <nlohmann/json.hpp>
+
+using laserdesk::http_api::BackendSession;
+
+TEST(BackendSession, ConnectMockAndHealth) {
+  BackendSession s;
+  nlohmann::json err;
+  EXPECT_EQ(s.handle_post_rtc_connect(nlohmann::json{{"mode", "mock"}}, err), 204);
+
+  auto h = s.handle_get_health();
+  EXPECT_EQ(h["status"].get<std::string>(), "ok");
+  EXPECT_EQ(h["rtc_mode"].get<std::string>(), "mock");
+}
+
+TEST(BackendSession, EthernetConnectMissingHost400) {
+  BackendSession s;
+  nlohmann::json err;
+  EXPECT_EQ(s.handle_post_rtc_connect(nlohmann::json{{"mode", "ethernet"}}, err), 400);
+  EXPECT_EQ(err["code"].get<std::string>(), "RTC_INTERNAL");
+}
+
+TEST(BackendSession, JobFlowAfterConnect) {
+  BackendSession s;
+  nlohmann::json err;
+  ASSERT_EQ(s.handle_post_rtc_connect(nlohmann::json{{"mode", "mock"}}, err), 204);
+
+  nlohmann::json out;
+  ASSERT_EQ(s.handle_post_minimal_demo_job(nlohmann::json{{"label", "e2e"}}, out, err), 200);
+  ASSERT_TRUE(out.contains("job_id"));
+  EXPECT_FALSE(out["job_id"].get<std::string>().empty());
+
+  EXPECT_EQ(s.handle_post_minimal_demo_run(err), 204);
+  EXPECT_EQ(s.handle_post_minimal_demo_stop(err), 204);
+}
+
+TEST(BackendSession, JobWithoutConnect409) {
+  BackendSession s;
+  nlohmann::json err, out;
+  EXPECT_EQ(s.handle_post_minimal_demo_job({}, out, err), 409);
+  EXPECT_EQ(err["code"].get<std::string>(), "RTC_NOT_CONNECTED");
+}

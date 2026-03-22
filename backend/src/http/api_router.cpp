@@ -1,0 +1,222 @@
+#include "api_router.hpp"
+
+#include "rtc/ethernet_rtc_client.hpp"
+#include "rtc/mock_rtc_client.hpp"
+
+namespace laserdesk::http_api {
+
+namespace {
+
+nlohmann::json error_json(const rtc::RtcError& e) {
+  return nlohmann::json{{"code", e.code}, {"message", e.message}};
+}
+
+}  // namespace
+
+std::string BackendSession::health_rtc_mode() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!rtc_) return "disconnected";
+  auto st = rtc_->get_status();
+  if (std::holds_alternative<rtc::RtcError>(st)) return "disconnected";
+  return std::get<rtc::RtcStatus>(st).rtc_mode;
+}
+
+nlohmann::json BackendSession::handle_get_health() const {
+  nlohmann::json j{{"status", rtc::kHealthOk}};
+  j["rtc_mode"] = health_rtc_mode();
+  return j;
+}
+
+nlohmann::json BackendSession::handle_get_rtc_status() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!rtc_) {
+    return nlohmann::json{{"connection_state", "disconnected"}, {"rtc_mode", nullptr}};
+  }
+  auto st = rtc_->get_status();
+  if (std::holds_alternative<rtc::RtcError>(st)) {
+    const auto& e = std::get<rtc::RtcError>(st);
+    return nlohmann::json{{"connection_state", "disconnected"},
+                          {"last_error", error_json(e)}};
+  }
+  const auto& r = std::get<rtc::RtcStatus>(st);
+  nlohmann::json j{{"connection_state", r.connection_state}, {"rtc_mode", r.rtc_mode}};
+  if (r.package_version_reported) j["package_version_reported"] = *r.package_version_reported;
+  if (r.bios_eth_reported) j["bios_eth_reported"] = *r.bios_eth_reported;
+  j["alignment_ok"] = r.alignment_ok;
+  if (r.remote_status_register) j["remote_status"] = *r.remote_status_register;
+  if (r.remote_pos_register) j["remote_pos"] = *r.remote_pos_register;
+  if (r.last_error) j["last_error"] = error_json(*r.last_error);
+  return j;
+}
+
+int BackendSession::handle_post_rtc_connect(const nlohmann::json& body, nlohmann::json& err_out) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::string mode_s = body.value("mode", "");
+  if (mode_s == "ethernet") {
+    std::string host = body.value("host", "");
+    if (host.empty()) {
+      err_out = error_json(
+          rtc::RtcError{"RTC_INTERNAL", "ethernet mode requires non-empty \"host\" (board IP or DNS)"});
+      return 400;
+    }
+    int port = body.contains("port") && body["port"].is_number_integer() ? body["port"].get<int>() : 5020;
+    if (port <= 0 || port > 65535) {
+      err_out = error_json(rtc::RtcError{"RTC_INTERNAL", "invalid \"port\""});
+      return 400;
+    }
+    rtc_ = rtc::make_ethernet_rtc_client();
+    rtc::RtcConnectConfig cfg;
+    cfg.mode = rtc::RtcConnectConfig::Mode::Ethernet;
+    cfg.host = std::move(host);
+    cfg.port = port;
+    if (body.contains("tgm_format") && body["tgm_format"].is_number_unsigned())
+      cfg.tgm_format = body["tgm_format"].get<std::uint32_t>();
+    if (body.contains("recv_timeout_ms") && body["recv_timeout_ms"].is_number_integer())
+      cfg.recv_timeout_ms = body["recv_timeout_ms"].get<int>();
+    if (body.contains("expected_package_tag") && body["expected_package_tag"].is_string())
+      cfg.expected_package_tag = body["expected_package_tag"].get<std::string>();
+    if (body.contains("expected_bios_eth_tag") && body["expected_bios_eth_tag"].is_string())
+      cfg.expected_bios_eth_tag = body["expected_bios_eth_tag"].get<std::string>();
+    if (auto e = rtc_->connect(cfg)) {
+      err_out = error_json(*e);
+      rtc_.reset();
+      return 503;
+    }
+    return 204;
+  }
+  if (mode_s != "mock") {
+    err_out = error_json(
+        rtc::RtcError{"RTC_INTERNAL", "Invalid or missing \"mode\" (use \"mock\" or \"ethernet\")"});
+    return 400;
+  }
+  rtc_ = rtc::make_mock_rtc_client();
+  rtc::RtcConnectConfig cfg;
+  cfg.mode = rtc::RtcConnectConfig::Mode::Mock;
+  if (auto e = rtc_->connect(cfg)) {
+    err_out = error_json(*e);
+    rtc_.reset();
+    return 400;
+  }
+  return 204;
+}
+
+int BackendSession::handle_post_rtc_disconnect() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (rtc_) rtc_->disconnect();
+  rtc_.reset();
+  return 204;
+}
+
+int BackendSession::handle_post_minimal_demo_job(const nlohmann::json& body, nlohmann::json& out,
+                                                 nlohmann::json& err_out) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!rtc_) {
+    err_out = error_json(rtc::RtcError{"RTC_NOT_CONNECTED", "RTC session not established"});
+    return 409;
+  }
+  std::string label;
+  if (body.contains("label") && body["label"].is_string()) label = body["label"].get<std::string>();
+  auto res = rtc_->load_minimal_job(label);
+  if (std::holds_alternative<rtc::RtcError>(res)) {
+    err_out = error_json(std::get<rtc::RtcError>(res));
+    return 409;
+  }
+  out = nlohmann::json{{"job_id", std::get<std::string>(res)}};
+  return 200;
+}
+
+int BackendSession::handle_post_minimal_demo_run(nlohmann::json& err_out) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!rtc_) {
+    err_out = error_json(rtc::RtcError{"RTC_NOT_CONNECTED", "RTC session not established"});
+    return 409;
+  }
+  if (auto e = rtc_->start_execution()) {
+    err_out = error_json(*e);
+    return 409;
+  }
+  return 204;
+}
+
+int BackendSession::handle_post_minimal_demo_stop(nlohmann::json& err_out) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!rtc_) {
+    err_out = error_json(rtc::RtcError{"RTC_NOT_CONNECTED", "RTC session not established"});
+    return 409;
+  }
+  if (auto e = rtc_->stop_execution()) {
+    err_out = error_json(*e);
+    return 409;
+  }
+  return 204;
+}
+
+void BackendSession::auto_demo_connect_mock() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  rtc_ = rtc::make_mock_rtc_client();
+  rtc::RtcConnectConfig cfg;
+  cfg.mode = rtc::RtcConnectConfig::Mode::Mock;
+  rtc_->connect(cfg);
+}
+
+void register_api_routes(httplib::Server& svr, BackendSession& session) {
+  svr.Get("/api/v1/health", [&](const httplib::Request&, httplib::Response& res) {
+    res.set_content(session.handle_get_health().dump(), "application/json");
+  });
+
+  svr.Get("/api/v1/rtc/status", [&](const httplib::Request&, httplib::Response& res) {
+    res.set_content(session.handle_get_rtc_status().dump(), "application/json");
+  });
+
+  svr.Post("/api/v1/rtc/connect", [&](const httplib::Request& req, httplib::Response& res) {
+    nlohmann::json err;
+    nlohmann::json body;
+    try {
+      body = nlohmann::json::parse(req.body.empty() ? "{}" : req.body);
+    } catch (...) {
+      err = error_json(rtc::RtcError{"RTC_INTERNAL", "Invalid JSON body"});
+      res.status = 400;
+      res.set_content(err.dump(), "application/json");
+      return;
+    }
+    int code = session.handle_post_rtc_connect(body, err);
+    res.status = code;
+    if (code != 204) res.set_content(err.dump(), "application/json");
+  });
+
+  svr.Post("/api/v1/rtc/disconnect", [&](const httplib::Request&, httplib::Response& res) {
+    res.status = session.handle_post_rtc_disconnect();
+  });
+
+  svr.Post("/api/v1/jobs/minimal-demo", [&](const httplib::Request& req, httplib::Response& res) {
+    nlohmann::json err, out;
+    nlohmann::json body;
+    try {
+      body = req.body.empty() ? nlohmann::json::object() : nlohmann::json::parse(req.body);
+    } catch (...) {
+      err = error_json(rtc::RtcError{"RTC_INTERNAL", "Invalid JSON body"});
+      res.status = 400;
+      res.set_content(err.dump(), "application/json");
+      return;
+    }
+    int code = session.handle_post_minimal_demo_job(body, out, err);
+    res.status = code;
+    res.set_content((code == 200 ? out : err).dump(), "application/json");
+  });
+
+  svr.Post("/api/v1/jobs/minimal-demo/run", [&](const httplib::Request&, httplib::Response& res) {
+    nlohmann::json err;
+    int code = session.handle_post_minimal_demo_run(err);
+    res.status = code;
+    if (code != 204) res.set_content(err.dump(), "application/json");
+  });
+
+  svr.Post("/api/v1/jobs/minimal-demo/stop", [&](const httplib::Request&, httplib::Response& res) {
+    nlohmann::json err;
+    int code = session.handle_post_minimal_demo_stop(err);
+    res.status = code;
+    if (code != 204) res.set_content(err.dump(), "application/json");
+  });
+}
+
+}  // namespace laserdesk::http_api

@@ -1,0 +1,228 @@
+openapi: 3.0.3
+info:
+  title: laserDESK 2026 API (Phase A sketch)
+  version: 0.1.0
+  description: |
+    REST sketch for MVP backend. Not final; Phase B/C will align paths and schemas with implementation.
+    All routes prefixed with `/api/v1` when mounted.
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local dev (example port)
+
+tags:
+  - name: health
+  - name: rtc
+  - name: jobs
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness and optional RTC mode
+      operationId: getHealth
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /rtc/status:
+    get:
+      tags: [rtc]
+      summary: RTC session and version summary
+      operationId: getRtcStatus
+      responses:
+        '200':
+          description: Current RTC status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RtcStatusResponse'
+        '503':
+          description: RTC unavailable or version mismatch (real hardware)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /rtc/connect:
+    post:
+      tags: [rtc]
+      summary: Start RTC session (mock or ethernet)
+      operationId: postRtcConnect
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RtcConnectRequest'
+      responses:
+        '204':
+          description: Connected
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /rtc/disconnect:
+    post:
+      tags: [rtc]
+      summary: End RTC session
+      operationId: postRtcDisconnect
+      responses:
+        '204':
+          description: Disconnected
+
+  /jobs/minimal-demo:
+    post:
+      tags: [jobs]
+      summary: Register MVP minimal job descriptor (mock or real)
+      operationId: postMinimalDemoJob
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MinimalJobRequest'
+      responses:
+        '200':
+          description: Job handle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobHandleResponse'
+        '409':
+          description: RTC busy or wrong state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /jobs/minimal-demo/run:
+    post:
+      tags: [jobs]
+      summary: Start execution of minimal demo job
+      operationId: postMinimalDemoRun
+      responses:
+        '204':
+          description: Started
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /jobs/minimal-demo/stop:
+    post:
+      tags: [jobs]
+      summary: Stop execution
+      operationId: postMinimalDemoStop
+      responses:
+        '204':
+          description: Stopped
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+        rtc_mode:
+          type: string
+          enum: [mock, ethernet, disconnected]
+          description: Backend integration mode
+
+    RtcConnectRequest:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [mock, ethernet]
+        host:
+          type: string
+          description: Board IP or hostname (ethernet / UDP Remote Interface)
+        port:
+          type: integer
+          description: UDP port (same as conventional DLL path; default 5020 in backend — confirm with eth_get_port_numbers)
+        tgm_format:
+          type: integer
+          description: TGM_HEADER format field; must match eth_set_remote_tgm_format (RAW often 0)
+        recv_timeout_ms:
+          type: integer
+        expected_package_tag:
+          type: string
+        expected_bios_eth_tag:
+          type: string
+
+    RtcStatusResponse:
+      type: object
+      required: [connection_state]
+      properties:
+        connection_state:
+          type: string
+          enum: [disconnected, connected_idle, loaded, running, error]
+        rtc_mode:
+          type: string
+          enum: [mock, ethernet]
+        package_version_reported:
+          type: string
+        bios_eth_reported:
+          type: string
+        alignment_ok:
+          type: boolean
+          description: false if real hardware failed version pin check
+        remote_status:
+          type: integer
+          description: Optional; last R_DC_GET_STATUS Status (ethernet)
+        remote_pos:
+          type: integer
+          description: Optional; last R_DC_GET_STATUS Pos (ethernet)
+        last_error:
+          $ref: '#/components/schemas/ApiError'
+
+    MinimalJobRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          example: phase-a-demo
+
+    JobHandleResponse:
+      type: object
+      required: [job_id]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Stable machine code e.g. RTC_VERSION_MISMATCH
+          example: RTC_NOT_CONNECTED
+        message:
+          type: string
+          example: RTC session not established
+        details:
+          type: object
+          additionalProperties: true

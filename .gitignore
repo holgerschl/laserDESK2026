@@ -1,0 +1,19 @@
+backend/build/
+backend/out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.user
+.vs/
+*.vcxproj*
+
+# Frontend
+frontend/node_modules/
+frontend/.svelte-kit/
+frontend/build/
+frontend/test-results/
+frontend/playwright-report/
+
+# OS / editor
+.DS_Store
+Thumbs.db
