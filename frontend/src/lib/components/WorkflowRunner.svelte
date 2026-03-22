@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { base } from '$app/paths';
-	import { onDestroy, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import * as api from '$lib/api/laserdesk';
 	import { getApiBase, LASERDESK_API_BASE_CHANGED_EVENT } from '$lib/api/config';
-	import { openRtcChannel, postRtcLog } from '$lib/laser/rtcChannel';
+	import { postRtcLog } from '$lib/laser/rtcChannel';
 	import type { WorkflowDefinition, WorkflowStep } from '$lib/workflow/types';
 	import { assertValidWorkflow } from '$lib/workflow/validate';
 
@@ -22,8 +22,6 @@
 	let paramValues = $state<Record<string, string>>({});
 	let rtcJson = $state<string>('');
 	let healthJson = $state<string>('');
-
-	let bc: ReturnType<typeof openRtcChannel> | null = null;
 
 	let apiBaseDisplay = $state('');
 
@@ -57,7 +55,7 @@
 		if (!line) return;
 		statusLog = [...statusLog.slice(-(STATUS_LOG_MAX - 1)), { ts: Date.now(), kind, msg: line }];
 		const tag = kind === 'err' ? 'ERR' : kind === 'ok' ? 'OK' : 'INFO';
-		postRtcLog(bc, `[${tag}] ${line}`);
+		postRtcLog(`[${tag}] ${line}`);
 	}
 
 	function fmtStatusTime(ts: number) {
@@ -140,11 +138,6 @@
 	});
 
 	onMount(() => {
-		try {
-			bc = openRtcChannel();
-		} catch {
-			bc = null;
-		}
 		apiBaseDisplay = getApiBase();
 		pushStatus('info', `Page origin: ${window.location.origin}`);
 		pushStatus('info', `API base: ${getApiBase()}`);
@@ -155,14 +148,6 @@
 		window.addEventListener(LASERDESK_API_BASE_CHANGED_EVENT, onApiBaseChanged);
 		void loadWorkflow();
 		return () => window.removeEventListener(LASERDESK_API_BASE_CHANGED_EVENT, onApiBaseChanged);
-	});
-
-	onDestroy(() => {
-		try {
-			bc?.close();
-		} catch {
-			/* ignore */
-		}
 	});
 
 	async function loadWorkflow() {
@@ -181,7 +166,7 @@
 				}
 			}
 			paramValues = next;
-			postRtcLog(bc, `Workflow loaded: ${w.id} v${w.version}`);
+			postRtcLog(`Workflow loaded: ${w.id} v${w.version}`);
 			try {
 				await fetchStatusOnly();
 			} catch (e) {
@@ -199,7 +184,7 @@
 	}
 
 	function log(line: string) {
-		postRtcLog(bc, line);
+		postRtcLog(line);
 	}
 
 	async function withBusy<T>(fn: () => Promise<T>): Promise<T | void> {
@@ -439,6 +424,11 @@
 		</div>
 		<p class="ldk-muted" style="margin:0 0 0.5rem;font-size:0.85rem">
 			Current API base: <code data-testid="workflow-api-base">{apiBaseDisplay || '…'}</code>
+		</p>
+		<p class="ldk-muted" style="margin:0 0 0.5rem;font-size:0.85rem">
+			Cross-tab <a href="{base}/rtc">RTC window</a>: open it with the <strong>same</strong> host as this page (do not mix
+			<code>localhost</code> and <code>127.0.0.1</code>). In dev, lines also appear in the browser console as
+			<code>[laserdesk-rtc-log]</code>.
 		</p>
 		{#if apiError}
 			<p class="ldk-error" role="alert" data-testid="workflow-api-error">{apiError}</p>

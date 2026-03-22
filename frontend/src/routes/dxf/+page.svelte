@@ -2,29 +2,29 @@
 	import { base } from '$app/paths';
 	import * as api from '$lib/api/laserdesk';
 	import type { DxfJobEntity, DxfJobResponse } from '$lib/api/laserdesk';
-	import { openRtcChannel, postRtcLog } from '$lib/laser/rtcChannel';
-	import { onDestroy, onMount, tick } from 'svelte';
-
-	let bc: ReturnType<typeof openRtcChannel> | null = null;
+	import { postRtcLog } from '$lib/laser/rtcChannel';
+	import { onMount, tick } from 'svelte';
 
 	function rtcLog(line: string) {
-		postRtcLog(bc, line);
+		postRtcLog(line);
 	}
 
 	onMount(() => {
-		try {
-			bc = openRtcChannel();
-		} catch {
-			bc = null;
-		}
-	});
+		rtcLog(
+			`DXF demo: page ready (${typeof window !== 'undefined' ? window.location.origin : ''}${base}) — further lines only after buttons (Connect, Load demo, Load into RTC, Start/Stop), not from viewing the page alone.`
+		);
 
-	onDestroy(() => {
-		try {
-			bc?.close();
-		} catch {
-			/* ignore */
-		}
+		let lastFocusLog = 0;
+		const onVis = () => {
+			if (document.visibilityState !== 'visible') return;
+			const now = Date.now();
+			if (now - lastFocusLog < 2500) return;
+			lastFocusLog = now;
+			rtcLog('DXF demo: tab focused — use Connect (mock) or Load demo if the log is still empty.');
+		};
+		document.addEventListener('visibilitychange', onVis);
+
+		return () => document.removeEventListener('visibilitychange', onVis);
 	});
 
 	let busy = $state(false);
@@ -271,6 +271,11 @@
 		{#if dxfLineCount != null}
 			· DXF segments: <strong>{dxfLineCount}</strong>
 		{/if}
+	</p>
+	<p class="ldk-muted" style="font-size:0.85rem">
+		<a href="{base}/rtc">RTC activity log</a>: same host as this page (not <code>localhost</code> mixed with
+		<code>127.0.0.1</code>). Lines are sent when you use the buttons above (Connect, Load demo, …), not merely by
+		opening this tab — switching back to this tab emits at most a short “tab focused” hint (throttled).
 	</p>
 
 	<h2 style="font-size:1.05rem;margin-top:1.25rem">Parse DXF</h2>
