@@ -10,6 +10,8 @@ Workflow-centric laser processing UI (Svelte Kit) and backend (RTC6 via Ethernet
 
 Until the repo is published, build and run locally (see below and Phase F in [`docs/implementation-plan.md`](docs/implementation-plan.md)).
 
+**Pages 404 or red workflow?** Follow [`docs/github-pages-setup.md`](docs/github-pages-setup.md) (enable **Source: GitHub Actions** under Settings → Pages first).
+
 ## Documentation
 
 | Document | Description |

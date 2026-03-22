@@ -155,7 +155,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 **Maintainer checklist (not automated here)**
 
 1. Create public repo **`holgerschl/laserDESK2026`** (or rename local folder to match), `git remote add origin …`, push `main`.
-2. **Settings → Pages → Build and deployment → Source: GitHub Actions** (first deploy may ask to approve the `github-pages` environment).
+2. **Settings → Pages → Build and deployment → Source: GitHub Actions** (first deploy may ask to approve the `github-pages` environment). If workflows stay red or the site is 404, see [`docs/github-pages-setup.md`](github-pages-setup.md).
 3. Push to `main` (or run **Deploy GitHub Pages** manually) to publish the site.
 4. Run **Release Windows backend** once, or push tag `v0.1.0` to create a Release with `laserdesk_backend.exe`.
 5. Users: download `.exe`, set `LASERDESK_CORS_ORIGIN` to `https://holgerschl.github.io`, open hosted **Usage** page and save API base `http://127.0.0.1:8080/api/v1`.
