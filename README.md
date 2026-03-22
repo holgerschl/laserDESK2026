@@ -31,5 +31,6 @@ Until the repo is published, build and run locally (see below and Phase F in [`d
 - **`docs/`** – plans, ADRs, API sketches, RTC notes, and the PDF/HTML references above
 - **`backend/`** – C++17 REST server (`laserdesk_backend`), mock RTC (`src/rtc/`), API routes (`src/http/`), unit tests
 - **`.github/workflows/`** – GitHub Pages deploy; Windows backend Releases (Phase F)
+- **`demo/dxf/`** – Phase G reference DXF ([`demo/dxf/SCANLABLogo.dxf`](demo/dxf/SCANLABLogo.dxf)); MVP catalog entries for DXF load → RTC run — see [`docs/requirements/mvp-feature-katalog.md`](docs/requirements/mvp-feature-katalog.md)
 
 **Frontend:** [`frontend/`](frontend/) — Svelte Kit, workflow-driven UI, `/rtc` monitor, `/usage` docs, Playwright E2E. See [`frontend/README.md`](frontend/README.md).

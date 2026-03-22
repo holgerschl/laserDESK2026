@@ -160,6 +160,28 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 4. Run **Release Windows backend** once, or push tag `v0.1.0` to create a Release with `laserdesk_backend.exe`.
 5. Users: download `.exe`, set `LASERDESK_CORS_ORIGIN` to `https://holgerschl.github.io`, open hosted **Usage** page and save API base `http://127.0.0.1:8080/api/v1`.
 
+### Phase G – DXF demo asset and MVP scope (laser job from DXF)
+
+**Status:** Catalog + demo file in repo — **implementation** of B-07…B-09, F-05…F-07, X-03 is **not** done in this increment (tracked in [`docs/requirements/mvp-feature-katalog.md`](requirements/mvp-feature-katalog.md)).
+
+**Objectives**
+
+- Ship a **reference DXF** for development and demos.
+- Extend MVP to cover: **load DXF**, **display** geometry + **entity/job list** UI, **parse → RTC Remote Interface commands**, **run** DXF-derived job (mock first, then ethernet).
+
+**Deliverables**
+
+| Item | Location |
+|------|----------|
+| Demo DXF (canonical) | [`demo/dxf/SCANLABLogo.dxf`](../demo/dxf/SCANLABLogo.dxf) |
+| Static copy for frontend fetch | [`frontend/static/demo/dxf/SCANLABLogo.dxf`](../frontend/static/demo/dxf/SCANLABLogo.dxf) |
+| MVP requirements | [`docs/requirements/mvp-feature-katalog.md`](requirements/mvp-feature-katalog.md) — rows **B-07…B-09**, **F-05…F-07**, **X-03** |
+
+**Implementation notes (for follow-up work)**
+
+- Parser: start with **ASCII DXF** subset needed for `SCANLABLogo.dxf` (LINE, LWPOLYLINE, ARC, CIRCLE, etc. as present); add tests with the demo file.
+- RTC mapping: align with **RTC6 software package** list / Remote List Command documentation; keep generation behind `IRtcClient` so mock and ethernet share the same job descriptor.
+
 ---
 
 ## 5. Dependencies and prerequisites
@@ -188,6 +210,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 - Frontend completes **at least one workflow** end-to-end against that API.
 - **Playwright** passes against mock backend in CI (see `.github/workflows/e2e.yml`).
 - Core backend code remains **portable** (no mandatory Windows RTC DLL in the long-term path).
+- **Phase G (when implemented):** Demo **DXF** loaded and displayed with **entity/job list**; parsed output drives **mock** (then ethernet) execution per catalog **B-07…B-09**, **F-05…F-07**, **X-03**.
 
 ---
 
@@ -201,6 +224,7 @@ These live in **`docs/`** (same folder as this file for the HTML/PDFs):
 - `docs/workflows/workflow-schema.json`, `docs/workflows/reference-minimal-demo.json` – workflow model (Phase E).
 - `frontend/` – Svelte Kit app and Playwright specs (Phase E).
 - `.github/workflows/` – Pages deploy, Windows backend release, backend CI (Phase F).
+- `demo/dxf/SCANLABLogo.dxf` – Phase G reference DXF (copy also under `frontend/static/demo/dxf/`).
 
 ---
 

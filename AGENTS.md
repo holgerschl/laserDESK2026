@@ -19,5 +19,5 @@
 
 ## Scope
 
-- MVP features: `docs/requirements/mvp-feature-katalog.md`.
+- MVP features: `docs/requirements/mvp-feature-katalog.md` (includes Phase G: DXF → RTC job; demo `demo/dxf/SCANLABLogo.dxf`).
 - Implementation phases: `docs/implementation-plan.md`.
