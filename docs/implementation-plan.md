@@ -145,6 +145,9 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 | Item | Location / notes |
 |------|------------------|
 | Pages deploy workflow | [`.github/workflows/deploy-github-pages.yml`](../.github/workflows/deploy-github-pages.yml) — build with `SVELTEKIT_BASE_PATH=/laserDESK2026`, deploy via **GitHub Actions** Pages |
+| Frontend CI | [`.github/workflows/frontend-ci.yml`](../.github/workflows/frontend-ci.yml) — `svelte-check` + static build |
+| E2E CI | [`.github/workflows/e2e.yml`](../.github/workflows/e2e.yml) — build backend on Ubuntu, **Playwright** against mock RTC |
+| Backend CI | [`.github/workflows/backend-ci.yml`](../.github/workflows/backend-ci.yml) — unit tests |
 | Windows release workflow | [`.github/workflows/release-backend-windows.yml`](../.github/workflows/release-backend-windows.yml) — artifact on manual run; **Release + `.exe`** on `v*` tags |
 | User-facing HTML docs | [`frontend/src/routes/usage/+page.svelte`](../frontend/src/routes/usage/+page.svelte) → deployed at `…/laserDESK2026/usage/` |
 | API base + CORS | [`frontend/src/lib/api/config.ts`](../frontend/src/lib/api/config.ts), [`backend/src/main.cpp`](../backend/src/main.cpp) (`LASERDESK_CORS_ORIGIN`) |
@@ -183,7 +186,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 
 - Backend controls **RTC6 over Ethernet** in **Remote Interface Mode** for a **defined minimal process**, with **automated tests** against **mock** RTC.
 - Frontend completes **at least one workflow** end-to-end against that API.
-- **Playwright** passes against mock backend in CI.
+- **Playwright** passes against mock backend in CI (see `.github/workflows/e2e.yml`).
 - Core backend code remains **portable** (no mandatory Windows RTC DLL in the long-term path).
 
 ---
