@@ -2,6 +2,7 @@
 	import { base } from '$app/paths';
 	import * as api from '$lib/api/laserdesk';
 	import type { DxfJobEntity, DxfJobResponse } from '$lib/api/laserdesk';
+	import { tick } from 'svelte';
 
 	let busy = $state(false);
 	let err = $state<string | null>(null);
@@ -11,6 +12,20 @@
 	let selectedIndex = $state<number | null>(null);
 	let rtcState = $state<string>('—');
 	let dxfLineCount = $state<number | null>(null);
+
+	function toggleEntitySelection(i: number) {
+		selectedIndex = selectedIndex === i ? null : i;
+	}
+
+	$effect(() => {
+		const idx = selectedIndex;
+		if (idx === null || typeof document === 'undefined') return;
+		void tick().then(() => {
+			document
+				.querySelector<HTMLElement>(`[data-dxf-entity-row="${idx}"]`)
+				?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+		});
+	});
 
 	function clearHints() {
 		err = null;
@@ -207,6 +222,13 @@
 		</p>
 
 		{#if layout}
+			{@const previewStroke = Math.max(Math.max(layout.w, layout.h) * 0.018, 0.35)}
+			{@const axisStroke = Math.max(previewStroke * 0.55, 0.2)}
+			{@const labelSize = Math.max(Math.max(layout.w, layout.h) * 0.045, 0.9)}
+			{@const y0 = layout.flip(0)}
+			{@const hitStroke = Math.max(previewStroke * 14, Math.max(layout.w, layout.h) * 0.055)}
+			{@const xAxisInView = y0 >= layout.minY && y0 <= layout.minY + layout.h}
+			{@const yAxisInView = 0 >= layout.minX && 0 <= layout.maxX}
 			<div class="ldk-dxf-preview" data-testid="dxf-svg-wrap">
 				<svg
 					viewBox="{layout.minX} {layout.minY} {layout.w} {layout.h}"
@@ -214,20 +236,98 @@
 					height="320"
 					preserveAspectRatio="xMidYMid meet"
 					role="img"
-					aria-label="DXF line preview"
+					aria-label="DXF line preview with coordinate axes"
 				>
-					{#each job.entities as e, i (e.index)}
-						<line
-							x1={e.x0}
-							y1={layout.flip(e.y0)}
-							x2={e.x1}
-							y2={layout.flip(e.y1)}
-							stroke={selectedIndex === i ? '#0a5' : '#246'}
-							stroke-width={Math.max(layout.w, layout.h) * 0.002}
-							vector-effect="non-scaling-stroke"
+					<g class="dxf-coords" pointer-events="none" aria-hidden="true">
+						<rect
+							x={layout.minX}
+							y={layout.minY}
+							width={layout.w}
+							height={layout.h}
+							fill="none"
+							stroke="#cbd5e1"
+							stroke-width={axisStroke}
 						/>
+						{#if xAxisInView}
+							<line
+								x1={layout.minX}
+								y1={y0}
+								x2={layout.maxX}
+								y2={y0}
+								stroke="#94a3b8"
+								stroke-width={axisStroke}
+								stroke-dasharray={`${axisStroke * 3} ${axisStroke * 2}`}
+							/>
+						{/if}
+						{#if yAxisInView}
+							<line
+								x1="0"
+								y1={layout.minY}
+								x2="0"
+								y2={layout.minY + layout.h}
+								stroke="#94a3b8"
+								stroke-width={axisStroke}
+								stroke-dasharray={`${axisStroke * 3} ${axisStroke * 2}`}
+							/>
+						{/if}
+						{#if xAxisInView && yAxisInView}
+							<circle cx="0" cy={y0} r={Math.max(axisStroke * 2.2, 0.35)} fill="#64748b" />
+						{/if}
+						{#if xAxisInView}
+							<text
+								x={layout.maxX - labelSize * 0.15}
+								y={y0 + labelSize * 0.85}
+								fill="#64748b"
+								font-size={labelSize}
+								font-family="system-ui, Segoe UI, sans-serif"
+								text-anchor="end"
+								font-weight="600">+X</text>
+						{/if}
+						{#if yAxisInView}
+							<text
+								x={labelSize * 0.35}
+								y={layout.minY + labelSize * 0.95}
+								fill="#64748b"
+								font-size={labelSize}
+								font-family="system-ui, Segoe UI, sans-serif"
+								text-anchor="start"
+								font-weight="600">+Y</text>
+						{/if}
+					</g>
+					{#each job.entities as e, i (e.index)}
+						<g class="dxf-entity-seg">
+							<line
+								x1={e.x0}
+								y1={layout.flip(e.y0)}
+								x2={e.x1}
+								y2={layout.flip(e.y1)}
+								fill="none"
+								pointer-events="none"
+								stroke={selectedIndex === i ? '#059669' : '#246'}
+								stroke-width={selectedIndex === i ? previewStroke * 1.5 : previewStroke}
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							/>
+							<line
+								x1={e.x0}
+								y1={layout.flip(e.y0)}
+								x2={e.x1}
+								y2={layout.flip(e.y1)}
+								fill="none"
+								stroke="transparent"
+								stroke-width={hitStroke}
+								stroke-linecap="round"
+								class="dxf-entity-hit"
+								aria-hidden="true"
+								onclick={() => toggleEntitySelection(i)}
+							/>
+						</g>
 					{/each}
 				</svg>
+				<p class="ldk-muted dxf-coords-caption">
+					Axes in <strong>DXF drawing units</strong>: origin at (0, 0); <strong>+Y</strong> points up on screen (SVG
+					vertical flipped vs CAD).
+				</p>
 			</div>
 		{/if}
 
@@ -245,8 +345,9 @@
 				<tbody>
 					{#each job.entities as e, i (e.index)}
 						<tr
+							data-dxf-entity-row={i}
 							class:ldk-row-sel={selectedIndex === i}
-							onclick={() => (selectedIndex = selectedIndex === i ? null : i)}
+							onclick={() => toggleEntitySelection(i)}
 							style="cursor:pointer"
 						>
 							<td>{e.index}</td>
@@ -293,6 +394,19 @@
 		border-radius: 6px;
 		background: #fafbfc;
 		margin-bottom: 0.75rem;
+		min-height: 200px;
+	}
+	.ldk-dxf-preview :global(svg) {
+		display: block;
+	}
+	:global(.dxf-entity-hit) {
+		cursor: pointer;
+	}
+	.dxf-coords-caption {
+		margin: 0.4rem 0 0;
+		font-size: 0.8rem;
+		line-height: 1.35;
+		padding: 0 0.25rem;
 	}
 	.ldk-table {
 		width: 100%;
