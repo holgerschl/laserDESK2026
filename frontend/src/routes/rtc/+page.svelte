@@ -54,8 +54,10 @@
 </svelte:head>
 
 <p class="ldk-muted" style="margin-top:0">
-	Separate monitor window: RTC/health polling and activity log from the editor via BroadcastChannel
-	<code>{LASERDESK_RTC_CHANNEL}</code>.
+	Separate monitor window: RTC/health polling here. The <strong>activity log</strong> only shows lines sent from
+	other tabs on this origin (workflow or DXF demo) via <code>BroadcastChannel</code>
+	<code>{LASERDESK_RTC_CHANNEL}</code> — not raw UDP traffic from the board. Open <code>/workflow</code> or
+	<code>/dxf</code> alongside this tab.
 </p>
 
 <div class="ldk-row" style="margin-bottom:1rem">

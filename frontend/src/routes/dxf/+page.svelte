@@ -2,7 +2,30 @@
 	import { base } from '$app/paths';
 	import * as api from '$lib/api/laserdesk';
 	import type { DxfJobEntity, DxfJobResponse } from '$lib/api/laserdesk';
-	import { tick } from 'svelte';
+	import { openRtcChannel, postRtcLog } from '$lib/laser/rtcChannel';
+	import { onDestroy, onMount, tick } from 'svelte';
+
+	let bc: ReturnType<typeof openRtcChannel> | null = null;
+
+	function rtcLog(line: string) {
+		postRtcLog(bc, line);
+	}
+
+	onMount(() => {
+		try {
+			bc = openRtcChannel();
+		} catch {
+			bc = null;
+		}
+	});
+
+	onDestroy(() => {
+		try {
+			bc?.close();
+		} catch {
+			/* ignore */
+		}
+	});
 
 	let busy = $state(false);
 	let err = $state<string | null>(null);
@@ -128,6 +151,7 @@
 			await api.postRtcConnect({ mode: 'mock' });
 			await refreshRtc();
 			hint = 'Connected (mock).';
+			rtcLog('DXF demo: POST /rtc/connect (mock — no UDP telegrams)');
 		});
 	}
 
@@ -138,6 +162,7 @@
 			job = null;
 			await refreshRtc();
 			hint = 'Disconnected.';
+			rtcLog('DXF demo: POST /rtc/disconnect');
 		});
 	}
 
@@ -152,6 +177,7 @@
 			job = await api.getJobsDxf(r.job_id);
 			selectedIndex = null;
 			hint = `Parsed ${job.line_count} LINE entities.`;
+			rtcLog(`DXF demo: parsed ${job.line_count} LINE entities (static demo file)`);
 		});
 	}
 
@@ -162,6 +188,7 @@
 			job = await api.getJobsDxf(r.job_id);
 			selectedIndex = null;
 			hint = `Parsed ${job.line_count} LINE entities (server file).`;
+			rtcLog(`DXF demo: parsed ${job.line_count} LINE entities (server demo)`);
 		});
 	}
 
@@ -172,6 +199,9 @@
 			await api.postJobsDxfLoad(id);
 			await refreshRtc();
 			hint = 'DXF job loaded into RTC session.';
+			rtcLog(
+				'DXF demo: POST /jobs/dxf/…/load — ethernet: R_DC_CONFIG_LIST (if dxf_rif_list_upload) + R_DC_GET_INPUT_POINTER + R_LC_JUMP/MARK telegrams; mock: internal load'
+			);
 		});
 	}
 
@@ -182,6 +212,9 @@
 			await api.postJobsDxfRun(id);
 			await refreshRtc();
 			hint = 'Execution started.';
+			rtcLog(
+				'DXF demo: POST /jobs/dxf/…/run — ethernet: R_DC_EXECUTE_LIST_POS (list 1, pos 0); mock: state → running'
+			);
 		});
 	}
 
@@ -192,6 +225,7 @@
 			await api.postJobsDxfStop(id);
 			await refreshRtc();
 			hint = 'Execution stopped.';
+			rtcLog('DXF demo: POST /jobs/dxf/…/stop — ethernet: R_DC_STOP_EXECUTION; mock: state → loaded');
 		});
 	}
 

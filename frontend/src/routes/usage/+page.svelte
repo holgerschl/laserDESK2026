@@ -108,6 +108,33 @@ npm run dev</pre>
 	</p>
 	<ApiBaseSettings />
 
+	<h2>How to see RTC activity (telegrams) in the log</h2>
+	<p class="ldk-muted" style="margin-top:0">
+		The <a href="{base}/rtc">RTC window</a> shows an <strong>activity log</strong> at the bottom. That log is
+		<strong>not</strong> a live dump of UDP packets from the RTC6 board. It only shows short text lines that the
+		<strong>Workflow</strong> or <strong>DXF demo</strong> page sends through the browser’s
+		<code>BroadcastChannel</code> (<code>laserdesk-rtc-v1</code>) when you connect, load a job, start, or stop.
+	</p>
+	<ol>
+		<li>
+			Open <a href="{base}/rtc">RTC</a> in one tab and keep it open.
+		</li>
+		<li>
+			In a <strong>second tab</strong> on the <strong>same site</strong> (same address and path prefix, e.g.
+			<code>{base}/workflow</code> or <code>{base}/dxf</code>), run <em>Connect</em>, load, <em>Start</em>, etc.
+		</li>
+		<li>
+			Lines should appear in the RTC tab’s log with timestamps. Many entries mention the <strong>logical</strong>
+			Remote Interface command the backend would use in <strong>ethernet</strong> mode (for example
+			<code>R_DC_EXECUTE_LIST_POS</code> on start). That is a human-readable hint, not the raw telegram bytes.
+		</li>
+	</ol>
+	<p class="ldk-muted">
+		<strong>Mock RTC</strong> (<em>Connect (mock)</em>) does not send Ethernet telegrams at all; the backend only
+		simulates state. <strong>Ethernet</strong> mode sends real telegrams to the board; the UI still does not display
+		hex payloads unless we add a separate debug feature later.
+	</p>
+
 	<details class="ldk-doc-details">
 		<summary>Download 404, developers, RTC window</summary>
 		<p class="ldk-muted">
@@ -122,8 +149,8 @@ npm run dev</pre>
 			README).
 		</p>
 		<p class="ldk-muted">
-			<strong>RTC window</strong> (<a href="{base}/rtc">open</a>): extra health/status and logs from the workflow via
-			the browser’s <code>BroadcastChannel</code>; use the same browser profile for both tabs.
+			<strong>RTC window</strong> (<a href="{base}/rtc">open</a>): health/status polling and the cross-tab activity
+			log. See the section <strong>How to see RTC activity (telegrams) in the log</strong> above.
 		</p>
 		<ul>
 			<li><a href="https://github.com/holgerschl/laserDESK2026">Repository</a></li>

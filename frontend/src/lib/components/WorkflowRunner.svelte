@@ -250,6 +250,9 @@
 			const r = await api.postMinimalDemoJob(labelForJob());
 			jobId = r.job_id;
 			log(`Job registered: ${r.job_id}`);
+			log(
+				'Load job: backend uses R_DC_GET_INPUT_POINTER (ethernet); mock loads internal placeholder job'
+			);
 			await fetchStatusOnly();
 			successHint = `Job registered (${r.job_id}). You can start execution.`;
 		});
@@ -258,7 +261,9 @@
 	async function doRun() {
 		await withBusy(async () => {
 			await api.postMinimalDemoRun();
-			log('Run: start');
+			log(
+				'Start: POST /jobs/minimal-demo/run — ethernet: R_DC_EXECUTE_LIST_POS (list 1, pos 0); mock: state → running'
+			);
 			await fetchStatusOnly();
 			successHint = 'Execution started.';
 		});
@@ -267,7 +272,7 @@
 	async function doStop() {
 		await withBusy(async () => {
 			await api.postMinimalDemoStop();
-			log('Run: stop');
+			log('Stop: POST /jobs/minimal-demo/stop — ethernet: R_DC_STOP_EXECUTION; mock: state → loaded');
 			await fetchStatusOnly();
 			successHint = 'Execution stopped.';
 		});
