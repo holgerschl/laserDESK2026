@@ -430,6 +430,12 @@
 				>Clear log</button
 			>
 		</div>
+		<p class="ldk-muted ldk-status-tip">
+			If you already set <code>LASERDESK_CORS_ORIGIN</code> but see “Failed to fetch”: (1) Re-download
+			<code>laserdesk_backend.exe</code> from the latest GitHub Release — on start, PowerShell must show
+			<code>Access-Control-Allow-Private-Network=true</code>. (2) In Chrome: site lock icon → Permissions / Site
+			settings → allow <strong>local network</strong> for this site. (3) Try Edge or Firefox to compare.
+		</p>
 		<p class="ldk-muted" style="margin:0 0 0.5rem;font-size:0.85rem">
 			Current API base: <code data-testid="workflow-api-base">{apiBaseDisplay || '…'}</code>
 		</p>
@@ -471,5 +477,14 @@
 		line-height: 1.35;
 		white-space: pre-wrap;
 		word-break: break-word;
+	}
+	.ldk-status-tip {
+		margin: 0 0 0.65rem;
+		font-size: 0.8rem;
+		line-height: 1.4;
+		padding: 0.5rem 0.65rem;
+		background: #f0f4f8;
+		border-radius: 6px;
+		border: 1px solid #d8dee6;
 	}
 </style>
