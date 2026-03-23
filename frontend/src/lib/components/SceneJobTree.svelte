@@ -35,6 +35,7 @@
 	}
 
 	function label(i: number, e: SceneEntity): string {
+		if (e.entity_label) return e.entity_label;
 		if (e.type === 'line') return `Line ${i + 1}`;
 		return `Rect ${i + 1}`;
 	}

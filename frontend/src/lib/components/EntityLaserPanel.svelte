@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Action } from 'svelte/action';
 	import { untrack } from 'svelte';
 	import LaserPropertiesPanel from '$lib/components/LaserPropertiesPanel.svelte';
 	import { clampLaserProperties, defaultLaserProperties } from '$lib/scene/laserProperties';
@@ -13,6 +14,8 @@
 	interface Props {
 		entities?: SceneEntity[];
 		selectedIndex?: number | null;
+		/** Indices of selected entities (same as job tree / canvas). */
+		selectedIndices?: number[];
 		/** Number of selected entities (job tree / canvas); when &gt; 1, show multi-select hint. */
 		selectionCount?: number;
 		laserGroups?: LaserGroupV1[];
@@ -22,15 +25,53 @@
 	let {
 		entities = $bindable<SceneEntity[]>([]),
 		selectedIndex = null,
+		selectedIndices = [] as number[],
 		selectionCount = 1,
 		laserGroups = $bindable<LaserGroupV1[]>([]),
 		defaultLaserGroupId = $bindable(DEFAULT_LASER_GROUP_ID)
 	}: Props = $props();
 
+	const setIndeterminate: Action<HTMLInputElement, boolean> = (node, param) => {
+		node.indeterminate = param;
+		return {
+			update(p) {
+				node.indeterminate = p;
+			}
+		};
+	};
+
 	let draftLaser = $state(defaultLaserProperties());
 
 	let ent = $derived(selectedIndex !== null ? entities[selectedIndex!] : null);
-	let useCustomLaser = $derived(!!ent?.laser);
+
+	/** Entity indices to apply laser changes to (all selected, or single). */
+	function targets(): number[] {
+		if (selectedIndex === null) return [];
+		if (selectedIndices.length > 0) return selectedIndices;
+		return [selectedIndex];
+	}
+
+	let allCustom = $derived(
+		selectedIndex !== null && targets().length > 0
+			? targets().every((i) => !!entities[i]?.laser)
+			: false
+	);
+	let someCustom = $derived(
+		selectedIndex !== null && targets().length > 0
+			? targets().some((i) => !!entities[i]?.laser)
+			: false
+	);
+	let useCustomMixed = $derived(
+		selectedIndex !== null && targets().length > 1 ? someCustom && !allCustom : false
+	);
+	/** Show shared-preset editor (not when any selected entity uses a mixed override state). */
+	let showPresetLaserEditor = $derived(
+		selectedIndex !== null && !someCustom && !useCustomMixed && !allCustom
+	);
+	let showOverridePanel = $derived(
+		selectedIndex !== null && (allCustom || someCustom || useCustomMixed)
+	);
+
 	let presetIdx = $derived(
 		ent && laserGroups.length
 			? (() => {
@@ -46,41 +87,53 @@
 		untrack(() => {
 			const e = entities[i]!;
 			if (e.laser) draftLaser = { ...e.laser };
+			else if (useCustomMixed) {
+				const eff = effectiveLaserForEntity(e as SceneEntity, laserGroups, defaultLaserGroupId);
+				draftLaser = { ...eff };
+			}
 		});
 	});
 
 	function persistDraft() {
 		if (selectedIndex === null) return;
-		const i = selectedIndex;
+		const idxs = targets();
+		if (idxs.length === 0) return;
+		const L = clampLaserProperties(draftLaser);
 		entities = entities.map((row, k) =>
-			k === i ? { ...row, laser: clampLaserProperties(draftLaser) } : row
+			idxs.includes(k) ? { ...row, laser: L } : row
 		) as SceneEntity[];
 	}
 
 	function setGroupId(gid: string) {
 		if (selectedIndex === null) return;
-		const i = selectedIndex;
+		const idxs = targets();
+		if (idxs.length === 0) return;
 		entities = entities.map((e, j) =>
-			j === i ? { ...e, laser_group_id: gid } : e
+			idxs.includes(j) ? { ...e, laser_group_id: gid } : e
 		) as SceneEntity[];
 	}
 
 	function toggleCustom(on: boolean) {
 		if (selectedIndex === null) return;
-		const i = selectedIndex;
-		const e = entities[i]!;
+		const idxs = targets();
+		if (idxs.length === 0) return;
 		if (on) {
-			const { laser: _drop, ...base } = e;
-			void _drop;
-			const eff = effectiveLaserForEntity(base as SceneEntity, laserGroups, defaultLaserGroupId);
-			draftLaser = { ...eff };
-			entities = entities.map((row, k) =>
-				k === i ? { ...row, laser: clampLaserProperties(draftLaser) } : row
-			) as SceneEntity[];
+			entities = entities.map((row, k) => {
+				if (!idxs.includes(k)) return row;
+				const { laser: _drop, ...base } = row;
+				void _drop;
+				const eff = effectiveLaserForEntity(base as SceneEntity, laserGroups, defaultLaserGroupId);
+				return { ...row, laser: clampLaserProperties(eff) };
+			}) as SceneEntity[];
+			const e = entities[selectedIndex]!;
+			if (e.laser) draftLaser = { ...e.laser };
 		} else {
-			const { laser: _omit, ...rest } = e;
-			void _omit;
-			entities = entities.map((row, k) => (k === i ? (rest as SceneEntity) : row)) as SceneEntity[];
+			entities = entities.map((row, k) => {
+				if (!idxs.includes(k)) return row;
+				const { laser: _omit, ...rest } = row;
+				void _omit;
+				return rest as SceneEntity;
+			}) as SceneEntity[];
 		}
 	}
 
@@ -91,12 +144,12 @@
 			...laserGroups,
 			{ id, name: `Preset ${n}`, laser: defaultLaserProperties() }
 		];
-		if (selectedIndex !== null) {
-			const i = selectedIndex;
-			entities = entities.map((e, j) =>
-				j === i ? { ...e, laser_group_id: id } : e
-			) as SceneEntity[];
-		}
+		if (selectedIndex === null) return;
+		const idxs = targets();
+		if (idxs.length === 0) return;
+		entities = entities.map((e, j) =>
+			idxs.includes(j) ? { ...e, laser_group_id: id } : e
+		) as SceneEntity[];
 	}
 
 	function removeCurrentPreset() {
@@ -114,14 +167,27 @@
 		if (defaultLaserGroupId === rid) defaultLaserGroupId = fallback;
 		laserGroups = others;
 	}
+
+	function setPresetName(i: number, raw: string) {
+		laserGroups = laserGroups.map((g, j) => (j === i ? { ...g, name: raw } : g));
+	}
+
+	function blurPresetName(i: number, raw: string) {
+		const v = raw.trim();
+		if (v) return;
+		laserGroups = laserGroups.map((g, j) =>
+			j === i ? { ...g, name: `Preset ${i + 1}` } : g
+		);
+	}
 </script>
 
 <div class="ldk-card ldk-entity-laser" data-testid="editor-entity-laser">
 	<h3 class="ldk-el-title">Parameters</h3>
 	{#if selectionCount > 1}
 		<p class="ldk-muted" style="margin:0 0 0.65rem;font-size:0.82rem" data-testid="editor-multi-select-hint">
-			<strong>{selectionCount}</strong> entities selected — the fields below apply to the <strong>focused</strong> entity
-			(last clicked in the list or on the canvas).
+			<strong>{selectionCount}</strong> entities selected — <strong>Preset</strong>, <strong>override</strong>, and
+			<strong>override values</strong> apply to <strong>all selected</strong>. Shared preset parameters still update
+			that preset for every entity that uses it.
 		</p>
 	{/if}
 	<p class="ldk-muted" style="margin:0 0 0.65rem;font-size:0.82rem">
@@ -129,6 +195,34 @@
 		speed, and timing. Edit the preset here (or pick another in the job list). Use <strong>override</strong> only when
 		one shape must differ.
 	</p>
+
+	<div class="ldk-preset-names" data-testid="editor-preset-names">
+		<p class="ldk-el-sub" style="margin:0 0 0.4rem">Preset names</p>
+		<p class="ldk-muted" style="margin:0 0 0.5rem;font-size:0.78rem">
+			Shown in dropdowns and the job tree. The internal id (left) is fixed; the display name is editable.
+		</p>
+		<ul class="ldk-preset-names-list">
+			{#each laserGroups as g, i (g.id)}
+				<li class="ldk-preset-name-row">
+					<label class="ldk-preset-name-label">
+						<span class="ldk-preset-name-id" title="Internal id (not editable)">{g.id}</span>
+						<input
+							type="text"
+							class="ldk-preset-name-input"
+							value={g.name}
+							aria-label={`Display name for preset ${g.id}`}
+							data-testid="editor-preset-name"
+							data-preset-id={g.id}
+							oninput={(ev) =>
+								setPresetName(i, (ev.currentTarget as HTMLInputElement).value)}
+							onblur={(ev) =>
+								blurPresetName(i, (ev.currentTarget as HTMLInputElement).value)}
+						/>
+					</label>
+				</li>
+			{/each}
+		</ul>
+	</div>
 
 	<label class="ldk-el-field">
 		<span>Default preset for new shapes</span>
@@ -145,10 +239,10 @@
 
 	{#if ent && selectedIndex !== null}
 		<hr class="ldk-el-sep" />
-		<p class="ldk-el-sub">Selected entity</p>
+		<p class="ldk-el-sub">{selectionCount > 1 ? 'Selected entities' : 'Selected entity'}</p>
 
 		<label class="ldk-el-field">
-			<span>Preset</span>
+			<span>Preset{selectionCount > 1 ? ' (all selected)' : ''}</span>
 			<select
 				class="ldk-el-select"
 				value={ent.laser_group_id}
@@ -164,14 +258,19 @@
 		<label class="ldk-el-check">
 			<input
 				type="checkbox"
-				checked={useCustomLaser}
+				checked={allCustom}
+				use:setIndeterminate={useCustomMixed}
 				data-testid="editor-entity-laser-custom"
 				onchange={(ev) => toggleCustom((ev.currentTarget as HTMLInputElement).checked)}
 			/>
-			<span>Override preset for this entity only</span>
+			<span
+				>{selectionCount > 1
+					? 'Override preset (applies to all selected)'
+					: 'Override preset for this entity only'}</span
+			>
 		</label>
 
-		{#if !useCustomLaser && presetIdx >= 0 && laserGroups[presetIdx]}
+		{#if showPresetLaserEditor && presetIdx >= 0 && laserGroups[presetIdx]}
 			<div class="ldk-el-preset-editor">
 				{#key `${ent.laser_group_id}-${selectedIndex}`}
 					<LaserPropertiesPanel
@@ -183,12 +282,14 @@
 			</div>
 		{/if}
 
-		{#if useCustomLaser && ent.laser && selectedIndex !== null}
+		{#if showOverridePanel && selectedIndex !== null}
 			<div class="ldk-el-custom">
-				{#key selectedIndex}
+				{#key `${selectedIndex}-${selectionCount}`}
 					<LaserPropertiesPanel
 						embedded
-						heading="Override for this entity"
+						heading={selectionCount > 1
+							? 'Override for all selected entities'
+							: 'Override for this entity'}
 						bind:laser={draftLaser}
 						onLaserChange={persistDraft}
 					/>
@@ -277,6 +378,45 @@
 		margin-top: 0.5rem;
 		padding-top: 0.5rem;
 		border-top: 1px solid #e8ecf0;
+	}
+	.ldk-preset-names {
+		margin-bottom: 0.75rem;
+		padding-bottom: 0.65rem;
+		border-bottom: 1px solid #e8ecf0;
+	}
+	.ldk-preset-names-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+	.ldk-preset-name-row {
+		margin: 0;
+	}
+	.ldk-preset-name-label {
+		display: grid;
+		grid-template-columns: minmax(4.5rem, 6rem) minmax(0, 1fr);
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.78rem;
+	}
+	.ldk-preset-name-id {
+		font-family: ui-monospace, monospace;
+		font-size: 0.72rem;
+		color: #64748b;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.ldk-preset-name-input {
+		width: 100%;
+		min-width: 0;
+		padding: 0.3rem 0.45rem;
+		border: 1px solid #c5ced9;
+		border-radius: 6px;
+		font-size: 0.88rem;
 	}
 	.ldk-preset-actions {
 		display: flex;

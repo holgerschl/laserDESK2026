@@ -47,9 +47,9 @@ Bounded scope for the first shippable increment. Anything not listed here is **o
 | F-08 | **Canvas library integration** | Konva *or* Fabric.js (or equivalent); document choice in `docs/`; Svelte mount/teardown pattern |
 | F-09 | **Editor shell** | **Pan/zoom (done):** wheel, **Space + drag** / middle-mouse pan, **Reset view**; Konva `Group` viewport. **mm SVG overlay:** explicit `width`/`height` = stage (px), same affine as Konva on an inner `<g>` (`matrix(zoom,0,0,zoom,panX,panY)` in user space — **no** CSS `transform` on the root `<svg>`, which can blank the overlay in some browsers). **Still open:** layer panel, workflow step kind (optional). **Route:** `/editor` — `SceneEditor.svelte`. |
 | F-10 | **Place primitives** | Initial slice: at least **line** and **rectangle**; extend to polyline/arc in later promotions |
-| F-11 | **Select / move / transform** | Selection, drag, scale/rotate using library capabilities; delete. **Multi-select:** **Shift+click** range selection in the **job tree** and on the **canvas** (shared logic in `frontend/src/lib/scene/selection.ts`); **Esc** clears selection. Transformer (resize/rotate) when **exactly one** entity is selected. |
+| F-11 | **Select / move / transform** | Selection, drag, scale/rotate using library capabilities; delete. **Multi-select:** **Shift+click** range selection in the **job tree** and on the **canvas** (shared logic in `frontend/src/lib/scene/selection.ts`); **Esc** clears selection. Transformer (resize/rotate) when **exactly one** entity is selected. **Stable job-tree names:** optional **`entity_label`** on entities (`sceneV1.ts`); set at creation (`nextEntityLabelForKind`) — reordering does **not** renumber. |
 | F-12 | **Undo / redo** | Stable against exported scene model (command stack or library history + sync) |
-| F-13 | **Laser presets & per-entity laser** | **Presets** (`LaserGroupV1` in JSON): shared parameter sets; **default for new shapes** and **Add / remove preset** live in the **Parameters** column (`EntityLaserPanel.svelte`). **Grouping:** same `laser_group_id` on multiple entities (job tree **Preset** when expanded, or parameter panel). **Per-entity:** optional **override** (`laser`). **Layout:** job list and parameters **side-by-side** beside the canvas; `/editor` uses a **wide** shell. **No** separate laser-groups panel. Scene JSON: `buildSceneV1()` in `frontend/src/lib/scene/sceneV1.ts`; UI: `EntityLaserPanel.svelte`, `SceneJobTree.svelte`. |
+| F-13 | **Laser presets & per-entity laser** | **Presets** (`LaserGroupV1` in JSON): shared parameter sets; **display names** are **editable** in the parameter column (internal `id` fixed). **Default for new shapes** and **Add / remove preset** in **`EntityLaserPanel.svelte`**. **Grouping:** same `laser_group_id` on multiple entities (job tree **Preset** when expanded, or parameter panel). **Per-entity:** optional **override** (`laser`); multi-select can apply preset / override to **all selected**. **Layout:** job list and parameters **side-by-side** beside the canvas; `/editor` uses a **wide** shell. **No** separate laser-groups panel. Scene JSON: `buildSceneV1()` in `frontend/src/lib/scene/sceneV1.ts`; UI: `EntityLaserPanel.svelte`, `SceneJobTree.svelte`. |
 
 ### Cross-cutting
 
@@ -97,7 +97,9 @@ Phase H (**vector scene editor**, Konva / Fabric.js / similar) was **promoted in
 
 **F-09 pan/zoom (March 2026):** Documented as implemented in **F-09** row and [`docs/implementation-plan.md`](../implementation-plan.md) §4 Phase H (H.4 progress note).
 
-**F-13 laser presets (March 2026):** Per-entity / grouped laser parameters in `scene_v1` and editor UI — presets edited in the parameter column (not a separate groups panel); built-in **Default / Cut / Mark** presets in `defaultLaserGroups()`. See **F-13** row and implementation plan §4 Phase H.
+**F-13 laser presets (March 2026):** Per-entity / grouped laser parameters in `scene_v1` and editor UI — presets edited in the parameter column (not a separate groups panel); built-in **Default / Cut / Mark** presets in `defaultLaserGroups()`; **preset display names** editable; bulk apply to multi-selection. See **F-13** row and implementation plan §4 Phase H.
+
+**F-11 stable entity labels (March 2026):** **`entity_label`** on scene entities so job-tree names stay stable when reordering — see **F-11** row and `nextEntityLabelForKind()` in `sceneV1.ts`.
 
 **F-11 multi-select (March 2026):** **Shift+click** range selection in job list and canvas; **Esc** clears — see **F-11** row and `frontend/src/lib/scene/selection.ts`.
 
@@ -105,4 +107,4 @@ Phase H (**vector scene editor**, Konva / Fabric.js / similar) was **promoted in
 
 ---
 
-*Version: 1.6.2 · F-11 multi-select; F-13 presets-only UI (no LaserGroupsPanel) · March 2026*
+*Version: 1.6.3 · F-11 stable `entity_label`; F-13 editable preset names + bulk apply · March 2026*

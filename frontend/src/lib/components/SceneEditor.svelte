@@ -6,7 +6,12 @@
 	import type { Shape as KonvaShape } from 'konva/lib/Shape.js';
 	import type { Stage } from 'konva/lib/Stage.js';
 	import { fixedStageLayout, fmtMmLabel, mmTicks, niceMmStep } from '$lib/scene/mmAxes';
-	import { DEFAULT_LASER_GROUP_ID, withLaserGroupId, type SceneEntity } from '$lib/scene/sceneV1';
+	import {
+		DEFAULT_LASER_GROUP_ID,
+		nextEntityLabelForKind,
+		withLaserGroupId,
+		type SceneEntity
+	} from '$lib/scene/sceneV1';
 
 	interface Props {
 		stageWidth?: number;
@@ -32,6 +37,7 @@
 				x1: 120,
 				y1: 30,
 				z1: 0,
+				entity_label: 'Line 1',
 				laser_group_id: DEFAULT_LASER_GROUP_ID
 			},
 			{
@@ -42,6 +48,7 @@
 				height: 40,
 				z: 0,
 				rotation_deg: 0,
+				entity_label: 'Rect 1',
 				laser_group_id: DEFAULT_LASER_GROUP_ID
 			}
 		]),
@@ -426,6 +433,7 @@
 								x1: w.x,
 								y1: w.y,
 								z1: 0,
+								entity_label: nextEntityLabelForKind('line', entities),
 								laser_group_id: defaultLaserGroupId
 							}
 						];
@@ -447,6 +455,7 @@
 							height: 40,
 							z: 0,
 							rotation_deg: 0,
+							entity_label: nextEntityLabelForKind('rect', entities),
 							laser_group_id: defaultLaserGroupId
 						}
 					];
@@ -479,6 +488,7 @@
 				x1: 100,
 				y1: 80,
 				z1: 0,
+				entity_label: nextEntityLabelForKind('line', entities),
 				laser_group_id: defaultLaserGroupId
 			}
 		];
@@ -497,6 +507,7 @@
 				height: 35,
 				z: 0,
 				rotation_deg: 0,
+				entity_label: nextEntityLabelForKind('rect', entities),
 				laser_group_id: defaultLaserGroupId
 			}
 		];

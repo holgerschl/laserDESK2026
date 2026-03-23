@@ -29,6 +29,7 @@
 			x1: 120,
 			y1: 30,
 			z1: 0,
+			entity_label: 'Line 1',
 			laser_group_id: DEFAULT_LASER_GROUP_ID
 		},
 		{
@@ -39,6 +40,7 @@
 			height: 40,
 			z: 0,
 			rotation_deg: 0,
+			entity_label: 'Rect 1',
 			laser_group_id: DEFAULT_LASER_GROUP_ID
 		}
 	];
@@ -261,6 +263,7 @@
 				bind:laserGroups
 				bind:defaultLaserGroupId
 				selectedIndex={panelEditIndex}
+				selectedIndices={selectedIndices}
 				selectionCount={selectedIndices.length}
 			/>
 		</div>

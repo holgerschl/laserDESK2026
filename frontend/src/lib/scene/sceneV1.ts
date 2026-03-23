@@ -24,6 +24,8 @@ type SceneEntityCommon = {
 	laser_group_id: string;
 	/** When set, replaces the group laser for this entity only. */
 	laser?: LaserPropertiesV1;
+	/** Stable job-tree label (e.g. `Line 2`); set at creation — **not** derived from list order. */
+	entity_label?: string;
 };
 
 export type SceneEntity =
@@ -187,4 +189,22 @@ export function selectionIndicesAfterReorder(from: number, to: number, indices: 
 let _gidSeq = 1;
 export function nextLaserGroupId(): string {
 	return `g_${Date.now()}_${++_gidSeq}`;
+}
+
+/**
+ * Next stable label for a new line or rectangle (e.g. `Line 3`). Scans existing `entity_label`
+ * values of that kind so reordering the list does not renumber names.
+ */
+export function nextEntityLabelForKind(kind: 'line' | 'rect', list: SceneEntity[]): string {
+	const prefix = kind === 'line' ? 'Line ' : 'Rect ';
+	let max = 0;
+	for (const e of list) {
+		if (e.type !== kind) continue;
+		const lab = e.entity_label;
+		if (lab?.startsWith(prefix)) {
+			const n = parseInt(lab.slice(prefix.length).trim(), 10);
+			if (!Number.isNaN(n)) max = Math.max(max, n);
+		}
+	}
+	return `${prefix}${max + 1}`;
 }
