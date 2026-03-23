@@ -65,6 +65,29 @@
 			This creates <code>laserdesk_backend-macos</code> (executable bit preserved).
 		</li>
 		<li>
+			<strong>If macOS blocks it (Gatekeeper)</strong> — you may see a message that Apple could not check the file for
+			malware (e.g. German: „Apple konnte nicht überprüfen…“). The release binary is not Apple-notarized. You can still
+			run it:
+			<ul style="margin:0.5rem 0 0;padding-left:1.25rem">
+				<li>
+					<strong>Terminal (reliable):</strong> in the folder with the binary, clear the download quarantine, then run
+					it:
+					<pre class="ldk-pre">cd /path/to/folder/with/the/binary
+xattr -d com.apple.quarantine ./laserdesk_backend-macos
+./laserdesk_backend-macos --port 8080</pre>
+					If <code>-d</code> fails, try <code>xattr -cr .</code> in that folder. Use <code>chmod +x ./laserdesk_backend-macos</code> if the file is not executable.
+				</li>
+				<li>
+					<strong>Finder:</strong> Control-click the binary → <strong>Open</strong> → confirm <strong>Open</strong> once
+					(not double-click the first time).
+				</li>
+				<li>
+					<strong>System Settings</strong> → Privacy and Security: after a blocked launch, <strong>Open Anyway</strong>
+					may appear for this app.
+				</li>
+			</ul>
+		</li>
+		<li>
 			<strong>Run the backend</strong> — if you use the <strong>hosted</strong> app in the browser, set CORS to your
 			page origin (same as Windows). Example for the public demo:
 			<pre class="ldk-pre">cd /path/to/folder/with/the/binary
