@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import type { Layer } from 'konva/lib/Layer.js';
+	import type { Group as KonvaGroup } from 'konva/lib/Group.js';
 	import type { Line as KonvaLine } from 'konva/lib/shapes/Line.js';
 	import type { Rect as KonvaRect } from 'konva/lib/shapes/Rect.js';
 	import type { Text as KonvaText } from 'konva/lib/shapes/Text.js';
@@ -9,11 +10,18 @@
 	import { fixedStageLayout, fmtMmLabel, mmTicks, niceMmStep } from '$lib/scene/mmAxes';
 	import {
 		DEFAULT_LASER_GROUP_ID,
+		DEFAULT_TEXT_HEIGHT_MM,
 		nextEntityLabelForKind,
 		withLaserGroupId,
 		type SceneEntity
 	} from '$lib/scene/sceneV1';
-	import { arcFirstPointMm, arcToKonvaLinePoints, DEFAULT_ARC_SWEEP_DEG } from '$lib/scene/arcMm';
+	import {
+		arcEndPointMm,
+		arcToKonvaLinePoints,
+		arcToKonvaLocalLinePoints,
+		DEFAULT_ARC_SWEEP_DEG,
+		sweepAngleDegCCWToPointer
+	} from '$lib/scene/arcMm';
 
 	interface Props {
 		stageWidth?: number;
@@ -83,10 +91,20 @@
 	} | null>(null);
 	/** Remove window listeners if drag ends early (e.g. tool switch). */
 	let placementPointerCleanup: (() => void) | null = null;
+	/** Sweep-handle drag (window listeners; full redraw would break Konva drag). */
+	let sweepPointerCleanup: (() => void) | null = null;
+	let arcSweepDrag: { idx: number; sweep: number } | null = $state(null);
+
+	function clearSweepPointer() {
+		sweepPointerCleanup?.();
+		sweepPointerCleanup = null;
+	}
 
 	function clearPlacementPointer() {
 		placementPointerCleanup?.();
 		placementPointerCleanup = null;
+		clearSweepPointer();
+		arcSweepDrag = null;
 	}
 
 	/** Screen-space pan (px) and uniform zoom for the world mm canvas. */
@@ -175,6 +193,12 @@
 		return worldFromKonva(cx, cy);
 	}
 
+	function clientToWorldMm(clientX: number, clientY: number): { x: number; y: number } {
+		if (!container) return { x: 0, y: 0 };
+		const r = container.getBoundingClientRect();
+		return stageToWorldMm(clientX - r.left, clientY - r.top);
+	}
+
 	function resetView() {
 		viewPanX = 0;
 		viewPanY = 0;
@@ -260,7 +284,7 @@
 		});
 		layer.add(viewport);
 
-		const drawn: KonvaShape[] = [];
+		const drawn: (KonvaShape | KonvaGroup)[] = [];
 
 		entities.forEach((ent, idx) => {
 			const sel = selectedIndices.includes(idx);
@@ -311,26 +335,36 @@
 				viewport.add(r);
 				drawn[idx] = r;
 			} else if (ent.type === 'arc') {
+				const sweep =
+					arcSweepDrag?.idx === idx ? arcSweepDrag.sweep : ent.sweep_angle_deg;
 				const ln = new K.Line({
-					points: arcToKonvaLinePoints(
-						ent.cx,
-						ent.cy,
-						ent.radius,
-						ent.start_angle_deg,
-						ent.sweep_angle_deg,
-						stageHeight,
-						konvaY
-					),
+					points: arcToKonvaLocalLinePoints(ent.radius, ent.start_angle_deg, sweep),
 					stroke,
 					strokeWidth: strokeW,
 					lineCap: 'round',
 					lineJoin: 'round',
-					draggable: canDragWhole,
 					listening: shapeListening,
 					hitStrokeWidth: 12
 				});
-				viewport.add(ln);
-				drawn[idx] = ln;
+				/** Invisible disk so the transform bounding box is centered on the circle (partial arc polyline is not). */
+				const guide = new K.Circle({
+					x: 0,
+					y: 0,
+					radius: ent.radius,
+					strokeWidth: 0,
+					fill: 'rgba(0,0,0,0.0001)',
+					listening: false
+				});
+				const g = new K.Group({
+					x: ent.cx,
+					y: konvaY(ent.cy),
+					draggable: canDragWhole,
+					listening: shapeListening
+				});
+				g.add(guide);
+				g.add(ln);
+				viewport.add(g);
+				drawn[idx] = g;
 			} else {
 				const rot = ent.rotation_deg ?? 0;
 				const tx = new K.Text({
@@ -454,17 +488,9 @@
 					rr.x(cx);
 					rr.y(konvaY(cy));
 				} else if (oe.type === 'arc') {
-					(node as KonvaLine).points(
-						arcToKonvaLinePoints(
-							oe.cx + dx,
-							oe.cy + dy,
-							oe.radius,
-							oe.start_angle_deg,
-							oe.sweep_angle_deg,
-							stageHeight,
-							konvaY
-						)
-					);
+					const ag = node as KonvaGroup;
+					ag.x(oe.cx + dx);
+					ag.y(konvaY(oe.cy + dy));
 				} else if (oe.type === 'text') {
 					const tt = node as KonvaText;
 					tt.x(oe.x + dx);
@@ -510,17 +536,9 @@
 					rr.x(cx);
 					rr.y(konvaY(cy));
 				} else if (oe.type === 'arc') {
-					(node as KonvaLine).points(
-						arcToKonvaLinePoints(
-							oe.cx + dx,
-							oe.cy + dy,
-							oe.radius,
-							oe.start_angle_deg,
-							oe.sweep_angle_deg,
-							stageHeight,
-							konvaY
-						)
-					);
+					const ag = node as KonvaGroup;
+					ag.x(oe.cx + dx);
+					ag.y(konvaY(oe.cy + dy));
 				} else if (oe.type === 'text') {
 					const tt = node as KonvaText;
 					tt.x(oe.x + dx);
@@ -529,18 +547,16 @@
 			}
 		}
 
-		function syncGroupDragPeersFromArc(ln: KonvaLine, idx: number) {
+		function syncGroupDragPeersFromArc(g: KonvaGroup, idx: number) {
 			const snap = groupDragSnapshot;
 			if (!snap || selectedIndices.length <= 1 || !selectedIndices.includes(idx)) return;
 			const old = snap[idx];
 			if (old.type !== 'arc') return;
-			const abs = ln.getAbsoluteTransform();
-			const pts = ln.points();
-			const p0 = abs.point({ x: pts[0]!, y: pts[1]! });
-			const w0 = stageToWorldMm(p0.x, p0.y);
-			const firstOld = arcFirstPointMm(old.cx, old.cy, old.radius, old.start_angle_deg);
-			const dx = w0.x - firstOld.x;
-			const dy = w0.y - firstOld.y;
+			const nx = g.x();
+			const ny = g.y();
+			const w0 = worldFromKonva(nx, ny);
+			const dx = w0.x - old.cx;
+			const dy = w0.y - old.cy;
 			for (const j of selectedIndices) {
 				if (j === idx) continue;
 				const node = drawn[j];
@@ -560,17 +576,9 @@
 					rr.x(cx);
 					rr.y(konvaY(cy));
 				} else if (oe.type === 'arc') {
-					(node as KonvaLine).points(
-						arcToKonvaLinePoints(
-							oe.cx + dx,
-							oe.cy + dy,
-							oe.radius,
-							oe.start_angle_deg,
-							oe.sweep_angle_deg,
-							stageHeight,
-							konvaY
-						)
-					);
+					const ag = node as KonvaGroup;
+					ag.x(oe.cx + dx);
+					ag.y(konvaY(oe.cy + dy));
 				} else if (oe.type === 'text') {
 					const tt = node as KonvaText;
 					tt.x(oe.x + dx);
@@ -608,17 +616,9 @@
 					rr.x(cx);
 					rr.y(konvaY(cy));
 				} else if (oe.type === 'arc') {
-					(node as KonvaLine).points(
-						arcToKonvaLinePoints(
-							oe.cx + dx,
-							oe.cy + dy,
-							oe.radius,
-							oe.start_angle_deg,
-							oe.sweep_angle_deg,
-							stageHeight,
-							konvaY
-						)
-					);
+					const ag = node as KonvaGroup;
+					ag.x(oe.cx + dx);
+					ag.y(konvaY(oe.cy + dy));
 				} else if (oe.type === 'text') {
 					const tt = node as KonvaText;
 					tt.x(oe.x + dx);
@@ -682,12 +682,12 @@
 					);
 				});
 			} else if (ent.type === 'arc') {
-				const ln = drawn[idx] as KonvaLine;
-				ln.on('click', (e) => {
+				const g = drawn[idx] as KonvaGroup;
+				g.on('click', (e) => {
 					e.cancelBubble = true;
 					onSelectEntity?.(idx, e.evt.shiftKey);
 				});
-				ln.on('dragstart', () => {
+				g.on('dragstart', () => {
 					if (tool !== 'select') return;
 					if (selectedIndices.length > 1 && selectedIndices.includes(idx)) {
 						groupDragSnapshot = JSON.parse(JSON.stringify(entities)) as SceneEntity[];
@@ -695,17 +695,13 @@
 						groupDragSnapshot = null;
 					}
 				});
-				ln.on('dragmove', () => syncGroupDragPeersFromArc(ln, idx));
-				ln.on('dragend', () => {
-					const abs = ln.getAbsoluteTransform();
-					const pts = ln.points();
-					const p0 = abs.point({ x: pts[0]!, y: pts[1]! });
-					const w0 = stageToWorldMm(p0.x, p0.y);
+				g.on('dragmove', () => syncGroupDragPeersFromArc(g, idx));
+				g.on('dragend', () => {
+					const w0 = worldFromKonva(g.x(), g.y());
 					const cur = entities[idx];
 					if (!cur || cur.type !== 'arc') return;
-					const firstOld = arcFirstPointMm(cur.cx, cur.cy, cur.radius, cur.start_angle_deg);
-					const dx = w0.x - firstOld.x;
-					const dy = w0.y - firstOld.y;
+					const dx = w0.x - cur.cx;
+					const dy = w0.y - cur.cy;
 
 					if (groupDragSnapshot && selectedIndices.length > 1 && selectedIndices.includes(idx)) {
 						const old = groupDragSnapshot[idx];
@@ -713,9 +709,8 @@
 							groupDragSnapshot = null;
 							return;
 						}
-						const fo = arcFirstPointMm(old.cx, old.cy, old.radius, old.start_angle_deg);
-						const dxg = w0.x - fo.x;
-						const dyg = w0.y - fo.y;
+						const dxg = w0.x - old.cx;
+						const dyg = w0.y - old.cy;
 						pushHistory();
 						entities = applyDragDeltaToSelection(
 							groupDragSnapshot,
@@ -858,6 +853,25 @@
 				if (e.type === 'rect' && n.getClassName() === 'Rect') {
 					return { ...e, ...worldRectFromKonva(n as KonvaRect) };
 				}
+				if (e.type === 'arc' && n.getClassName() === 'Group') {
+					const g = n as KonvaGroup;
+					const wpos = worldFromKonva(g.x(), g.y());
+					const rotK = g.rotation();
+					const sx = g.scaleX();
+					const sy = g.scaleY();
+					const scale = (Math.abs(sx) + Math.abs(sy)) / 2;
+					const rotR = -rotK;
+					g.rotation(0);
+					g.scaleX(1);
+					g.scaleY(1);
+					return {
+						...e,
+						cx: wpos.x,
+						cy: wpos.y,
+						radius: Math.max(0.5, e.radius * scale),
+						start_angle_deg: e.start_angle_deg + rotR
+					};
+				}
 				if (e.type === 'text' && n.getClassName() === 'Text') {
 					const t = n as KonvaText;
 					const wpos = worldFromKonva(t.x(), t.y());
@@ -876,15 +890,17 @@
 
 		if (tool === 'select' && selectedIndices.length >= 1) {
 			const nodes = selectedIndices
-				.filter((i) => entities[i]?.type !== 'arc')
 				.map((i) => drawn[i])
-				.filter((n): n is KonvaShape => Boolean(n));
-			const expect = selectedIndices.filter((i) => entities[i]?.type !== 'arc').length;
+				.filter((n): n is KonvaShape | KonvaGroup => Boolean(n));
+			const expect = selectedIndices.length;
+			const singleArc =
+				selectedIndices.length === 1 && entities[selectedIndices[0]!]?.type === 'arc';
 			if (nodes.length === expect && nodes.length >= 1) {
 				const tr = new K.Transformer({
 					nodes,
 					rotateEnabled: true,
 					resizeEnabled: true,
+					keepRatio: singleArc,
 					borderStroke: '#246',
 					borderStrokeWidth: 1,
 					anchorFill: '#fff',
@@ -905,6 +921,70 @@
 			}
 		}
 
+		if (tool === 'select' && selectedIndices.length === 1) {
+			const si = selectedIndices[0]!;
+			const ent = entities[si];
+			if (ent?.type === 'arc') {
+				const sweep =
+					arcSweepDrag?.idx === si ? arcSweepDrag.sweep : ent.sweep_angle_deg;
+				const hp = arcEndPointMm(ent.cx, ent.cy, ent.radius, ent.start_angle_deg, sweep);
+				const hr = Math.max(1.2, 4 / viewZoom);
+				const knob = new K.Circle({
+					x: hp.x,
+					y: konvaY(hp.y),
+					radius: hr,
+					fill: '#f59e0b',
+					stroke: '#92400e',
+					strokeWidth: Math.max(0.5, 1 / viewZoom),
+					listening: true
+				});
+				knob.on('mousedown', (e) => {
+					e.cancelBubble = true;
+					e.evt.preventDefault();
+					clearSweepPointer();
+					const onMove = (ev: MouseEvent) => {
+						const e0 = entities[si];
+						if (!e0 || e0.type !== 'arc') return;
+						const w = clientToWorldMm(ev.clientX, ev.clientY);
+						const s = sweepAngleDegCCWToPointer(
+							e0.cx,
+							e0.cy,
+							e0.radius,
+							e0.start_angle_deg,
+							w.x,
+							w.y
+						);
+						arcSweepDrag = { idx: si, sweep: s };
+						redraw();
+					};
+					const onUp = () => {
+						window.removeEventListener('mousemove', onMove);
+						window.removeEventListener('mouseup', onUp);
+						sweepPointerCleanup = null;
+						const d = arcSweepDrag;
+						arcSweepDrag = null;
+						redraw();
+						if (d && entities[d.idx]?.type === 'arc') {
+							pushHistory();
+							entities = entities.map((e2, i2) =>
+								i2 === d.idx && e2.type === 'arc'
+									? { ...e2, sweep_angle_deg: d.sweep }
+									: e2
+							);
+						}
+						redraw();
+					};
+					window.addEventListener('mousemove', onMove);
+					window.addEventListener('mouseup', onUp);
+					sweepPointerCleanup = () => {
+						window.removeEventListener('mousemove', onMove);
+						window.removeEventListener('mouseup', onUp);
+					};
+				});
+				viewport.add(knob);
+			}
+		}
+
 		layer.batchDraw();
 	}
 
@@ -918,6 +998,7 @@
 		linePlacement;
 		rectPlacement;
 		arcPlacement;
+		arcSweepDrag;
 		if (layer) redraw();
 	});
 
@@ -966,12 +1047,6 @@
 				viewPanY = p.y - newZ * ky;
 				viewZoom = newZ;
 			});
-
-			function clientToWorldMm(clientX: number, clientY: number) {
-				if (!container) return { x: 0, y: 0 };
-				const r = container.getBoundingClientRect();
-				return stageToWorldMm(clientX - r.left, clientY - r.top);
-			}
 
 			function bindLinePlacement(start: { x: number; y: number }) {
 				clearPlacementPointer();
@@ -1136,7 +1211,7 @@
 						y: world.y,
 						z: 0,
 						text: raw.trim() || ' ',
-						height_mm: 5,
+						height_mm: DEFAULT_TEXT_HEIGHT_MM,
 						rotation_deg: 0,
 						entity_label: nextEntityLabelForKind('text', entities),
 						laser_group_id: defaultLaserGroupId
@@ -1220,6 +1295,7 @@
 	onDestroy(() => {
 		placementPointerCleanup?.();
 		placementPointerCleanup = null;
+		clearSweepPointer();
 		removeWindowKeyListeners?.();
 		removeWindowKeyListeners = null;
 		stage?.destroy();
@@ -1295,7 +1371,7 @@
 				y: 100,
 				z: 0,
 				text: 'Text',
-				height_mm: 6,
+				height_mm: DEFAULT_TEXT_HEIGHT_MM,
 				rotation_deg: 0,
 				entity_label: nextEntityLabelForKind('text', entities),
 				laser_group_id: defaultLaserGroupId
@@ -1393,8 +1469,8 @@
 		<strong>Select</strong>: click shapes; <strong>Shift+click</strong> extends range (same as job list). Drag to move; multiple selected shapes move together.
 		<strong>Selection</strong>: handles rotate/resize (one shape or the whole selection together). <strong>Esc</strong> or empty canvas: clear selection.
 		<strong>Line</strong>: click-drag-release for a segment (dashed preview). <strong>Rect</strong>: drag an axis-aligned box (dashed preview).
-		<strong>Arc</strong>: drag from center to rim (default {DEFAULT_ARC_SWEEP_DEG}° sweep, CCW). <strong>Text</strong>: click to place; prompt for string (backend uses a box outline for marking).
-		<strong>Arc</strong> has no resize/rotate handles (move only). Units: mm; +Y up.
+		<strong>Arc</strong>: drag from center to rim (default {DEFAULT_ARC_SWEEP_DEG}° sweep, CCW). Selected: orange handle at the end adjusts sweep; resize/rotate with the box. <strong>Text</strong>: click to place; prompt for string (default {DEFAULT_TEXT_HEIGHT_MM} mm cap height; backend uses a box outline for marking).
+		Units: mm; +Y up.
 	</p>
 	<div
 		class="ldk-scene-stage-wrap editor-stage-stack"

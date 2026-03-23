@@ -62,3 +62,54 @@ export function arcToKonvaLinePoints(
 	}
 	return flat;
 }
+
+/** End point of the arc (world mm, +Y up). */
+export function arcEndPointMm(
+	cx: number,
+	cy: number,
+	r: number,
+	startAngleDeg: number,
+	sweepAngleDeg: number
+): { x: number; y: number } {
+	const rad = ((startAngleDeg + sweepAngleDeg) * Math.PI) / 180;
+	return {
+		x: cx + r * Math.cos(rad),
+		y: cy + r * Math.sin(rad)
+	};
+}
+
+/**
+ * Konva.Line flat points in group local space (origin = arc center; Y down).
+ * Matches world tessellation with Y flipped for Konva.
+ */
+export function arcToKonvaLocalLinePoints(
+	r: number,
+	startAngleDeg: number,
+	sweepAngleDeg: number
+): number[] {
+	const pts = tessellateArcMm(0, 0, r, startAngleDeg, sweepAngleDeg);
+	const flat: number[] = [];
+	for (const p of pts) {
+		flat.push(p.x, -p.y);
+	}
+	return flat;
+}
+
+/**
+ * CCW sweep (0, 360] from start to the direction of pointer projected onto the circle.
+ */
+export function sweepAngleDegCCWToPointer(
+	cx: number,
+	cy: number,
+	_r: number,
+	startAngleDeg: number,
+	px: number,
+	py: number
+): number {
+	const endDeg = (Math.atan2(py - cy, px - cx) * 180) / Math.PI;
+	let d = endDeg - startAngleDeg;
+	d %= 360;
+	if (d <= 0) d += 360;
+	if (d < 1e-4) d = 360;
+	return Math.min(360, Math.max(0.25, d));
+}

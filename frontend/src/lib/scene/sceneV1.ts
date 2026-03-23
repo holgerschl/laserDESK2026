@@ -9,6 +9,9 @@ import {
 /** Default group id for new entities and legacy scenes without `laser_group_id`. */
 export const DEFAULT_LASER_GROUP_ID = 'g0';
 
+/** Default cap height (mm) for new text entities in the scene editor. */
+export const DEFAULT_TEXT_HEIGHT_MM = 12;
+
 /** Built-in preset ids (same as `laser_group_id` on entities). */
 export const CUT_LASER_GROUP_ID = 'g_cut';
 export const MARK_LASER_GROUP_ID = 'g_mark';
