@@ -6,7 +6,7 @@
 	import { LASERDESK_RTC_CHANNEL, type RtcChannelMessage } from '$lib/laser/rtcChannel';
 
 	let logLines = $state<string[]>([]);
-	let channel: BroadcastChannel | null = null;
+	let channel = $state<BroadcastChannel | null>(null);
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 	let statusText = $state('—');
 	let healthText = $state('—');

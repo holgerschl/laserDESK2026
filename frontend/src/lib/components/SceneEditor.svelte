@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
-	import type { Layer, Stage } from 'konva';
+	import type { Layer } from 'konva/lib/Layer.js';
+	import type { Stage } from 'konva/lib/Stage.js';
 	import { sceneFromEntities, type SceneEntity, type SceneV1 } from '$lib/scene/sceneV1';
 
 	interface Props {
