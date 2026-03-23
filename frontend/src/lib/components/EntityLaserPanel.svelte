@@ -184,21 +184,21 @@
 <div class="ldk-card ldk-entity-laser" data-testid="editor-entity-laser">
 	<h3 class="ldk-el-title">Parameters</h3>
 	{#if selectionCount > 1}
-		<p class="ldk-muted" style="margin:0 0 0.65rem;font-size:0.82rem" data-testid="editor-multi-select-hint">
+		<p class="ldk-muted ldk-el-hint" data-testid="editor-multi-select-hint">
 			<strong>{selectionCount}</strong> entities selected — <strong>Preset</strong>, <strong>override</strong>, and
 			<strong>override values</strong> apply to <strong>all selected</strong>. Shared preset parameters still update
 			that preset for every entity that uses it.
 		</p>
 	{/if}
-	<p class="ldk-muted" style="margin:0 0 0.65rem;font-size:0.82rem">
+	<p class="ldk-muted ldk-el-hint">
 		<strong>Presets</strong> are shared parameter sets: every entity that uses the same preset gets the same power,
 		speed, and timing. Edit the preset here (or pick another in the job list). Use <strong>override</strong> only when
 		one shape must differ.
 	</p>
 
 	<div class="ldk-preset-names" data-testid="editor-preset-names">
-		<p class="ldk-el-sub" style="margin:0 0 0.4rem">Preset names</p>
-		<p class="ldk-muted" style="margin:0 0 0.5rem;font-size:0.78rem">
+		<p class="ldk-el-sub ldk-el-sub-tight">Preset names</p>
+		<p class="ldk-muted ldk-el-micro">
 			Shown in dropdowns and the job tree. The internal id (left) is fixed; the display name is editable.
 		</p>
 		<ul class="ldk-preset-names-list">
@@ -225,8 +225,8 @@
 	</div>
 
 	<div class="ldk-preset-laser-block" data-testid="editor-preset-laser-params">
-		<p class="ldk-el-sub" style="margin:0 0 0.35rem">Preset parameters</p>
-		<p class="ldk-muted" style="margin:0 0 0.5rem;font-size:0.78rem">
+		<p class="ldk-el-sub ldk-el-sub-tight">Preset parameters</p>
+		<p class="ldk-muted ldk-el-micro">
 			Power, speed, and timing for each shared preset. Choose which preset to edit below.
 		</p>
 		<label class="ldk-el-field">
@@ -328,7 +328,7 @@
 			>
 		</div>
 	{:else}
-		<p class="ldk-muted" style="margin:0 0 0.65rem;font-size:0.82rem" data-testid="editor-params-empty">
+		<p class="ldk-muted ldk-el-hint" data-testid="editor-params-empty">
 			Select an entity in the job tree or on the canvas to assign a preset or override.
 		</p>
 		<div class="ldk-preset-actions">
@@ -346,27 +346,40 @@
 		align-self: stretch;
 	}
 	.ldk-el-title {
-		margin: 0 0 0.5rem;
-		font-size: 1rem;
+		margin: 0 0 0.35rem;
+		font-size: 0.95rem;
 		font-weight: 600;
 	}
+	.ldk-el-hint {
+		margin: 0 0 0.45rem;
+		font-size: 0.8rem;
+		line-height: 1.32;
+	}
+	.ldk-el-micro {
+		margin: 0 0 0.35rem;
+		font-size: 0.76rem;
+		line-height: 1.3;
+	}
 	.ldk-el-sub {
-		margin: 0 0 0.5rem;
-		font-size: 0.85rem;
+		margin: 0 0 0.4rem;
+		font-size: 0.82rem;
 		font-weight: 600;
 		color: #334155;
+	}
+	.ldk-el-sub-tight {
+		margin-bottom: 0.25rem;
 	}
 	.ldk-el-sep {
 		border: none;
 		border-top: 1px solid #e8ecf0;
-		margin: 0.5rem 0 0.65rem;
+		margin: 0.4rem 0 0.45rem;
 	}
 	.ldk-el-field {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
-		margin-bottom: 0.65rem;
-		font-size: 0.82rem;
+		gap: 0.18rem;
+		margin-bottom: 0.45rem;
+		font-size: 0.8rem;
 	}
 	.ldk-el-field span {
 		color: #475569;
@@ -374,7 +387,7 @@
 	.ldk-el-select {
 		width: 100%;
 		min-width: 0;
-		padding: 0.35rem 0.45rem;
+		padding: 0.28rem 0.4rem;
 		border: 1px solid #c5ced9;
 		border-radius: 6px;
 		font-size: 0.9rem;
@@ -382,9 +395,9 @@
 	.ldk-el-check {
 		display: flex;
 		align-items: flex-start;
-		gap: 0.45rem;
-		margin-bottom: 0.5rem;
-		font-size: 0.82rem;
+		gap: 0.35rem;
+		margin-bottom: 0.4rem;
+		font-size: 0.8rem;
 		cursor: pointer;
 		color: #334155;
 	}
@@ -393,18 +406,18 @@
 	}
 	.ldk-el-preset-editor,
 	.ldk-el-custom {
-		margin-top: 0.5rem;
-		padding-top: 0.5rem;
+		margin-top: 0.35rem;
+		padding-top: 0.4rem;
 		border-top: 1px solid #e8ecf0;
 	}
 	.ldk-preset-names {
-		margin-bottom: 0.75rem;
-		padding-bottom: 0.65rem;
+		margin-bottom: 0.5rem;
+		padding-bottom: 0.45rem;
 		border-bottom: 1px solid #e8ecf0;
 	}
 	.ldk-preset-laser-block {
-		margin-bottom: 0.75rem;
-		padding-bottom: 0.65rem;
+		margin-bottom: 0.5rem;
+		padding-bottom: 0.45rem;
 		border-bottom: 1px solid #e8ecf0;
 	}
 	.ldk-preset-names-list {
@@ -413,7 +426,7 @@
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: 0.28rem;
 	}
 	.ldk-preset-name-row {
 		margin: 0;
@@ -422,8 +435,8 @@
 		display: grid;
 		grid-template-columns: minmax(4.5rem, 6rem) minmax(0, 1fr);
 		align-items: center;
-		gap: 0.5rem;
-		font-size: 0.78rem;
+		gap: 0.4rem;
+		font-size: 0.76rem;
 	}
 	.ldk-preset-name-id {
 		font-family: ui-monospace, monospace;
@@ -436,7 +449,7 @@
 	.ldk-preset-name-input {
 		width: 100%;
 		min-width: 0;
-		padding: 0.3rem 0.45rem;
+		padding: 0.24rem 0.4rem;
 		border: 1px solid #c5ced9;
 		border-radius: 6px;
 		font-size: 0.88rem;
@@ -444,8 +457,8 @@
 	.ldk-preset-actions {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.35rem;
-		margin-top: 0.65rem;
+		gap: 0.28rem;
+		margin-top: 0.45rem;
 	}
 	.ldk-btn.danger:hover:not(:disabled) {
 		border-color: #b91c1c;

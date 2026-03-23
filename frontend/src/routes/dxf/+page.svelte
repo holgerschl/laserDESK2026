@@ -222,7 +222,7 @@
 			rtcLog('DXF demo: POST /rtc/disconnect');
 		}}
 	/>
-	<div class="ldk-row" style="flex-wrap:wrap;margin-bottom:0.75rem">
+	<div class="ldk-row" style="flex-wrap:wrap;margin-bottom:0.45rem">
 		<button type="button" class="ldk-btn secondary" disabled={busy} onclick={() => refreshRtc()}>Refresh RTC</button>
 	</div>
 	<p class="ldk-muted" data-testid="dxf-rtc-state">
@@ -237,8 +237,8 @@
 		opening this tab — switching back to this tab emits at most a short “tab focused” hint (throttled).
 	</p>
 
-	<h2 style="font-size:1.05rem;margin-top:1.25rem">Parse DXF</h2>
-	<div class="ldk-row" style="flex-wrap:wrap;margin-bottom:0.75rem">
+	<h2 style="font-size:0.98rem;margin-top:0.85rem">Parse DXF</h2>
+	<div class="ldk-row" style="flex-wrap:wrap;margin-bottom:0.45rem">
 		<button
 			type="button"
 			class="ldk-btn"
@@ -452,7 +452,7 @@
 			</table>
 		</div>
 
-		<h2 style="font-size:1.05rem;margin-top:1.25rem">RTC</h2>
+		<h2 style="font-size:0.98rem;margin-top:0.85rem">RTC</h2>
 		<div class="ldk-row" style="flex-wrap:wrap">
 			<button
 				type="button"
@@ -497,19 +497,19 @@
 		cursor: pointer;
 	}
 	.dxf-coords-caption {
-		margin: 0.4rem 0 0;
-		font-size: 0.8rem;
-		line-height: 1.35;
-		padding: 0 0.25rem;
+		margin: 0.22rem 0 0;
+		font-size: 0.78rem;
+		line-height: 1.3;
+		padding: 0 0.2rem;
 	}
 	.ldk-table {
 		width: 100%;
 		border-collapse: collapse;
-		font-size: 0.85rem;
+		font-size: 0.82rem;
 	}
 	.ldk-table th,
 	.ldk-table td {
-		padding: 0.35rem 0.5rem;
+		padding: 0.25rem 0.4rem;
 		text-align: left;
 		border-bottom: 1px solid #e8ecf0;
 	}

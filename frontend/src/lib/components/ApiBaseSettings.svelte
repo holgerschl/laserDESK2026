@@ -157,8 +157,8 @@
 		{/if}
 	</div>
 {:else}
-	<div class="ldk-card" style="margin-bottom:1rem">
-		<h2 style="margin:0 0 0.5rem;font-size:1.05rem">Backend API base URL</h2>
+	<div class="ldk-card" style="margin-bottom:0.65rem">
+		<h2 style="margin:0 0 0.35rem;font-size:0.98rem">Backend API base URL</h2>
 		<p class="ldk-muted" style="margin-top:0">
 			Must end with <code>/api/v1</code> (no trailing slash after <code>v1</code>). On GitHub Pages the default
 			already points at your PC; change this only if you use another port or host.
@@ -196,8 +196,8 @@
 
 <style>
 	.api-base-saved-banner {
-		margin: 0.75rem 0 0;
-		padding: 0.5rem 0.75rem;
+		margin: 0.45rem 0 0;
+		padding: 0.4rem 0.55rem;
 		border-radius: 6px;
 		border: 1px solid #8abf9b;
 		background: #e8f5ea;
@@ -216,7 +216,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.5rem 0.75rem;
+		gap: 0.4rem 0.55rem;
 	}
 
 	.ldk-api-strip-url {
@@ -225,7 +225,7 @@
 	}
 
 	.strip-notice {
-		margin: 0.5rem 0 0;
+		margin: 0.35rem 0 0;
 		font-weight: 500;
 	}
 </style>

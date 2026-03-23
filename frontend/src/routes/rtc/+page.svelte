@@ -91,7 +91,7 @@
 	<strong>localhost</strong> and <strong>127.0.0.1</strong> count as different sites — use the same host in both tabs.
 </p>
 {#if thisSiteLabel}
-	<p class="ldk-muted" style="margin:0 0 0.75rem;font-size:0.85rem" data-testid="rtc-origin-label">
+	<p class="ldk-muted" style="margin:0 0 0.45rem;font-size:0.82rem" data-testid="rtc-origin-label">
 		<strong>This URL:</strong> <code>{thisSiteLabel}</code>
 	</p>
 {/if}
@@ -117,7 +117,7 @@
 </div>
 
 <div class="ldk-card">
-	<h2 style="margin:0 0 0.5rem;font-size:1rem">Health</h2>
+	<h2 style="margin:0 0 0.35rem;font-size:0.95rem">Health</h2>
 	<pre class="ldk-pre" data-testid="rtc-page-health">{healthText}</pre>
 </div>
 
@@ -127,6 +127,6 @@
 </div>
 
 <div class="ldk-card">
-	<h2 style="margin:0 0 0.5rem;font-size:1rem">Activity log</h2>
+	<h2 style="margin:0 0 0.35rem;font-size:0.95rem">Activity log</h2>
 	<pre class="ldk-pre" data-testid="rtc-channel-log">{logLines.join('\n')}</pre>
 </div>

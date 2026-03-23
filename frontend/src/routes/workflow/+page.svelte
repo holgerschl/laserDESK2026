@@ -32,8 +32,8 @@
 
 <style>
 	.ldk-workflow-details {
-		margin-bottom: 1rem;
-		padding: 0.5rem 0.75rem;
+		margin-bottom: 0.65rem;
+		padding: 0.4rem 0.55rem;
 		border: 1px solid #d8dee6;
 		border-radius: 6px;
 		background: #fafbfc;
@@ -41,11 +41,11 @@
 	.ldk-workflow-details-summary {
 		cursor: pointer;
 		font-weight: 600;
-		padding: 0.25rem 0;
+		padding: 0.15rem 0;
 	}
 	.ldk-workflow-details-body {
-		margin-top: 0.5rem;
-		padding-top: 0.5rem;
+		margin-top: 0.35rem;
+		padding-top: 0.4rem;
 		border-top: 1px solid #e8ecf0;
 	}
 </style>

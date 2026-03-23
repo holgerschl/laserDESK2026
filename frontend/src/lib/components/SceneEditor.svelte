@@ -893,7 +893,7 @@
 			onclick={() => resetView()}>Reset view</button
 		>
 	</div>
-	<p class="ldk-muted" style="margin:0.35rem 0 0;font-size:0.85rem">
+	<p class="ldk-muted scene-editor-hint">
 		<strong>Wheel</strong>: zoom toward cursor. <strong>Space+drag</strong> or <strong>middle mouse</strong>: pan.
 		<strong>Select</strong>: click shapes; <strong>Shift+click</strong> extends range (same as job list). Drag to move; multiple selected shapes move together.
 		<strong>Selection</strong>: handles rotate/resize (one shape or the whole selection together). <strong>Esc</strong> or empty canvas: clear selection.
@@ -1032,7 +1032,7 @@
 		Axes and tick labels use <strong>millimetres</strong>; origin at (0, 0); <strong>+Y</strong> points up on screen (same
 		convention as the DXF demo).
 	</p>
-	<div class="ldk-scene-tool-row" style="margin-top:0.5rem">
+	<div class="ldk-scene-tool-row scene-editor-demo-row">
 		<button type="button" class="ldk-btn secondary" data-testid="editor-add-line" onclick={() => addDemoLine()}
 			>Add line</button
 		>
@@ -1048,12 +1048,25 @@
 		max-width: 100%;
 		min-width: 0;
 	}
+	.ldk-scene-tools {
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+	}
+	.scene-editor-hint {
+		margin: 0.15rem 0 0;
+		font-size: 0.8rem;
+		line-height: 1.32;
+	}
+	.scene-editor-demo-row {
+		margin-top: 0.35rem;
+	}
 	.editor-stage-stack {
 		position: relative;
 		display: block;
 		width: fit-content;
 		max-width: 100%;
-		margin-top: 0.5rem;
+		margin-top: 0.3rem;
 		border: 1px solid #d8dee6;
 		border-radius: 6px;
 		overflow: auto;
@@ -1080,9 +1093,9 @@
 		cursor: grabbing;
 	}
 	.editor-coords-caption {
-		margin: 0.4rem 0 0;
-		font-size: 0.8rem;
-		line-height: 1.35;
+		margin: 0.2rem 0 0;
+		font-size: 0.78rem;
+		line-height: 1.3;
 	}
 	.ldk-scene-tools .ldk-btn-active {
 		border-color: #246;
@@ -1093,6 +1106,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.35rem;
+		gap: 0.28rem;
 	}
 </style>

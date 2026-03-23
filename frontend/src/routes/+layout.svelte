@@ -32,7 +32,7 @@
 		</nav>
 	</header>
 	{#if onGithubPages}
-		<p class="ldk-muted" style="margin:-0.5rem 0 1rem">
+		<p class="ldk-muted" style="margin:-0.35rem 0 0.65rem">
 			Hosted UI: set <strong>Backend API base URL</strong> below (or on Usage), start <code>laserdesk_backend</code> with
 			CORS — see <a href="{base}/usage">Usage</a>. Open the app under <a href="{base}/workflow">Workflow</a>.
 		</p>

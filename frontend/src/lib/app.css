@@ -1,6 +1,6 @@
 :root {
 	font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
-	line-height: 1.45;
+	line-height: 1.4;
 	color: #0f1419;
 	background: #f4f6f8;
 }
@@ -27,7 +27,7 @@ button:focus-visible {
 .ldk-shell {
 	max-width: 56rem;
 	margin: 0 auto;
-	padding: 1rem 1.25rem 2rem;
+	padding: 0.65rem 0.85rem 1.25rem;
 }
 
 /** Scene editor: use full viewport width (job list + parameters + canvas). */
@@ -41,53 +41,53 @@ button:focus-visible {
 	flex-wrap: wrap;
 	align-items: baseline;
 	justify-content: space-between;
-	gap: 0.75rem;
-	margin-bottom: 1.25rem;
-	padding-bottom: 0.75rem;
+	gap: 0.5rem;
+	margin-bottom: 0.75rem;
+	padding-bottom: 0.45rem;
 	border-bottom: 1px solid #d8dee6;
 }
 
 .ldk-header h1 {
 	margin: 0;
-	font-size: 1.35rem;
+	font-size: 1.2rem;
 	font-weight: 650;
 }
 
 .ldk-nav {
 	display: flex;
-	gap: 1rem;
-	font-size: 0.95rem;
+	gap: 0.65rem;
+	font-size: 0.9rem;
 }
 
 .ldk-card {
 	background: #fff;
 	border: 1px solid #d8dee6;
-	border-radius: 8px;
-	padding: 1rem 1.1rem;
-	margin-bottom: 1rem;
+	border-radius: 6px;
+	padding: 0.65rem 0.75rem;
+	margin-bottom: 0.65rem;
 	box-shadow: 0 1px 2px rgb(15 20 25 / 4%);
 }
 
 .ldk-row {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0.5rem;
+	gap: 0.4rem;
 	align-items: center;
 }
 
 .ldk-steps {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0.35rem;
-	margin-bottom: 1rem;
+	gap: 0.3rem;
+	margin-bottom: 0.65rem;
 }
 
 .ldk-step-tab {
 	border: 1px solid #c5ced9;
 	background: #fff;
 	border-radius: 6px;
-	padding: 0.35rem 0.65rem;
-	font-size: 0.875rem;
+	padding: 0.28rem 0.5rem;
+	font-size: 0.85rem;
 	cursor: pointer;
 }
 
@@ -104,8 +104,8 @@ button:focus-visible {
 .ldk-btn {
 	border: none;
 	border-radius: 6px;
-	padding: 0.45rem 0.85rem;
-	font-size: 0.9rem;
+	padding: 0.32rem 0.6rem;
+	font-size: 0.875rem;
 	cursor: pointer;
 	background: #0b5fff;
 	color: #fff;
@@ -128,8 +128,8 @@ button:focus-visible {
 .ldk-field {
 	display: flex;
 	flex-direction: column;
-	gap: 0.25rem;
-	margin-bottom: 0.75rem;
+	gap: 0.2rem;
+	margin-bottom: 0.5rem;
 	max-width: 24rem;
 }
 
@@ -140,7 +140,7 @@ button:focus-visible {
 
 .ldk-field input,
 .ldk-field select {
-	padding: 0.4rem 0.5rem;
+	padding: 0.32rem 0.45rem;
 	border-radius: 6px;
 	border: 1px solid #c5ced9;
 	font: inherit;
@@ -148,15 +148,16 @@ button:focus-visible {
 
 .ldk-muted {
 	color: #5c6b7a;
-	font-size: 0.9rem;
+	font-size: 0.875rem;
 }
 
 .ldk-pre {
 	font-family: ui-monospace, monospace;
-	font-size: 0.8rem;
+	font-size: 0.78rem;
+	line-height: 1.35;
 	background: #0f1419;
 	color: #e8ecf1;
-	padding: 0.75rem;
+	padding: 0.5rem 0.55rem;
 	border-radius: 6px;
 	overflow: auto;
 	max-height: 14rem;

@@ -185,21 +185,21 @@ npm run dev</pre>
 
 <style>
 	.ldk-doc h2 {
-		font-size: 1.15rem;
-		margin-top: 1.5rem;
+		font-size: 1.08rem;
+		margin-top: 1.1rem;
 		border-bottom: 1px solid #d8dee6;
-		padding-bottom: 0.25rem;
+		padding-bottom: 0.2rem;
 	}
 	.ldk-doc ol,
 	.ldk-doc ul {
-		padding-left: 1.25rem;
+		padding-left: 1.1rem;
 	}
 	.ldk-doc li {
-		margin-bottom: 0.35rem;
+		margin-bottom: 0.28rem;
 	}
 	.ldk-doc-details {
-		margin-top: 1.5rem;
-		padding: 0.75rem 1rem;
+		margin-top: 1.1rem;
+		padding: 0.55rem 0.75rem;
 		border: 1px solid #d8dee6;
 		border-radius: 6px;
 		background: #fafbfc;
@@ -209,6 +209,6 @@ npm run dev</pre>
 		font-weight: 600;
 	}
 	.ldk-doc-details > :not(summary) {
-		margin-top: 0.75rem;
+		margin-top: 0.5rem;
 	}
 </style>

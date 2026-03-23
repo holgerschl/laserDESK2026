@@ -202,7 +202,7 @@
 				/>
 			</div>
 		</div>
-		<div class="ldk-row" style="flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem">
+		<div class="ldk-row" style="flex-wrap:wrap;gap:0.4rem;margin-bottom:0.45rem">
 			<button type="button" class="ldk-btn secondary" disabled={busy || connectDisabled} onclick={openDiscover}
 				>Discover RTC…</button
 			>
@@ -216,7 +216,7 @@
 		<p class="ldk-success" role="status" data-testid="rtc-panel-hint">{hint}</p>
 	{/if}
 
-	<div class="ldk-row" style="flex-wrap:wrap;gap:0.5rem">
+	<div class="ldk-row" style="flex-wrap:wrap;gap:0.4rem">
 		<button
 			type="button"
 			class="ldk-btn"
@@ -338,20 +338,21 @@
 
 <style>
 	.ldk-rtc-panel-title {
-		margin: 0 0 0.35rem;
-		font-size: 1.05rem;
+		margin: 0 0 0.25rem;
+		font-size: 0.98rem;
 	}
 	.ldk-rtc-panel-lead {
-		margin: 0 0 0.75rem;
-		font-size: 0.88rem;
+		margin: 0 0 0.45rem;
+		font-size: 0.85rem;
+		line-height: 1.35;
 	}
 	.ldk-rtc-mode-fieldset {
 		border: none;
 		padding: 0;
-		margin: 0 0 0.75rem;
+		margin: 0 0 0.45rem;
 	}
 	.ldk-rtc-mode-row {
-		gap: 1.25rem;
+		gap: 0.85rem;
 	}
 	.ldk-radio-label {
 		display: inline-flex;
@@ -372,7 +373,7 @@
 		border: 0;
 	}
 	.ldk-field {
-		margin-bottom: 0.65rem;
+		margin-bottom: 0.45rem;
 	}
 	.ldk-field-grow {
 		flex: 1;

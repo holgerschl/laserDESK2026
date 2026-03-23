@@ -242,7 +242,7 @@
 
 <div class="ldk-card ldk-job-tree" data-testid="editor-job-tree">
 	<h3 class="ldk-tree-title">Job tree</h3>
-	<p class="ldk-muted" style="margin:0 0 0.75rem;font-size:0.82rem">
+	<p class="ldk-muted ldk-tree-intro">
 		Execution order is top → bottom. <strong>Shift+click</strong> for a range; select a row for preset and details;
 		<strong>↑</strong> / <strong>↓</strong> on a <strong>row</strong> move that entity one step; on the <strong>group folder</strong> (when the whole group is selected) move the <strong>entire block</strong>. Remove as before.
 		<strong>Group</strong> when several are selected.
@@ -497,16 +497,21 @@
 		min-width: 0;
 		max-width: 100%;
 	}
+	.ldk-tree-intro {
+		margin: 0 0 0.45rem;
+		font-size: 0.8rem;
+		line-height: 1.32;
+	}
 	.ldk-tree-bulk {
-		margin-bottom: 0.5rem;
+		margin-bottom: 0.35rem;
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.4rem;
+		gap: 0.3rem;
 		align-items: center;
 	}
 	.ldk-tree-title {
-		margin: 0 0 0.5rem;
-		font-size: 1rem;
+		margin: 0 0 0.35rem;
+		font-size: 0.95rem;
 		font-weight: 600;
 	}
 	.ldk-tree-list {
@@ -527,10 +532,10 @@
 	.ldk-tree-folder-header {
 		display: flex;
 		align-items: stretch;
-		gap: 0.25rem;
+		gap: 0.2rem;
 		background: #eef2f7;
 		border-bottom: 1px solid #dde4ee;
-		padding: 0.25rem 0.45rem 0.25rem 0.5rem;
+		padding: 0.18rem 0.35rem 0.18rem 0.4rem;
 	}
 	.ldk-tree-folder-header .ldk-tree-folder-title {
 		flex: 1;
@@ -539,9 +544,9 @@
 	.ldk-tree-folder-title {
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
+		gap: 0.3rem;
 		width: 100%;
-		padding: 0.2rem 0;
+		padding: 0.12rem 0;
 		border: none;
 		background: transparent;
 		cursor: pointer;
@@ -561,7 +566,7 @@
 		background: #fafbfc;
 	}
 	.ldk-tree-row-nested .ldk-tree-main {
-		padding-left: 1.1rem;
+		padding-left: 0.85rem;
 	}
 	.ldk-tree-row {
 		display: flex;
@@ -574,8 +579,8 @@
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 0.35rem;
-		padding: 0.35rem 0 0.45rem 0.6rem;
+		gap: 0.25rem;
+		padding: 0.25rem 0 0.3rem 0.45rem;
 	}
 	.ldk-tree-group-wrap {
 		display: flex;
@@ -637,7 +642,7 @@
 		min-height: 0;
 	}
 	.ldk-tree-row-collapsed .ldk-tree-main {
-		padding: 0.12rem 0.45rem 0.12rem 0.45rem;
+		padding: 0.08rem 0.35rem;
 		gap: 0;
 	}
 	.ldk-tree-row-collapsed .ldk-tree-name {
@@ -650,7 +655,7 @@
 		min-height: 0;
 	}
 	.ldk-tree-list {
-		font-size: 0.85rem;
+		font-size: 0.82rem;
 	}
 	.ldk-tree-name {
 		font-weight: 600;
@@ -664,15 +669,15 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
-		gap: 0.2rem;
-		padding: 0.25rem;
+		gap: 0.12rem;
+		padding: 0.18rem;
 		border-left: 1px solid #e8ecf0;
 		background: #fff;
 	}
 	.ldk-tree-icon {
-		min-width: 2rem;
-		padding: 0.15rem 0.35rem;
-		font-size: 0.85rem;
+		min-width: 1.75rem;
+		padding: 0.1rem 0.28rem;
+		font-size: 0.82rem;
 		line-height: 1.2;
 	}
 	.ldk-tree-icon.danger:hover {

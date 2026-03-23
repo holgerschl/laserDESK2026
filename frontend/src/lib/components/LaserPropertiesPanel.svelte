@@ -99,8 +99,8 @@
 
 <style>
 	.ldk-laser-title {
-		margin: 0 0 0.5rem;
-		font-size: 1rem;
+		margin: 0 0 0.35rem;
+		font-size: 0.92rem;
 		font-weight: 600;
 	}
 	.ldk-laser-panel {
@@ -110,7 +110,7 @@
 	.ldk-laser-grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.65rem 0.85rem;
+		gap: 0.4rem 0.55rem;
 	}
 	.ldk-field {
 		display: flex;
@@ -126,7 +126,7 @@
 		width: 100%;
 		min-width: 0;
 		max-width: 100%;
-		padding: 0.35rem 0.45rem;
+		padding: 0.28rem 0.4rem;
 		border: 1px solid #c5ced9;
 		border-radius: 6px;
 		font-size: 0.9rem;

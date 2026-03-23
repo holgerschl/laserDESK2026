@@ -278,7 +278,7 @@
 		{#key stepIndex}
 			{@const step = currentStep()}
 			{#if step}
-				<h2 style="margin:0 0 0.5rem;font-size:1.1rem">{step.title}</h2>
+				<h2 style="margin:0 0 0.35rem;font-size:1.02rem">{step.title}</h2>
 				{#if step.description}
 					<p class="ldk-muted" style="margin-top:0">{step.description}</p>
 				{/if}
@@ -365,7 +365,7 @@
 						>
 					</div>
 				{:else if step.kind === 'status'}
-					<div class="ldk-row" style="margin-bottom:0.75rem">
+					<div class="ldk-row" style="margin-bottom:0.45rem">
 						<button
 							type="button"
 							class="ldk-btn secondary"
@@ -382,7 +382,7 @@
 						<pre class="ldk-pre" data-testid="health-json">{healthJson}</pre>
 					{/if}
 					{#if rtcJson}
-						<h3 style="font-size:0.85rem;margin:0.75rem 0 0.25rem">RTC status</h3>
+						<h3 style="font-size:0.82rem;margin:0.45rem 0 0.2rem">RTC status</h3>
 						<pre class="ldk-pre" data-testid="rtc-json">{rtcJson}</pre>
 					{/if}
 				{:else}
@@ -399,7 +399,7 @@
 				>Clear log</button
 			>
 		</div>
-		<p class="ldk-muted" style="margin:0 0 0.5rem;font-size:0.85rem">
+		<p class="ldk-muted" style="margin:0 0 0.35rem;font-size:0.82rem">
 			Current API base: <code data-testid="workflow-api-base">{apiBaseDisplay || '…'}</code>
 		</p>
 		<p class="ldk-muted" style="margin:0 0 0.5rem;font-size:0.85rem">
@@ -421,28 +421,28 @@
 
 <style>
 	.ldk-status-panel {
-		margin-top: 1rem;
+		margin-top: 0.65rem;
 	}
 	.ldk-status-panel-head {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
-		gap: 0.5rem;
-		margin-bottom: 0.35rem;
+		gap: 0.4rem;
+		margin-bottom: 0.28rem;
 	}
 	.ldk-status-panel-title {
 		margin: 0;
-		font-size: 1.05rem;
+		font-size: 0.98rem;
 	}
 	.ldk-status-log-region {
-		margin-top: 0.5rem;
+		margin-top: 0.35rem;
 	}
 	.ldk-status-log-pre {
 		margin: 0;
 		max-height: 14rem;
-		font-size: 0.8rem;
-		line-height: 1.35;
+		font-size: 0.78rem;
+		line-height: 1.32;
 		white-space: pre-wrap;
 		word-break: break-word;
 	}

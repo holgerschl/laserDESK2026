@@ -202,8 +202,8 @@
 </svelte:head>
 
 <article class="ldk-doc ldk-editor-page">
-	<h1 style="margin-top:0">Phase H – Scene editor</h1>
-	<p class="ldk-muted" style="margin-top:0">
+	<h1 class="ldk-editor-page-title">Phase H – Scene editor</h1>
+	<p class="ldk-muted ldk-editor-lead">
 		Draw lines and rectangles (mm, +Y up). Use <strong>presets</strong> (shared laser parameters) or a per-entity
 		<strong>override</strong> in the parameter column; order items in the job tree, then submit as
 		<code>scene_v1</code>. Backend geometry path:
@@ -236,7 +236,7 @@
 			rtcLog('Scene editor: POST /rtc/disconnect');
 		}}
 	/>
-	<div class="ldk-row" style="flex-wrap:wrap;margin-bottom:0.75rem">
+	<div class="ldk-row" style="flex-wrap:wrap;margin-bottom:0.45rem">
 		<button type="button" class="ldk-btn secondary" disabled={busy} onclick={() => refreshRtc()}>Refresh RTC</button>
 	</div>
 	<p class="ldk-muted" data-testid="editor-rtc-state">
@@ -268,7 +268,7 @@
 			/>
 		</div>
 		<section class="ldk-editor-canvas">
-			<h2 style="font-size:1.05rem;margin:0 0 0.5rem">Canvas</h2>
+			<h2 class="ldk-editor-canvas-h">Canvas</h2>
 			<SceneEditor
 				bind:entities
 				selectedIndices={selectedIndices}
@@ -289,7 +289,7 @@
 	</div>
 
 	{#if job}
-		<p class="ldk-muted" data-testid="editor-entity-count" style="margin-top:1rem">
+		<p class="ldk-muted" data-testid="editor-entity-count" style="margin-top:0.6rem">
 			<strong>{job.line_count}</strong> LINE entities · source <code>{job.source_name}</code> · job
 			<code>{job.job_id}</code>
 		</p>
@@ -319,7 +319,7 @@
 			</table>
 		</div>
 
-		<h2 style="font-size:1.05rem;margin-top:1.25rem">RTC</h2>
+		<h2 class="ldk-editor-rtc-h">RTC</h2>
 		<div class="ldk-row" style="flex-wrap:wrap">
 			<button
 				type="button"
@@ -351,12 +351,32 @@
 		max-width: none;
 		width: 100%;
 	}
+	.ldk-editor-page-title {
+		margin: 0;
+		font-size: 1.05rem;
+		font-weight: 650;
+	}
+	.ldk-editor-lead {
+		margin: 0.25rem 0 0.45rem;
+		font-size: 0.875rem;
+		line-height: 1.38;
+	}
+	.ldk-editor-canvas-h {
+		font-size: 0.95rem;
+		margin: 0 0 0.35rem;
+		font-weight: 600;
+	}
+	.ldk-editor-rtc-h {
+		font-size: 0.95rem;
+		margin-top: 0.75rem;
+		font-weight: 600;
+	}
 	.ldk-editor-layout {
 		display: grid;
-		grid-template-columns: minmax(22rem, 42rem) minmax(0, 1fr);
-		gap: 1rem;
+		grid-template-columns: minmax(18rem, 38rem) minmax(0, 1fr);
+		gap: 0.55rem;
 		align-items: start;
-		margin-top: 0.5rem;
+		margin-top: 0.35rem;
 		width: 100%;
 	}
 	@media (max-width: 52rem) {
@@ -366,8 +386,8 @@
 	}
 	.ldk-editor-sidebar {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(12rem, 20rem);
-		gap: 0.75rem;
+		grid-template-columns: minmax(0, 1fr) minmax(11rem, 18rem);
+		gap: 0.45rem;
 		align-items: start;
 		min-width: 0;
 	}
@@ -388,7 +408,7 @@
 	}
 	.ldk-table th,
 	.ldk-table td {
-		padding: 0.35rem 0.5rem;
+		padding: 0.25rem 0.4rem;
 		text-align: left;
 		border-bottom: 1px solid #e8ecf0;
 	}
