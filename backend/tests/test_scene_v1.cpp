@@ -70,3 +70,54 @@ TEST(SceneV1, RejectsBadVersion) {
   std::string err;
   EXPECT_FALSE(laserdesk::rtc::job::scene_v1_to_parse_result(j, pr, err));
 }
+
+TEST(SceneV1, ArcProducesSegments) {
+  auto j = nlohmann::json::parse(R"({
+    "schemaVersion": 1,
+    "kind": "scene_v1",
+    "layers": [
+      {
+        "name": "0",
+        "entities": [
+          {
+            "type": "arc",
+            "cx": 0,
+            "cy": 0,
+            "radius": 10,
+            "start_angle_deg": 0,
+            "sweep_angle_deg": 90
+          }
+        ]
+      }
+    ]
+  })");
+  laserdesk::dxf::ParseResult pr;
+  std::string err;
+  ASSERT_TRUE(laserdesk::rtc::job::scene_v1_to_parse_result(j, pr, err)) << err;
+  EXPECT_GE(pr.lines.size(), 8u);
+  EXPECT_LE(pr.lines.size(), 120u);
+}
+
+TEST(SceneV1, TextProducesFiveSegments) {
+  auto j = nlohmann::json::parse(R"({
+    "schemaVersion": 1,
+    "kind": "scene_v1",
+    "layers": [
+      {
+        "entities": [
+          {
+            "type": "text",
+            "x": 10,
+            "y": 20,
+            "height_mm": 5,
+            "text": "Hi"
+          }
+        ]
+      }
+    ]
+  })");
+  laserdesk::dxf::ParseResult pr;
+  std::string err;
+  ASSERT_TRUE(laserdesk::rtc::job::scene_v1_to_parse_result(j, pr, err)) << err;
+  EXPECT_EQ(pr.lines.size(), 5u);
+}

@@ -52,6 +52,29 @@ export type SceneEntity =
 			height: number;
 			rotation_deg?: number;
 			z?: number;
+	  })
+	| (SceneEntityCommon & {
+			type: 'arc';
+			/** Center (world mm). */
+			cx: number;
+			cy: number;
+			cz?: number;
+			radius: number;
+			/** Degrees from +X toward +Y (CCW). */
+			start_angle_deg: number;
+			/** Positive = CCW. */
+			sweep_angle_deg: number;
+	  })
+	| (SceneEntityCommon & {
+			type: 'text';
+			/** Anchor: center of the label (world mm). */
+			x: number;
+			y: number;
+			z?: number;
+			text: string;
+			/** Nominal cap height (mm). */
+			height_mm: number;
+			rotation_deg?: number;
 	  });
 
 export interface SceneLayerV1 {
@@ -428,8 +451,12 @@ export function buildJobTreeSegments(entities: SceneEntity[]): JobTreeSegment[] 
  * Next stable label for a new line or rectangle (e.g. `Line 3`). Scans existing `entity_label`
  * values of that kind so reordering the list does not renumber names.
  */
-export function nextEntityLabelForKind(kind: 'line' | 'rect', list: SceneEntity[]): string {
-	const prefix = kind === 'line' ? 'Line ' : 'Rect ';
+export function nextEntityLabelForKind(
+	kind: 'line' | 'rect' | 'arc' | 'text',
+	list: SceneEntity[]
+): string {
+	const prefix =
+		kind === 'line' ? 'Line ' : kind === 'rect' ? 'Rect ' : kind === 'arc' ? 'Arc ' : 'Text ';
 	let max = 0;
 	for (const e of list) {
 		if (e.type !== kind) continue;

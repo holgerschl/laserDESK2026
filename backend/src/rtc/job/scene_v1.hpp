@@ -7,7 +7,8 @@
 
 namespace laserdesk::rtc::job {
 
-/// Validates `scene_v1` JSON and fills `ParseResult` with LINE entities (rect → 4 segments).
+/// Validates `scene_v1` JSON and fills `ParseResult` with LINE entities (rect → 4 segments; arc
+/// tessellated; text → bounding box outline + diagonal placeholder for marking).
 bool scene_v1_to_parse_result(const nlohmann::json& scene, dxf::ParseResult& out, std::string& error);
 
 }  // namespace laserdesk::rtc::job

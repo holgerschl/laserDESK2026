@@ -61,12 +61,24 @@
 	function label(i: number, e: SceneEntity): string {
 		if (e.entity_label) return e.entity_label;
 		if (e.type === 'line') return `Line ${i + 1}`;
-		return `Rect ${i + 1}`;
+		if (e.type === 'rect') return `Rect ${i + 1}`;
+		if (e.type === 'arc') return `Arc ${i + 1}`;
+		if (e.type === 'text') return `Text ${i + 1}`;
+		return `Entity ${i + 1}`;
 	}
 
 	function summary(e: SceneEntity): string {
 		if (e.type === 'line') {
 			return `${e.x0.toFixed(0)},${e.y0.toFixed(0)} → ${e.x1.toFixed(0)},${e.y1.toFixed(0)} mm`;
+		}
+		if (e.type === 'arc') {
+			return `r=${e.radius.toFixed(0)} @ ${e.cx.toFixed(0)},${e.cy.toFixed(0)} ∠${e.start_angle_deg.toFixed(0)}°+${e.sweep_angle_deg.toFixed(0)}°`;
+		}
+		if (e.type === 'text') {
+			const rot = e.rotation_deg ?? 0;
+			const rotS = Math.abs(rot) > 0.01 ? ` ∠${rot.toFixed(0)}°` : '';
+			const t = e.text.length > 18 ? `${e.text.slice(0, 16)}…` : e.text;
+			return `"${t}" ${e.height_mm.toFixed(1)} mm @ ${e.x.toFixed(0)},${e.y.toFixed(0)}${rotS}`;
 		}
 		const rot = e.rotation_deg ?? 0;
 		const rotS = Math.abs(rot) > 0.01 ? ` ∠${rot.toFixed(0)}°` : '';

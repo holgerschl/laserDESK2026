@@ -3,6 +3,7 @@
 	import type { Layer } from 'konva/lib/Layer.js';
 	import type { Line as KonvaLine } from 'konva/lib/shapes/Line.js';
 	import type { Rect as KonvaRect } from 'konva/lib/shapes/Rect.js';
+	import type { Text as KonvaText } from 'konva/lib/shapes/Text.js';
 	import type { Shape as KonvaShape } from 'konva/lib/Shape.js';
 	import type { Stage } from 'konva/lib/Stage.js';
 	import { fixedStageLayout, fmtMmLabel, mmTicks, niceMmStep } from '$lib/scene/mmAxes';
@@ -12,6 +13,7 @@
 		withLaserGroupId,
 		type SceneEntity
 	} from '$lib/scene/sceneV1';
+	import { arcFirstPointMm, arcToKonvaLinePoints, DEFAULT_ARC_SWEEP_DEG } from '$lib/scene/arcMm';
 
 	interface Props {
 		stageWidth?: number;
@@ -63,7 +65,7 @@
 	let layer: Layer | null = null;
 	let removeWindowKeyListeners: (() => void) | null = null;
 	let konvaLib: typeof import('konva').default | null = null;
-	let tool = $state<'select' | 'line' | 'rect'>('select');
+	let tool = $state<'select' | 'line' | 'rect' | 'arc' | 'text'>('select');
 	/** Rubber-band preview while drag-drawing a line (world mm). */
 	let linePlacement = $state<{
 		start: { x: number; y: number };
@@ -72,6 +74,11 @@
 	/** Rubber-band preview while drag-drawing a rect (world mm). */
 	let rectPlacement = $state<{
 		start: { x: number; y: number };
+		current: { x: number; y: number };
+	} | null>(null);
+	/** Center → radius / start angle; sweep is DEFAULT_ARC_SWEEP_DEG. */
+	let arcPlacement = $state<{
+		center: { x: number; y: number };
 		current: { x: number; y: number };
 	} | null>(null);
 	/** Remove window listeners if drag ends early (e.g. tool switch). */
@@ -114,6 +121,12 @@
 					x1: e.x1 + dx,
 					y1: e.y1 + dy
 				};
+			}
+			if (e.type === 'arc') {
+				return { ...e, cx: e.cx + dx, cy: e.cy + dy };
+			}
+			if (e.type === 'text') {
+				return { ...e, x: e.x + dx, y: e.y + dy };
 			}
 			return {
 				...e,
@@ -251,7 +264,15 @@
 
 		entities.forEach((ent, idx) => {
 			const sel = selectedIndices.includes(idx);
-			const stroke = sel ? '#b45309' : ent.type === 'line' ? '#1e3a5f' : '#059669';
+			const stroke = sel
+				? '#b45309'
+				: ent.type === 'line'
+					? '#1e3a5f'
+					: ent.type === 'arc'
+						? '#7c3aed'
+						: ent.type === 'text'
+							? '#0f766e'
+							: '#059669';
 			const strokeW = sel ? 3.5 : 2;
 			/** In select mode, all shapes stay draggable (move). Selected items also use the Transformer for resize/rotate. */
 			const canDragWhole = tool === 'select';
@@ -269,7 +290,7 @@
 				});
 				viewport.add(ln);
 				drawn[idx] = ln;
-			} else {
+			} else if (ent.type === 'rect') {
 				const rot = ent.rotation_deg ?? 0;
 				const cx = ent.x + ent.width / 2;
 				const cy = ent.y + ent.height / 2;
@@ -289,6 +310,48 @@
 				});
 				viewport.add(r);
 				drawn[idx] = r;
+			} else if (ent.type === 'arc') {
+				const ln = new K.Line({
+					points: arcToKonvaLinePoints(
+						ent.cx,
+						ent.cy,
+						ent.radius,
+						ent.start_angle_deg,
+						ent.sweep_angle_deg,
+						stageHeight,
+						konvaY
+					),
+					stroke,
+					strokeWidth: strokeW,
+					lineCap: 'round',
+					lineJoin: 'round',
+					draggable: canDragWhole,
+					listening: shapeListening,
+					hitStrokeWidth: 12
+				});
+				viewport.add(ln);
+				drawn[idx] = ln;
+			} else {
+				const rot = ent.rotation_deg ?? 0;
+				const tx = new K.Text({
+					x: ent.x,
+					y: konvaY(ent.y),
+					text: ent.text,
+					fontSize: ent.height_mm,
+					fontFamily: 'system-ui, Segoe UI, sans-serif',
+					fill: sel ? 'rgba(180, 83, 9, 0.25)' : 'rgba(15, 118, 110, 0.35)',
+					stroke,
+					strokeWidth: strokeW * 0.5,
+					align: 'center',
+					verticalAlign: 'middle',
+					rotation: -rot,
+					draggable: canDragWhole,
+					listening: shapeListening
+				});
+				tx.offsetX(tx.width() / 2);
+				tx.offsetY(tx.height() / 2);
+				viewport.add(tx);
+				drawn[idx] = tx;
 			}
 		});
 
@@ -327,6 +390,33 @@
 			});
 			viewport.add(pr);
 		}
+		if (arcPlacement) {
+			const { center, current } = arcPlacement;
+			const dx = current.x - center.x;
+			const dy = current.y - center.y;
+			const r = Math.hypot(dx, dy);
+			const startDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
+			if (r >= 0.5) {
+				const rubber = new K.Line({
+					points: arcToKonvaLinePoints(
+						center.x,
+						center.y,
+						r,
+						startDeg,
+						DEFAULT_ARC_SWEEP_DEG,
+						stageHeight,
+						konvaY
+					),
+					stroke: '#64748b',
+					strokeWidth: 1.5,
+					dash: [6, 4],
+					lineCap: 'round',
+					lineJoin: 'round',
+					listening: false
+				});
+				viewport.add(rubber);
+			}
+		}
 
 		function syncGroupDragPeersFromLine(ln: KonvaLine, idx: number) {
 			const snap = groupDragSnapshot;
@@ -357,12 +447,28 @@
 						oe.x1 + dx,
 						konvaY(oe.y1 + dy)
 					]);
-				} else {
+				} else if (oe.type === 'rect') {
 					const rr = node as KonvaRect;
 					const cx = oe.x + oe.width / 2 + dx;
 					const cy = oe.y + oe.height / 2 + dy;
 					rr.x(cx);
 					rr.y(konvaY(cy));
+				} else if (oe.type === 'arc') {
+					(node as KonvaLine).points(
+						arcToKonvaLinePoints(
+							oe.cx + dx,
+							oe.cy + dy,
+							oe.radius,
+							oe.start_angle_deg,
+							oe.sweep_angle_deg,
+							stageHeight,
+							konvaY
+						)
+					);
+				} else if (oe.type === 'text') {
+					const tt = node as KonvaText;
+					tt.x(oe.x + dx);
+					tt.y(konvaY(oe.y + dy));
 				}
 			}
 		}
@@ -397,12 +503,126 @@
 						oe.x1 + dx,
 						konvaY(oe.y1 + dy)
 					]);
-				} else {
+				} else if (oe.type === 'rect') {
 					const rr = node as KonvaRect;
 					const cx = oe.x + oe.width / 2 + dx;
 					const cy = oe.y + oe.height / 2 + dy;
 					rr.x(cx);
 					rr.y(konvaY(cy));
+				} else if (oe.type === 'arc') {
+					(node as KonvaLine).points(
+						arcToKonvaLinePoints(
+							oe.cx + dx,
+							oe.cy + dy,
+							oe.radius,
+							oe.start_angle_deg,
+							oe.sweep_angle_deg,
+							stageHeight,
+							konvaY
+						)
+					);
+				} else if (oe.type === 'text') {
+					const tt = node as KonvaText;
+					tt.x(oe.x + dx);
+					tt.y(konvaY(oe.y + dy));
+				}
+			}
+		}
+
+		function syncGroupDragPeersFromArc(ln: KonvaLine, idx: number) {
+			const snap = groupDragSnapshot;
+			if (!snap || selectedIndices.length <= 1 || !selectedIndices.includes(idx)) return;
+			const old = snap[idx];
+			if (old.type !== 'arc') return;
+			const abs = ln.getAbsoluteTransform();
+			const pts = ln.points();
+			const p0 = abs.point({ x: pts[0]!, y: pts[1]! });
+			const w0 = stageToWorldMm(p0.x, p0.y);
+			const firstOld = arcFirstPointMm(old.cx, old.cy, old.radius, old.start_angle_deg);
+			const dx = w0.x - firstOld.x;
+			const dy = w0.y - firstOld.y;
+			for (const j of selectedIndices) {
+				if (j === idx) continue;
+				const node = drawn[j];
+				if (!node) continue;
+				const oe = snap[j];
+				if (oe.type === 'line') {
+					(node as KonvaLine).points([
+						oe.x0 + dx,
+						konvaY(oe.y0 + dy),
+						oe.x1 + dx,
+						konvaY(oe.y1 + dy)
+					]);
+				} else if (oe.type === 'rect') {
+					const rr = node as KonvaRect;
+					const cx = oe.x + oe.width / 2 + dx;
+					const cy = oe.y + oe.height / 2 + dy;
+					rr.x(cx);
+					rr.y(konvaY(cy));
+				} else if (oe.type === 'arc') {
+					(node as KonvaLine).points(
+						arcToKonvaLinePoints(
+							oe.cx + dx,
+							oe.cy + dy,
+							oe.radius,
+							oe.start_angle_deg,
+							oe.sweep_angle_deg,
+							stageHeight,
+							konvaY
+						)
+					);
+				} else if (oe.type === 'text') {
+					const tt = node as KonvaText;
+					tt.x(oe.x + dx);
+					tt.y(konvaY(oe.y + dy));
+				}
+			}
+		}
+
+		function syncGroupDragPeersFromText(t: KonvaText, idx: number) {
+			const snap = groupDragSnapshot;
+			if (!snap || selectedIndices.length <= 1 || !selectedIndices.includes(idx)) return;
+			const old = snap[idx];
+			if (old.type !== 'text') return;
+			const nx = t.x();
+			const ny = t.y();
+			const w = worldFromKonva(nx, ny);
+			const dx = w.x - old.x;
+			const dy = w.y - old.y;
+			for (const j of selectedIndices) {
+				if (j === idx) continue;
+				const node = drawn[j];
+				if (!node) continue;
+				const oe = snap[j];
+				if (oe.type === 'line') {
+					(node as KonvaLine).points([
+						oe.x0 + dx,
+						konvaY(oe.y0 + dy),
+						oe.x1 + dx,
+						konvaY(oe.y1 + dy)
+					]);
+				} else if (oe.type === 'rect') {
+					const rr = node as KonvaRect;
+					const cx = oe.x + oe.width / 2 + dx;
+					const cy = oe.y + oe.height / 2 + dy;
+					rr.x(cx);
+					rr.y(konvaY(cy));
+				} else if (oe.type === 'arc') {
+					(node as KonvaLine).points(
+						arcToKonvaLinePoints(
+							oe.cx + dx,
+							oe.cy + dy,
+							oe.radius,
+							oe.start_angle_deg,
+							oe.sweep_angle_deg,
+							stageHeight,
+							konvaY
+						)
+					);
+				} else if (oe.type === 'text') {
+					const tt = node as KonvaText;
+					tt.x(oe.x + dx);
+					tt.y(konvaY(oe.y + dy));
 				}
 			}
 		}
@@ -461,7 +681,60 @@
 							: e
 					);
 				});
-			} else {
+			} else if (ent.type === 'arc') {
+				const ln = drawn[idx] as KonvaLine;
+				ln.on('click', (e) => {
+					e.cancelBubble = true;
+					onSelectEntity?.(idx, e.evt.shiftKey);
+				});
+				ln.on('dragstart', () => {
+					if (tool !== 'select') return;
+					if (selectedIndices.length > 1 && selectedIndices.includes(idx)) {
+						groupDragSnapshot = JSON.parse(JSON.stringify(entities)) as SceneEntity[];
+					} else {
+						groupDragSnapshot = null;
+					}
+				});
+				ln.on('dragmove', () => syncGroupDragPeersFromArc(ln, idx));
+				ln.on('dragend', () => {
+					const abs = ln.getAbsoluteTransform();
+					const pts = ln.points();
+					const p0 = abs.point({ x: pts[0]!, y: pts[1]! });
+					const w0 = stageToWorldMm(p0.x, p0.y);
+					const cur = entities[idx];
+					if (!cur || cur.type !== 'arc') return;
+					const firstOld = arcFirstPointMm(cur.cx, cur.cy, cur.radius, cur.start_angle_deg);
+					const dx = w0.x - firstOld.x;
+					const dy = w0.y - firstOld.y;
+
+					if (groupDragSnapshot && selectedIndices.length > 1 && selectedIndices.includes(idx)) {
+						const old = groupDragSnapshot[idx];
+						if (old.type !== 'arc') {
+							groupDragSnapshot = null;
+							return;
+						}
+						const fo = arcFirstPointMm(old.cx, old.cy, old.radius, old.start_angle_deg);
+						const dxg = w0.x - fo.x;
+						const dyg = w0.y - fo.y;
+						pushHistory();
+						entities = applyDragDeltaToSelection(
+							groupDragSnapshot,
+							selectedIndices,
+							dxg,
+							dyg
+						);
+						groupDragSnapshot = null;
+						return;
+					}
+					groupDragSnapshot = null;
+					pushHistory();
+					entities = entities.map((e, i) =>
+						i === idx && e.type === 'arc'
+							? { ...e, cx: e.cx + dx, cy: e.cy + dy }
+							: e
+					);
+				});
+			} else if (ent.type === 'rect') {
 				const r = drawn[idx] as KonvaRect;
 				r.on('click', (e) => {
 					e.cancelBubble = true;
@@ -516,6 +789,58 @@
 							: e
 					);
 				});
+			} else {
+				const t = drawn[idx] as KonvaText;
+				t.on('click', (e) => {
+					e.cancelBubble = true;
+					onSelectEntity?.(idx, e.evt.shiftKey);
+				});
+				t.on('dragstart', () => {
+					if (tool !== 'select') return;
+					if (selectedIndices.length > 1 && selectedIndices.includes(idx)) {
+						groupDragSnapshot = JSON.parse(JSON.stringify(entities)) as SceneEntity[];
+					} else {
+						groupDragSnapshot = null;
+					}
+				});
+				t.on('dragmove', () => syncGroupDragPeersFromText(t, idx));
+				t.on('dragend', () => {
+					const wpos = worldFromKonva(t.x(), t.y());
+					const rotR = -t.rotation();
+					const fs = t.fontSize() * Math.abs(t.scaleY());
+
+					if (groupDragSnapshot && selectedIndices.length > 1 && selectedIndices.includes(idx)) {
+						const old = groupDragSnapshot[idx];
+						if (old.type !== 'text') {
+							groupDragSnapshot = null;
+							return;
+						}
+						const dx = wpos.x - old.x;
+						const dy = wpos.y - old.y;
+						pushHistory();
+						entities = applyDragDeltaToSelection(
+							groupDragSnapshot,
+							selectedIndices,
+							dx,
+							dy
+						);
+						groupDragSnapshot = null;
+						return;
+					}
+					groupDragSnapshot = null;
+					pushHistory();
+					entities = entities.map((e, i) =>
+						i === idx && e.type === 'text'
+							? {
+									...e,
+									x: wpos.x,
+									y: wpos.y,
+									rotation_deg: rotR,
+									height_mm: Math.max(0.5, fs)
+								}
+							: e
+					);
+				});
 			}
 		});
 
@@ -533,15 +858,29 @@
 				if (e.type === 'rect' && n.getClassName() === 'Rect') {
 					return { ...e, ...worldRectFromKonva(n as KonvaRect) };
 				}
+				if (e.type === 'text' && n.getClassName() === 'Text') {
+					const t = n as KonvaText;
+					const wpos = worldFromKonva(t.x(), t.y());
+					const fs = t.fontSize() * Math.abs(t.scaleY());
+					return {
+						...e,
+						x: wpos.x,
+						y: wpos.y,
+						rotation_deg: -t.rotation(),
+						height_mm: Math.max(0.5, fs)
+					};
+				}
 				return e;
 			}) as SceneEntity[];
 		}
 
 		if (tool === 'select' && selectedIndices.length >= 1) {
 			const nodes = selectedIndices
+				.filter((i) => entities[i]?.type !== 'arc')
 				.map((i) => drawn[i])
 				.filter((n): n is KonvaShape => Boolean(n));
-			if (nodes.length === selectedIndices.length) {
+			const expect = selectedIndices.filter((i) => entities[i]?.type !== 'arc').length;
+			if (nodes.length === expect && nodes.length >= 1) {
 				const tr = new K.Transformer({
 					nodes,
 					rotateEnabled: true,
@@ -578,6 +917,7 @@
 		viewZoom;
 		linePlacement;
 		rectPlacement;
+		arcPlacement;
 		if (layer) redraw();
 	});
 
@@ -637,6 +977,7 @@
 				clearPlacementPointer();
 				linePlacement = { start, current: start };
 				rectPlacement = null;
+				arcPlacement = null;
 				const onMove = (ev: MouseEvent) => {
 					const w = clientToWorldMm(ev.clientX, ev.clientY);
 					linePlacement = { start, current: w };
@@ -685,6 +1026,7 @@
 				clearPlacementPointer();
 				rectPlacement = { start, current: start };
 				linePlacement = null;
+				arcPlacement = null;
 				const onMove = (ev: MouseEvent) => {
 					const w = clientToWorldMm(ev.clientX, ev.clientY);
 					rectPlacement = { start, current: w };
@@ -731,6 +1073,78 @@
 				redraw();
 			}
 
+			function bindArcPlacement(center: { x: number; y: number }) {
+				clearPlacementPointer();
+				arcPlacement = { center, current: center };
+				linePlacement = null;
+				rectPlacement = null;
+				const onMove = (ev: MouseEvent) => {
+					const w = clientToWorldMm(ev.clientX, ev.clientY);
+					arcPlacement = { center, current: w };
+					redraw();
+				};
+				const onUp = (ev: MouseEvent) => {
+					if (ev.button !== 0) return;
+					window.removeEventListener('mousemove', onMove);
+					window.removeEventListener('mouseup', onUp);
+					placementPointerCleanup = null;
+					const pl = arcPlacement;
+					arcPlacement = null;
+					redraw();
+					if (!pl) return;
+					const dx = pl.current.x - pl.center.x;
+					const dy = pl.current.y - pl.center.y;
+					const r = Math.hypot(dx, dy);
+					const startDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
+					if (r >= 0.5) {
+						pushHistory();
+						entities = [
+							...entities,
+							{
+								type: 'arc',
+								cx: pl.center.x,
+								cy: pl.center.y,
+								cz: 0,
+								radius: r,
+								start_angle_deg: startDeg,
+								sweep_angle_deg: DEFAULT_ARC_SWEEP_DEG,
+								entity_label: nextEntityLabelForKind('arc', entities),
+								laser_group_id: defaultLaserGroupId
+							}
+						];
+					}
+					redraw();
+				};
+				window.addEventListener('mousemove', onMove);
+				window.addEventListener('mouseup', onUp);
+				placementPointerCleanup = () => {
+					window.removeEventListener('mousemove', onMove);
+					window.removeEventListener('mouseup', onUp);
+				};
+				redraw();
+			}
+
+			function placeTextAt(world: { x: number; y: number }) {
+				const raw = window.prompt('Text', 'Text');
+				if (raw === null) return;
+				pushHistory();
+				entities = [
+					...entities,
+					{
+						type: 'text',
+						x: world.x,
+						y: world.y,
+						z: 0,
+						text: raw.trim() || ' ',
+						height_mm: 5,
+						rotation_deg: 0,
+						entity_label: nextEntityLabelForKind('text', entities),
+						laser_group_id: defaultLaserGroupId
+					}
+				];
+				redraw();
+			}
+
 			stage.on('mousedown', (e) => {
 				const wantPan = e.evt.button === 1 || (e.evt.button === 0 && spaceDown);
 				if (wantPan) {
@@ -751,6 +1165,18 @@
 					e.evt.preventDefault();
 					const w = clientToWorldMm(e.evt.clientX, e.evt.clientY);
 					bindRectPlacement(w);
+					return;
+				}
+				if (e.evt.button === 0 && tool === 'arc' && !spaceDown) {
+					e.evt.preventDefault();
+					const w = clientToWorldMm(e.evt.clientX, e.evt.clientY);
+					bindArcPlacement(w);
+					return;
+				}
+				if (e.evt.button === 0 && tool === 'text' && !spaceDown) {
+					e.evt.preventDefault();
+					const w = clientToWorldMm(e.evt.clientX, e.evt.clientY);
+					placeTextAt(w);
 					return;
 				}
 			});
@@ -839,6 +1265,44 @@
 		];
 		redraw();
 	}
+
+	function addDemoArc() {
+		pushHistory();
+		entities = [
+			...entities,
+			{
+				type: 'arc',
+				cx: 400,
+				cy: 120,
+				cz: 0,
+				radius: 60,
+				start_angle_deg: 180,
+				sweep_angle_deg: DEFAULT_ARC_SWEEP_DEG,
+				entity_label: nextEntityLabelForKind('arc', entities),
+				laser_group_id: defaultLaserGroupId
+			}
+		];
+		redraw();
+	}
+
+	function addDemoText() {
+		pushHistory();
+		entities = [
+			...entities,
+			{
+				type: 'text',
+				x: 500,
+				y: 100,
+				z: 0,
+				text: 'Text',
+				height_mm: 6,
+				rotation_deg: 0,
+				entity_label: nextEntityLabelForKind('text', entities),
+				laser_group_id: defaultLaserGroupId
+			}
+		];
+		redraw();
+	}
 </script>
 
 <div class="ldk-scene-tools scene-editor-root">
@@ -854,6 +1318,7 @@
 				clearPlacementPointer();
 				linePlacement = null;
 				rectPlacement = null;
+				arcPlacement = null;
 				redraw();
 			}}>Select</button
 		>
@@ -867,6 +1332,7 @@
 				clearPlacementPointer();
 				linePlacement = null;
 				rectPlacement = null;
+				arcPlacement = null;
 				redraw();
 			}}>Line</button
 		>
@@ -880,8 +1346,37 @@
 				clearPlacementPointer();
 				linePlacement = null;
 				rectPlacement = null;
+				arcPlacement = null;
 				redraw();
 			}}>Rect</button
+		>
+		<button
+			type="button"
+			class="ldk-btn secondary"
+			class:ldk-btn-active={tool === 'arc'}
+			data-testid="editor-tool-arc"
+			onclick={() => {
+				tool = 'arc';
+				clearPlacementPointer();
+				linePlacement = null;
+				rectPlacement = null;
+				arcPlacement = null;
+				redraw();
+			}}>Arc</button
+		>
+		<button
+			type="button"
+			class="ldk-btn secondary"
+			class:ldk-btn-active={tool === 'text'}
+			data-testid="editor-tool-text"
+			onclick={() => {
+				tool = 'text';
+				clearPlacementPointer();
+				linePlacement = null;
+				rectPlacement = null;
+				arcPlacement = null;
+				redraw();
+			}}>Text</button
 		>
 		<button type="button" class="ldk-btn secondary" data-testid="editor-undo" onclick={() => undo()}
 			>Undo</button
@@ -897,7 +1392,9 @@
 		<strong>Wheel</strong>: zoom toward cursor. <strong>Space+drag</strong> or <strong>middle mouse</strong>: pan.
 		<strong>Select</strong>: click shapes; <strong>Shift+click</strong> extends range (same as job list). Drag to move; multiple selected shapes move together.
 		<strong>Selection</strong>: handles rotate/resize (one shape or the whole selection together). <strong>Esc</strong> or empty canvas: clear selection.
-		<strong>Line</strong>: click-drag-release for a segment (dashed preview). <strong>Rect</strong>: drag an axis-aligned box (dashed preview). Units: mm; +Y up.
+		<strong>Line</strong>: click-drag-release for a segment (dashed preview). <strong>Rect</strong>: drag an axis-aligned box (dashed preview).
+		<strong>Arc</strong>: drag from center to rim (default {DEFAULT_ARC_SWEEP_DEG}° sweep, CCW). <strong>Text</strong>: click to place; prompt for string (backend uses a box outline for marking).
+		<strong>Arc</strong> has no resize/rotate handles (move only). Units: mm; +Y up.
 	</p>
 	<div
 		class="ldk-scene-stage-wrap editor-stage-stack"
@@ -1038,6 +1535,12 @@
 		>
 		<button type="button" class="ldk-btn secondary" data-testid="editor-add-rect" onclick={() => addDemoRect()}
 			>Add rect</button
+		>
+		<button type="button" class="ldk-btn secondary" data-testid="editor-add-arc" onclick={() => addDemoArc()}
+			>Add arc</button
+		>
+		<button type="button" class="ldk-btn secondary" data-testid="editor-add-text" onclick={() => addDemoText()}
+			>Add text</button
 		>
 	</div>
 </div>
