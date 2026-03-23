@@ -84,6 +84,36 @@ export async function postRtcConnect(body: Record<string, unknown>): Promise<voi
 	if (!res.ok) throw new Error(await readError(res));
 }
 
+export interface DiscoveredRtcHost {
+	ip: string;
+	remote_status: number;
+	remote_pos: number;
+}
+
+export interface RtcDiscoverResponse {
+	hosts: DiscoveredRtcHost[];
+	scanned: number;
+	elapsed_ms: number;
+}
+
+/** UDP scan: R_DC_GET_STATUS on each host in the IPv4 subnet (backend; same handshake as ethernet connect). */
+export async function postRtcDiscover(body: {
+	base_ip: string;
+	netmask: string;
+	port?: number;
+	tgm_format?: number;
+	timeout_ms?: number;
+	max_hosts?: number;
+}): Promise<RtcDiscoverResponse> {
+	const res = await apiFetch(`${getApiBase()}/rtc/discover`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+	if (!res.ok) throw new Error(await readError(res));
+	return res.json() as Promise<RtcDiscoverResponse>;
+}
+
 export async function postRtcDisconnect(): Promise<void> {
 	const res = await apiFetch(`${getApiBase()}/rtc/disconnect`, { method: 'POST' });
 	if (!res.ok) throw new Error(await readError(res));

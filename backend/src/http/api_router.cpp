@@ -2,6 +2,7 @@
 
 #include "dxf/ascii_dxf_lines.hpp"
 #include "rtc/ethernet_rtc_client.hpp"
+#include "rtc/rtc_discover.hpp"
 #include "rtc/job_id.hpp"
 #include "rtc/mock_rtc_client.hpp"
 
@@ -341,6 +342,22 @@ void register_api_routes(httplib::Server& svr, BackendSession& session) {
 
   svr.Post("/api/v1/rtc/disconnect", [&](const httplib::Request&, httplib::Response& res) {
     res.status = session.handle_post_rtc_disconnect();
+  });
+
+  svr.Post("/api/v1/rtc/discover", [&](const httplib::Request& req, httplib::Response& res) {
+    nlohmann::json body;
+    try {
+      body = nlohmann::json::parse(req.body.empty() ? "{}" : req.body);
+    } catch (...) {
+      nlohmann::json err =
+          nlohmann::json{{"code", "RTC_INTERNAL"}, {"message", "Invalid JSON body"}};
+      res.status = 400;
+      res.set_content(err.dump(), "application/json");
+      return;
+    }
+    nlohmann::json out;
+    res.status = rtc::handle_rtc_discover_json(body, out);
+    res.set_content(out.dump(), "application/json");
   });
 
   svr.Post("/api/v1/jobs/minimal-demo", [&](const httplib::Request& req, httplib::Response& res) {

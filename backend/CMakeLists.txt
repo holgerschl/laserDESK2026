@@ -42,6 +42,7 @@ add_library(laserdesk_rtc_core STATIC
   src/rtc/job/dxf_rif_list_mapper.cpp
   src/rtc/mock_rtc_client.cpp
   src/rtc/ethernet_rtc_client.cpp
+  src/rtc/rtc_discover.cpp
   src/rtc/rif/telegram_raw.cpp
   src/rtc/rif/udp_channel.cpp
   src/http/api_router.cpp
@@ -78,6 +79,7 @@ add_executable(laserdesk_tests
   tests/test_dxf_parse.cpp
   tests/test_dxf_rif_list_mapper.cpp
   tests/test_telegram_raw.cpp
+  tests/test_rtc_discover.cpp
   tests/test_ethernet_integration.cpp
 )
 target_link_libraries(laserdesk_tests PRIVATE laserdesk_rtc_core GTest::gtest_main)

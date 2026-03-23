@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { base } from '$app/paths';
+	import RtcConnectionPanel from '$lib/components/RtcConnectionPanel.svelte';
 	import * as api from '$lib/api/laserdesk';
 	import type { DxfJobEntity, DxfJobResponse } from '$lib/api/laserdesk';
 	import { postRtcLog } from '$lib/laser/rtcChannel';
@@ -146,26 +147,6 @@
 		void refreshRtc();
 	});
 
-	async function connectMock() {
-		await withBusy(async () => {
-			await api.postRtcConnect({ mode: 'mock' });
-			await refreshRtc();
-			hint = 'Connected (mock).';
-			rtcLog('DXF demo: POST /rtc/connect (mock — no UDP telegrams)');
-		});
-	}
-
-	async function disconnectRtc() {
-		await withBusy(async () => {
-			await api.postRtcDisconnect();
-			jobId = null;
-			job = null;
-			await refreshRtc();
-			hint = 'Disconnected.';
-			rtcLog('DXF demo: POST /rtc/disconnect');
-		});
-	}
-
 	async function loadDemoFromStatic() {
 		await withBusy(async () => {
 			const url = `${base}/demo/dxf/SCANLABLogo.dxf`;
@@ -241,8 +222,8 @@
 <article class="ldk-doc">
 	<h1 style="margin-top:0">Phase G – DXF demo</h1>
 	<p class="ldk-muted" style="margin-top:0">
-		Load the reference <code>SCANLABLogo.dxf</code> (LINE entities), preview geometry, register the parsed job with the
-		mock RTC, then start/stop execution. Backend API:
+		Load the reference <code>SCANLABLogo.dxf</code> (LINE entities), preview geometry, connect mock or real RTC, load the
+		job, then start/stop execution. Backend API:
 		<code>/api/v1/jobs/dxf</code>.
 	</p>
 
@@ -253,17 +234,25 @@
 		<p class="ldk-success" role="status" data-testid="dxf-page-hint">{hint}</p>
 	{/if}
 
+	<RtcConnectionPanel
+		onSessionChanged={() => {
+			void refreshRtc();
+		}}
+		onAfterConnect={({ mode: m, host }) => {
+			if (m === 'mock') {
+				rtcLog('DXF demo: POST /rtc/connect (mock — no UDP telegrams)');
+			} else {
+				rtcLog(`DXF demo: POST /rtc/connect (ethernet ${host ?? ''})`);
+			}
+		}}
+		onAfterDisconnect={() => {
+			jobId = null;
+			job = null;
+			void refreshRtc();
+			rtcLog('DXF demo: POST /rtc/disconnect');
+		}}
+	/>
 	<div class="ldk-row" style="flex-wrap:wrap;margin-bottom:0.75rem">
-		<button type="button" class="ldk-btn" disabled={busy} data-testid="dxf-connect-mock" onclick={() => connectMock()}
-			>Connect (mock)</button
-		>
-		<button
-			type="button"
-			class="ldk-btn secondary"
-			disabled={busy}
-			data-testid="dxf-disconnect"
-			onclick={() => disconnectRtc()}>Disconnect</button
-		>
 		<button type="button" class="ldk-btn secondary" disabled={busy} onclick={() => refreshRtc()}>Refresh RTC</button>
 	</div>
 	<p class="ldk-muted" data-testid="dxf-rtc-state">

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { base } from '$app/paths';
 	import { onDestroy, onMount } from 'svelte';
+	import RtcConnectionPanel from '$lib/components/RtcConnectionPanel.svelte';
 	import * as api from '$lib/api/laserdesk';
 	import { LASERDESK_RTC_CHANNEL, type RtcChannelMessage } from '$lib/laser/rtcChannel';
 
@@ -94,6 +95,8 @@
 		<strong>This URL:</strong> <code>{thisSiteLabel}</code>
 	</p>
 {/if}
+
+<RtcConnectionPanel onSessionChanged={() => refresh()} />
 
 <div class="ldk-row" style="margin-bottom:1rem">
 	<button type="button" class="ldk-btn secondary" data-testid="rtc-refresh" onclick={() => refresh()}

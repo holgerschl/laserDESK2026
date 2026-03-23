@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { base } from '$app/paths';
 	import { onMount } from 'svelte';
+	import RtcConnectionPanel from '$lib/components/RtcConnectionPanel.svelte';
 	import * as api from '$lib/api/laserdesk';
 	import { getApiBase, LASERDESK_API_BASE_CHANGED_EVENT } from '$lib/api/config';
 	import { postRtcLog } from '$lib/laser/rtcChannel';
@@ -206,25 +207,6 @@
 		rtcJson = JSON.stringify(s, null, 2);
 	}
 
-	async function doConnectMock() {
-		await withBusy(async () => {
-			await api.postRtcConnect({ mode: 'mock' });
-			log('RTC connect: mock');
-			await fetchStatusOnly();
-			successHint = 'Connected (mock).';
-		});
-	}
-
-	async function doDisconnect() {
-		await withBusy(async () => {
-			await api.postRtcDisconnect();
-			jobId = null;
-			log('RTC disconnect');
-			await fetchStatusOnly();
-			successHint = 'Disconnected.';
-		});
-	}
-
 	function labelForJob(): string | undefined {
 		const v = paramValues['label']?.trim();
 		return v || undefined;
@@ -305,30 +287,25 @@
 					<p class="ldk-muted" style="margin-top:0">
 						Connection: <strong data-testid="connect-step-state">{connectionState}</strong>
 					</p>
-					<div class="ldk-row">
-						<button
-							type="button"
-							class="ldk-btn"
-							data-testid="connect-mock"
-							disabled={connectDisabled}
-							title={busy
-								? undefined
-								: connectionState === 'running'
-									? 'Stop execution before reconnecting'
-									: rtcConnected
-										? 'Reconnect (resets RTC session) or use Disconnect'
-										: undefined}
-							onclick={() => doConnectMock()}>Connect (mock)</button
-						>
-						<button
-							type="button"
-							class="ldk-btn secondary"
-							data-testid="disconnect-rtc"
-							disabled={busy || !rtcConnected}
-							title={busy ? undefined : !rtcConnected ? 'Not connected' : undefined}
-							onclick={() => doDisconnect()}>Disconnect</button
-						>
-					</div>
+					<RtcConnectionPanel
+						connectDisabled={connectDisabled}
+						disconnectDisabled={busy || !rtcConnected}
+						onSessionChanged={() => {
+							void fetchStatusOnly();
+						}}
+						onAfterConnect={({ mode: m, host }) => {
+							log(m === 'mock' ? 'RTC connect: mock' : 'RTC connect: ethernet');
+							successHint =
+								m === 'mock' ? 'Connected (mock).' : `Connected (real RTC${host ? ` @ ${host}` : ''}).`;
+						}}
+						onAfterDisconnect={() => {
+							log('RTC disconnect');
+							successHint = 'Disconnected.';
+						}}
+					/>
+					<p class="ldk-muted" style="margin:0.75rem 0 0;font-size:0.88rem">
+						While execution is <strong>running</strong>, disconnect is blocked by the backend; stop the job first.
+					</p>
 				{:else if step.kind === 'parameters'}
 					{#each step.parameterFields ?? [] as f (f.id)}
 						<div class="ldk-field">
