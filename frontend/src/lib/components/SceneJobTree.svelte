@@ -1,11 +1,23 @@
 <script lang="ts">
-	import type { SceneEntity } from '$lib/scene/sceneV1';
-	import { reorderEntities, selectionAfterReorder } from '$lib/scene/sceneV1';
+	import {
+		DEFAULT_LASER_GROUP_ID,
+		reorderEntities,
+		selectionAfterReorder,
+		type LaserGroupV1,
+		type SceneEntity
+	} from '$lib/scene/sceneV1';
 
 	let {
 		entities = $bindable<SceneEntity[]>([]),
-		selectedIndex = $bindable<number | null>(null)
+		selectedIndex = $bindable<number | null>(null),
+		laserGroups = [] as LaserGroupV1[]
 	} = $props();
+
+	function setEntityGroup(i: number, gid: string) {
+		entities = entities.map((e, j) =>
+			j === i ? { ...e, laser_group_id: gid } : e
+		) as SceneEntity[];
+	}
 
 	function label(i: number, e: SceneEntity): string {
 		if (e.type === 'line') return `Line ${i + 1}`;
@@ -62,15 +74,36 @@
 					data-testid="editor-job-tree-item"
 					data-tree-index={i}
 				>
-					<button
-						type="button"
-						class="ldk-tree-label"
-						onclick={() => (selectedIndex = i)}
-						title={summary(e)}
-					>
-						<span class="ldk-tree-name">{label(i, e)}</span>
-						<span class="ldk-tree-sum">{summary(e)}</span>
-					</button>
+					<div class="ldk-tree-main">
+						<button
+							type="button"
+							class="ldk-tree-label"
+							onclick={() => (selectedIndex = i)}
+							title={summary(e)}
+						>
+							<span class="ldk-tree-name">{label(i, e)}</span>
+							<span class="ldk-tree-sum">{summary(e)}</span>
+						</button>
+						<label class="ldk-tree-group-wrap">
+							<span class="ldk-tree-group-h">Laser group</span>
+							<select
+								class="ldk-tree-group"
+								value={e.laser_group_id ?? DEFAULT_LASER_GROUP_ID}
+								data-testid="editor-tree-laser-group"
+								data-tree-index={i}
+								onclick={(ev) => ev.stopPropagation()}
+								onchange={(ev) =>
+									setEntityGroup(i, (ev.currentTarget as HTMLSelectElement).value)}
+							>
+								{#each laserGroups as g (g.id)}
+									<option value={g.id}>{g.name}</option>
+								{/each}
+							</select>
+						</label>
+						{#if e.laser}
+							<span class="ldk-tree-custom" title="Custom laser override">Custom laser</span>
+						{/if}
+					</div>
 					<div class="ldk-tree-actions">
 						<button
 							type="button"
@@ -106,6 +139,10 @@
 </div>
 
 <style>
+	.ldk-job-tree {
+		min-width: 0;
+		max-width: 100%;
+	}
 	.ldk-tree-title {
 		margin: 0 0 0.5rem;
 		font-size: 1rem;
@@ -126,6 +163,39 @@
 		gap: 0.25rem;
 		border-bottom: 1px solid #e8ecf0;
 	}
+	.ldk-tree-main {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+		padding: 0.35rem 0 0.45rem 0.6rem;
+	}
+	.ldk-tree-group-wrap {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+		font-size: 0.72rem;
+		color: #64748b;
+	}
+	.ldk-tree-group-h {
+		font-weight: 500;
+		color: #475569;
+	}
+	.ldk-tree-group {
+		width: 100%;
+		min-width: 0;
+		padding: 0.2rem 0.35rem;
+		font-size: 0.78rem;
+		border: 1px solid #c5ced9;
+		border-radius: 4px;
+		background: #fff;
+	}
+	.ldk-tree-custom {
+		font-size: 0.72rem;
+		color: #b45309;
+		font-weight: 600;
+	}
 	.ldk-tree-row:last-child {
 		border-bottom: none;
 	}
@@ -133,12 +203,11 @@
 		background: #e8f5ee;
 	}
 	.ldk-tree-label {
-		flex: 1;
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 0.15rem;
-		padding: 0.45rem 0.6rem;
+		padding: 0;
 		border: none;
 		background: transparent;
 		cursor: pointer;

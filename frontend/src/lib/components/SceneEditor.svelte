@@ -6,22 +6,43 @@
 	import type { Shape as KonvaShape } from 'konva/lib/Shape.js';
 	import type { Stage } from 'konva/lib/Stage.js';
 	import { fixedStageLayout, fmtMmLabel, mmTicks, niceMmStep } from '$lib/scene/mmAxes';
-	import type { SceneEntity } from '$lib/scene/sceneV1';
+	import { DEFAULT_LASER_GROUP_ID, withLaserGroupId, type SceneEntity } from '$lib/scene/sceneV1';
 
 	interface Props {
 		stageWidth?: number;
 		stageHeight?: number;
 		entities?: SceneEntity[];
 		selectedIndex?: number | null;
+		/** New shapes get this `laser_group_id`. */
+		defaultLaserGroupId?: string;
 	}
 	let {
 		stageWidth = 800,
 		stageHeight = 400,
 		entities = $bindable<SceneEntity[]>([
-			{ type: 'line', x0: 20, y0: 30, z0: 0, x1: 120, y1: 30, z1: 0 },
-			{ type: 'rect', x: 200, y: 50, width: 80, height: 40, z: 0, rotation_deg: 0 }
+			{
+				type: 'line',
+				x0: 20,
+				y0: 30,
+				z0: 0,
+				x1: 120,
+				y1: 30,
+				z1: 0,
+				laser_group_id: DEFAULT_LASER_GROUP_ID
+			},
+			{
+				type: 'rect',
+				x: 200,
+				y: 50,
+				width: 80,
+				height: 40,
+				z: 0,
+				rotation_deg: 0,
+				laser_group_id: DEFAULT_LASER_GROUP_ID
+			}
 		]),
-		selectedIndex = $bindable<number | null>(null)
+		selectedIndex = $bindable<number | null>(null),
+		defaultLaserGroupId = DEFAULT_LASER_GROUP_ID
 	}: Props = $props();
 
 	let container: HTMLDivElement | undefined = $state();
@@ -38,6 +59,8 @@
 	let viewZoom = $state(1);
 	const minZoom = 0.08;
 	const maxZoom = 24;
+	/** Wheel zoom per tick (was ~8%; lower = slower). */
+	const wheelZoomStep = 1.025;
 	let spaceDown = $state(false);
 	let panDragged = $state(false);
 
@@ -59,7 +82,8 @@
 		history = [...history];
 		if (!prev) return;
 		try {
-			entities = JSON.parse(prev) as SceneEntity[];
+			const parsed = JSON.parse(prev) as SceneEntity[];
+			entities = parsed.map((e) => withLaserGroupId(e, defaultLaserGroupId));
 			redraw();
 		} catch {
 			/* ignore */
@@ -324,7 +348,7 @@
 				e.evt.preventDefault();
 				const p = stage!.getPointerPosition();
 				if (!p) return;
-				const factor = e.evt.deltaY > 0 ? 1 / 1.08 : 1.08;
+				const factor = e.evt.deltaY > 0 ? 1 / wheelZoomStep : wheelZoomStep;
 				const oldZ = viewZoom;
 				let newZ = oldZ * factor;
 				if (newZ < minZoom) newZ = minZoom;
@@ -387,7 +411,8 @@
 								z0: 0,
 								x1: w.x,
 								y1: w.y,
-								z1: 0
+								z1: 0,
+								laser_group_id: defaultLaserGroupId
 							}
 						];
 						lineStart = null;
@@ -400,7 +425,16 @@
 					pushHistory();
 					entities = [
 						...entities,
-						{ type: 'rect', x: w.x, y: w.y, width: 60, height: 40, z: 0, rotation_deg: 0 }
+						{
+							type: 'rect',
+							x: w.x,
+							y: w.y,
+							width: 60,
+							height: 40,
+							z: 0,
+							rotation_deg: 0,
+							laser_group_id: defaultLaserGroupId
+						}
 					];
 					redraw();
 				}
@@ -423,7 +457,16 @@
 		pushHistory();
 		entities = [
 			...entities,
-			{ type: 'line', x0: 10, y0: 10, z0: 0, x1: 100, y1: 80, z1: 0 }
+			{
+				type: 'line',
+				x0: 10,
+				y0: 10,
+				z0: 0,
+				x1: 100,
+				y1: 80,
+				z1: 0,
+				laser_group_id: defaultLaserGroupId
+			}
 		];
 		redraw();
 	}
@@ -432,13 +475,22 @@
 		pushHistory();
 		entities = [
 			...entities,
-			{ type: 'rect', x: 300, y: 80, width: 50, height: 35, z: 0, rotation_deg: 0 }
+			{
+				type: 'rect',
+				x: 300,
+				y: 80,
+				width: 50,
+				height: 35,
+				z: 0,
+				rotation_deg: 0,
+				laser_group_id: defaultLaserGroupId
+			}
 		];
 		redraw();
 	}
 </script>
 
-<div class="ldk-scene-tools">
+<div class="ldk-scene-tools scene-editor-root">
 	<div class="ldk-scene-tool-row">
 		<span class="ldk-muted">Tool:</span>
 		<button
@@ -507,11 +559,12 @@
 			role="img"
 			aria-label="Scene editor axes with millimetre ticks"
 		>
+			<!-- Same as Konva viewport: screen = pan + zoom * local. SVG applies transform list right-to-left; use matrix to avoid order bugs. -->
 			<g
 				class="editor-coords"
 				pointer-events="none"
 				aria-hidden="true"
-				transform="scale({viewZoom}) translate({viewPanX} {viewPanY})"
+				transform="matrix({viewZoom} 0 0 {viewZoom} {viewPanX} {viewPanY})"
 			>
 				<rect
 					x={editorAxis.layout.minX}
@@ -629,15 +682,21 @@
 </div>
 
 <style>
+	.scene-editor-root {
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+	}
 	.editor-stage-stack {
 		position: relative;
-		display: inline-block;
+		display: block;
+		width: fit-content;
+		max-width: 100%;
 		margin-top: 0.5rem;
 		border: 1px solid #d8dee6;
 		border-radius: 6px;
-		overflow: hidden;
+		overflow: auto;
 		background: #fafbfc;
-		vertical-align: top;
 	}
 	.konva-host {
 		position: relative;

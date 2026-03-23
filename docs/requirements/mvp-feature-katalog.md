@@ -29,7 +29,7 @@ Bounded scope for the first shippable increment. Anything not listed here is **o
 | B-07 | **DXF job ingestion** | Accept user `.dxf` upload and/or reference demo file [`demo/dxf/SCANLABLogo.dxf`](../../demo/dxf/SCANLABLogo.dxf); parse to an internal vector / job representation (entities + metadata) |
 | B-08 | **DXF → RTC Remote Interface command generation** | Map parsed geometry to RTC6 **Remote Interface** list / command sequence (per SCANLAB package: `telegrams.h`, list buffer semantics, Remote List Commands as required); **mock** RTC accepts the same logical job shape for CI |
 | B-09 | **Run DXF-derived laser job** | REST (or workflow-driven API) to arm, start, and stop execution of the DXF-derived job on mock and ethernet `IRtcClient` implementations |
-| B-10 | **Scene JSON schema + validation** | Versioned `schemaVersion`; layers, entities (IDs, type, geometry, transform), compatible with mapper to internal job representation |
+| B-10 | **Scene JSON schema + validation** | Versioned `schemaVersion`; layers, entities (IDs, type, geometry, transform); **laser metadata:** `laser_groups[]` (id, name, `laser` preset), `default_laser_group_id`, per-entity `laser_group_id`, optional per-entity `laser` override. Backend geometry path ignores laser fields; stored for UI / future RTC list segmentation. |
 | B-11 | **REST: submit validated scene job** | e.g. `POST /api/v1/jobs/scene` (exact path in OpenAPI when implemented); reject invalid schema with structured errors (B-05) |
 | B-12 | **Scene → `RtcJobPlan` / RIF mapping** | Extend or share code with DXF → list path; mock RTC accepts same execution shape for CI |
 
@@ -49,6 +49,7 @@ Bounded scope for the first shippable increment. Anything not listed here is **o
 | F-10 | **Place primitives** | Initial slice: at least **line** and **rectangle**; extend to polyline/arc in later promotions |
 | F-11 | **Select / move / transform** | Selection, drag, scale/rotate using library capabilities; delete |
 | F-12 | **Undo / redo** | Stable against exported scene model (command stack or library history + sync) |
+| F-13 | **Laser groups & per-entity laser** | **Groups:** named presets (`LaserGroupV1`) editable in **Laser groups** panel; **default for new shapes** selector. **Grouping:** assign the same `laser_group_id` on multiple entities (job tree dropdown or **Selected entity**). **Per-entity:** optional **custom laser** (full override). Scene JSON built with `buildSceneV1()` in `frontend/src/lib/scene/sceneV1.ts`; components: `LaserGroupsPanel.svelte`, `EntityLaserPanel.svelte`, `SceneJobTree` group column. |
 
 ### Cross-cutting
 
@@ -90,12 +91,14 @@ A feature moves from “out” to “in” when:
 
 ## 5. Phase H — catalog promotion
 
-Phase H (**vector scene editor**, Konva / Fabric.js / similar) was **promoted into §2 (MVP)** in catalog **v1.3** per §4. Feature IDs: **B-10…B-12**, **F-08…F-12**, **X-04…X-05**. Engineering tasks **H.1–H.9** and deliverables: [`docs/implementation-plan.md`](../implementation-plan.md) **§4 Phase H**.
+Phase H (**vector scene editor**, Konva / Fabric.js / similar) was **promoted into §2 (MVP)** in catalog **v1.3** per §4. Feature IDs: **B-10…B-12**, **F-08…F-12**, **X-04…X-05**; **F-13** added in **v1.5** (laser groups / per-entity laser). Engineering tasks **H.1–H.9** and deliverables: [`docs/implementation-plan.md`](../implementation-plan.md) **§4 Phase H**.
 
 **Approach (unchanged):** Browser **canvas library** (MIT license); **canonical** data is **versioned scene JSON** in laserDESK; backend uses the same **`RtcJobPlan`** / Remote Interface mapping as the DXF path.
 
 **F-09 pan/zoom (March 2026):** Documented as implemented in **F-09** row and [`docs/implementation-plan.md`](../implementation-plan.md) §4 Phase H (H.4 progress note).
 
+**F-13 laser groups (March 2026):** Per-entity / grouped laser parameters in scene JSON and editor UI — see **F-13** row and implementation plan §4 Phase H.
+
 ---
 
-*Version: 1.4 · F-09 pan/zoom documented · March 2026*
+*Version: 1.5 · F-13 laser groups & per-entity laser · March 2026*

@@ -186,7 +186,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 
 ### Phase H – Vector scene editor (Konva / Fabric.js / similar)
 
-**Status:** **In MVP catalog** ([`docs/requirements/mvp-feature-katalog.md`](requirements/mvp-feature-katalog.md) §2: **B-10…B-12**, **F-08…F-12**, **X-04…X-05**; promotion note §5). **Implementation** of tasks H.1–H.9 is **in progress** until closed out with tests per catalog §4. **H.4 (partial):** **pan/zoom** and aligned **mm SVG overlay** are implemented (**F-09**); remaining H.4 items include layer panel and polish. Delivers **interactive placement and manipulation** of geometric entities in the browser using a **canvas-oriented library** (decision: **Konva** or **Fabric.js** or equivalent; **MIT license**, bundle impact documented). The **canonical contract** remains a **versioned scene JSON** owned by laserDESK 2026; the library holds transient interaction state only and must **sync to/from** that model.
+**Status:** **In MVP catalog** ([`docs/requirements/mvp-feature-katalog.md`](requirements/mvp-feature-katalog.md) §2: **B-10…B-12**, **F-08…F-13**, **X-04…X-05**; promotion note §5). **Implementation** of tasks H.1–H.9 is **in progress** until closed out with tests per catalog §4. **H.4 (partial):** **pan/zoom** and aligned **mm SVG overlay** are implemented (**F-09**); **laser groups and per-entity laser** are implemented (**F-13** / **B-10** metadata): `scene_v1` carries `laser_groups`, `default_laser_group_id`, per-entity `laser_group_id` and optional `laser` override (`frontend/src/lib/scene/sceneV1.ts`); UI: `LaserGroupsPanel.svelte`, `EntityLaserPanel.svelte`, job tree group assignment. Remaining H.4 items include layer panel and polish. Delivers **interactive placement and manipulation** of geometric entities in the browser using a **canvas-oriented library** (decision: **Konva** or **Fabric.js** or equivalent; **MIT license**, bundle impact documented). The **canonical contract** remains a **versioned scene JSON** owned by laserDESK 2026; the library holds transient interaction state only and must **sync to/from** that model.
 
 **Objectives**
 
@@ -199,7 +199,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 | # | Task |
 |---|------|
 | H.1 | **Choose library** (Konva vs Fabric vs Paper): document in `docs/` (criteria: Svelte integration, transforms, licensing, bundle size); add dependency to `frontend/package.json`. |
-| H.2 | Define **`scene` JSON schema** (layers, entities, transforms, IDs) — mirror or extend internal job representation used by DXF path; version field (`schemaVersion`). |
+| H.2 | Define **`scene` JSON schema** (layers, entities, transforms, IDs) — mirror or extend internal job representation used by DXF path; version field (`schemaVersion`). **Extended:** `laser_groups`, `default_laser_group_id`, per-entity `laser_group_id`, optional entity `laser` (see **F-13** / `sceneV1.ts`). |
 | H.3 | **Svelte integration:** one editor shell component (e.g. `SceneEditor.svelte`) mounting the library in `onMount`, **destroy on teardown**; avoid duplicating scene state in the library—**export/import** from Konva/Fabric to scene JSON on each meaningful edit or via explicit sync. |
 | H.4 | **Primitives (vertical slice):** place **line** and **rectangle**; **select**, **move**, **delete**; single **layer**; **pan/zoom** viewport. **Pan/zoom done:** `frontend/src/lib/components/SceneEditor.svelte` — `viewPanX` / `viewPanY` / `viewZoom`, Konva `Group` for world content, wheel zoom-to-cursor, Space+drag and middle-mouse pan, mm SVG overlay (`scale` then `translate` to match Konva), **Reset view**; pointer→world uses `stageToWorldMm` so edits stay correct when zoomed. |
 | H.5 | **Manipulators:** rotation / scale handles (library features or thin wrapper); **multi-select** if library supports. |
@@ -212,9 +212,9 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 
 | Item | Location / notes |
 |------|------------------|
-| Feature catalog rows | [`docs/requirements/mvp-feature-katalog.md`](requirements/mvp-feature-katalog.md) — §2 **MVP** (**B-10…B-12**, **F-08…F-12**, **X-04…X-05**); §5 promotion note |
-| Scene schema | `docs/` (new or under `docs/workflows/`) — JSON Schema or OpenAPI component linked from catalog |
-| Editor UI | `frontend/src/lib/components/SceneEditor.svelte` (Konva + pan/zoom + mm overlay); scene store; route `frontend/src/routes/editor/` |
+| Feature catalog rows | [`docs/requirements/mvp-feature-katalog.md`](requirements/mvp-feature-katalog.md) — §2 **MVP** (**B-10…B-12**, **F-08…F-13**, **X-04…X-05**); §5 promotion note |
+| Scene schema | TypeScript types + `buildSceneV1()` in [`frontend/src/lib/scene/sceneV1.ts`](../frontend/src/lib/scene/sceneV1.ts); optional JSON Schema / OpenAPI later |
+| Editor UI | `SceneEditor.svelte` (Konva + pan/zoom + mm overlay); `LaserGroupsPanel.svelte`, `EntityLaserPanel.svelte`, `SceneJobTree`; route [`frontend/src/routes/editor/`](../frontend/src/routes/editor/) |
 | API | `backend` — scene job endpoint + validation; mapper next to existing DXF → RIF path |
 
 **Out of scope for Phase H (initial slice)**
@@ -253,7 +253,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 - **Playwright** passes against mock backend in CI (see `.github/workflows/e2e.yml`).
 - Core backend code remains **portable** (no mandatory Windows RTC DLL in the long-term path).
 - **Phase G:** Demo **DXF** loaded and displayed with **entity list** + preview; parsed output drives **mock** execution; **Ethernet** can optionally stream a **G.4** list image when connecting with `dxf_rif_list_upload: true` — see **Phase G** status above and [`phase-g-dxf-implementation-plan.md`](requirements/phase-g-dxf-implementation-plan.md).
-- **Phase H:** **Vector scene editor** (Konva/Fabric per §4 Phase H) — place/manipulate geometry, submit scene job, run on mock; **pan/zoom** per **F-09** / H.4; **X-04** / **X-05** when implemented.
+- **Phase H:** **Vector scene editor** (Konva/Fabric per §4 Phase H) — place/manipulate geometry, submit scene job, run on mock; **pan/zoom** per **F-09** / H.4; **laser groups / per-entity laser** per **F-13**; **X-04** / **X-05** when implemented.
 
 ---
 
@@ -270,7 +270,7 @@ These live in **`docs/`** (same folder as this file for the HTML/PDFs):
 - `demo/dxf/SCANLABLogo.dxf` – Phase G reference DXF (copy also under `frontend/static/demo/dxf/`).
 - `docs/requirements/phase-g-dxf-implementation-plan.md` – Phase G engineering breakdown.
 - `backend/src/dxf/`, `frontend/src/routes/dxf/+page.svelte`, `frontend/e2e/dxf-demo.spec.ts` – Phase G implementation (LINE parser, REST, UI, E2E).
-- **Phase H** – vector scene editor (Konva/Fabric/etc.): see **§4 Phase H** above; MVP rows in [`docs/requirements/mvp-feature-katalog.md`](requirements/mvp-feature-katalog.md) **§2**, promotion note **§5**; editor component [`frontend/src/lib/components/SceneEditor.svelte`](../frontend/src/lib/components/SceneEditor.svelte), route [`frontend/src/routes/editor/`](../frontend/src/routes/editor/).
+- **Phase H** – vector scene editor (Konva/Fabric/etc.): see **§4 Phase H** above; MVP rows in [`docs/requirements/mvp-feature-katalog.md`](requirements/mvp-feature-katalog.md) **§2**, promotion note **§5**; editor [`SceneEditor.svelte`](../frontend/src/lib/components/SceneEditor.svelte), laser UI [`LaserGroupsPanel.svelte`](../frontend/src/lib/components/LaserGroupsPanel.svelte), [`EntityLaserPanel.svelte`](../frontend/src/lib/components/EntityLaserPanel.svelte), [`sceneV1.ts`](../frontend/src/lib/scene/sceneV1.ts), route [`frontend/src/routes/editor/`](../frontend/src/routes/editor/).
 
 ---
 

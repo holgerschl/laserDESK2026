@@ -76,7 +76,7 @@ Start minimal: **N lines** → **N mark segments** in user units; document scale
 ### G.5 – Frontend (**F-05…F-07**)
 
 - **Load:** file input + “Load SCANLAB demo” button (`/demo/dxf/SCANLABLogo.dxf` with `$app/paths` **base**).
-- **Display:** canvas/SVG; fit-to-view; optional highlight on list selection. *(Related UX: the **vector scene editor** on `/editor` implements **pan/zoom** + aligned mm SVG overlay in `frontend/src/lib/components/SceneEditor.svelte`; the **DXF** route may adopt the same interaction model in a follow-up if product wants consistent navigation.)*
+- **Display:** canvas/SVG; fit-to-view; optional highlight on list selection. *(Related UX: the **vector scene editor** on `/editor` implements **pan/zoom** + aligned mm SVG overlay in `frontend/src/lib/components/SceneEditor.svelte`; optional **laser groups / per-entity laser** metadata in submitted `scene_v1` — see MVP catalog **F-13** and `frontend/src/lib/scene/sceneV1.ts`. The **DXF** route may adopt the same interaction model in a follow-up if product wants consistent navigation.)*
 - **Entity list:** table: index, type, layer, length or endpoints.
 - **Workflow:** extend [`workflow-schema.json`](../workflows/workflow-schema.json) + new workflow JSON **or** add steps to reference workflow — only if workflow engine should own the flow; otherwise a dedicated **`/dxf`** route is acceptable for the first slice.
 - **Run:** call `POST …/run` (or unified job run API) after successful parse/load.
@@ -120,4 +120,4 @@ Consolidate with existing **`/jobs/minimal-demo`** if product prefers a single *
 
 ---
 
-*Version: 1.1 · March 2026 — G.5 cross-reference to scene editor pan/zoom (`SceneEditor.svelte`, `/editor`)*
+*Version: 1.2 · March 2026 — G.5 cross-reference: scene editor pan/zoom + `scene_v1` laser metadata (F-13)*

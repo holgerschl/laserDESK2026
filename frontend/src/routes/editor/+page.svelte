@@ -1,13 +1,18 @@
 <script lang="ts">
 	import { base } from '$app/paths';
+	import EntityLaserPanel from '$lib/components/EntityLaserPanel.svelte';
+	import LaserGroupsPanel from '$lib/components/LaserGroupsPanel.svelte';
 	import RtcConnectionPanel from '$lib/components/RtcConnectionPanel.svelte';
 	import SceneEditor from '$lib/components/SceneEditor.svelte';
 	import SceneJobTree from '$lib/components/SceneJobTree.svelte';
-	import LaserPropertiesPanel from '$lib/components/LaserPropertiesPanel.svelte';
 	import * as api from '$lib/api/laserdesk';
 	import type { DxfJobResponse } from '$lib/api/laserdesk';
-	import { clampLaserProperties, defaultLaserProperties } from '$lib/scene/laserProperties';
-	import { sceneFromEntities, type SceneEntity } from '$lib/scene/sceneV1';
+	import {
+		buildSceneV1,
+		DEFAULT_LASER_GROUP_ID,
+		defaultLaserGroups,
+		type SceneEntity
+	} from '$lib/scene/sceneV1';
 	import { postRtcLog } from '$lib/laser/rtcChannel';
 	import { onMount } from 'svelte';
 
@@ -16,13 +21,32 @@
 	}
 
 	const initialEntities: SceneEntity[] = [
-		{ type: 'line', x0: 20, y0: 30, z0: 0, x1: 120, y1: 30, z1: 0 },
-		{ type: 'rect', x: 200, y: 50, width: 80, height: 40, z: 0, rotation_deg: 0 }
+		{
+			type: 'line',
+			x0: 20,
+			y0: 30,
+			z0: 0,
+			x1: 120,
+			y1: 30,
+			z1: 0,
+			laser_group_id: DEFAULT_LASER_GROUP_ID
+		},
+		{
+			type: 'rect',
+			x: 200,
+			y: 50,
+			width: 80,
+			height: 40,
+			z: 0,
+			rotation_deg: 0,
+			laser_group_id: DEFAULT_LASER_GROUP_ID
+		}
 	];
 
 	let entities = $state<SceneEntity[]>([...initialEntities]);
 	let selectedIndex = $state<number | null>(null);
-	let laser = $state(defaultLaserProperties());
+	let laserGroups = $state(defaultLaserGroups());
+	let defaultLaserGroupId = $state(DEFAULT_LASER_GROUP_ID);
 
 	onMount(() => {
 		rtcLog(
@@ -83,7 +107,12 @@
 
 	async function submitScene() {
 		await withBusy(async () => {
-			const scene = sceneFromEntities(entities, 'editor', clampLaserProperties(laser));
+			const scene = buildSceneV1({
+				entities,
+				laserGroups,
+				defaultLaserGroupId,
+				sourceName: 'editor'
+			});
 			const r = await api.postJobsScene(scene);
 			jobId = r.job_id;
 			job = await api.getJobsDxf(r.job_id);
@@ -137,7 +166,8 @@
 <article class="ldk-doc ldk-editor-page">
 	<h1 style="margin-top:0">Phase H – Scene editor</h1>
 	<p class="ldk-muted" style="margin-top:0">
-		Draw lines and rectangles (mm, +Y up), set laser parameters, order items in the job tree, then submit as
+		Draw lines and rectangles (mm, +Y up), define <strong>laser groups</strong> (shared parameters), assign entities to
+		a group or set a <strong>custom laser</strong> per entity, order items in the job tree, then submit as
 		<code>scene_v1</code>. Backend geometry path:
 		<code>/api/v1/jobs/scene</code> → <code>/api/v1/jobs/dxf/&#123;id&#125;</code> (load / run / stop). Optional
 		<code>laser</code> block is stored for future RTC use.
@@ -183,12 +213,26 @@
 
 	<div class="ldk-editor-layout">
 		<aside class="ldk-editor-aside">
-			<SceneJobTree bind:entities bind:selectedIndex />
-			<LaserPropertiesPanel bind:laser />
+			<SceneJobTree bind:entities bind:selectedIndex laserGroups={laserGroups} />
+			<LaserGroupsPanel
+				bind:laserGroups
+				bind:defaultLaserGroupId
+				onBeforeRemoveGroup={(removedId, fallbackId) => {
+					entities = entities.map((e) =>
+						e.laser_group_id === removedId ? { ...e, laser_group_id: fallbackId } : e
+					);
+				}}
+			/>
+			<EntityLaserPanel
+				bind:entities
+				selectedIndex={selectedIndex}
+				laserGroups={laserGroups}
+				defaultLaserGroupId={defaultLaserGroupId}
+			/>
 		</aside>
 		<section class="ldk-editor-canvas">
 			<h2 style="font-size:1.05rem;margin:0 0 0.5rem">Canvas</h2>
-			<SceneEditor bind:entities bind:selectedIndex />
+			<SceneEditor bind:entities bind:selectedIndex defaultLaserGroupId={defaultLaserGroupId} />
 			<div class="ldk-row" style="flex-wrap:wrap;margin:0.75rem 0 0">
 				<button
 					type="button"
@@ -265,10 +309,11 @@
 	}
 	.ldk-editor-layout {
 		display: grid;
-		grid-template-columns: minmax(14rem, 18rem) 1fr;
+		grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
 		gap: 1rem;
 		align-items: start;
 		margin-top: 0.5rem;
+		width: 100%;
 	}
 	@media (max-width: 52rem) {
 		.ldk-editor-layout {
@@ -279,9 +324,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
+		min-width: 0;
+		max-width: 100%;
 	}
 	.ldk-editor-canvas {
 		min-width: 0;
+		max-width: 100%;
+		overflow-x: auto;
 	}
 	.ldk-table {
 		width: 100%;

@@ -5,18 +5,37 @@
 		type LaserPropertiesV1
 	} from '$lib/scene/laserProperties';
 
-	let { laser = $bindable<LaserPropertiesV1>(defaultLaserProperties()) } = $props();
+	interface Props {
+		laser?: LaserPropertiesV1;
+		embedded?: boolean;
+		heading?: string;
+		onLaserChange?: () => void;
+	}
+
+	let {
+		laser = $bindable(defaultLaserProperties() satisfies LaserPropertiesV1),
+		embedded = false,
+		heading = 'Laser / process',
+		onLaserChange
+	}: Props = $props();
 
 	function sync() {
 		laser = clampLaserProperties(laser);
+		onLaserChange?.();
 	}
 </script>
 
-<div class="ldk-card ldk-laser-panel" data-testid="editor-laser-panel">
-	<h3 class="ldk-laser-title">Laser / process</h3>
-	<p class="ldk-muted" style="margin:0 0 0.75rem;font-size:0.82rem">
-		Stored in <code>scene_v1.laser</code> when you submit (backend ignores it for geometry parsing).
-	</p>
+<div
+	class="ldk-laser-panel"
+	class:ldk-card={!embedded}
+	data-testid="editor-laser-panel"
+>
+	<h3 class="ldk-laser-title">{heading}</h3>
+	{#if !embedded}
+		<p class="ldk-muted" style="margin:0 0 0.75rem;font-size:0.82rem">
+			Stored in <code>scene_v1</code> when you submit (backend ignores laser for geometry parsing).
+		</p>
+	{/if}
 	<div class="ldk-laser-grid">
 		<label class="ldk-field">
 			<span>Power (%)</span>
@@ -84,9 +103,13 @@
 		font-size: 1rem;
 		font-weight: 600;
 	}
+	.ldk-laser-panel {
+		min-width: 0;
+		max-width: 100%;
+	}
 	.ldk-laser-grid {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 0.65rem 0.85rem;
 	}
 	.ldk-field {
@@ -94,11 +117,15 @@
 		flex-direction: column;
 		gap: 0.25rem;
 		font-size: 0.82rem;
+		min-width: 0;
 	}
 	.ldk-field span {
 		color: #475569;
 	}
 	.ldk-field input {
+		width: 100%;
+		min-width: 0;
+		max-width: 100%;
 		padding: 0.35rem 0.45rem;
 		border: 1px solid #c5ced9;
 		border-radius: 6px;
