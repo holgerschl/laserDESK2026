@@ -282,6 +282,33 @@ export function ungroupJobGroupId(entities: SceneEntity[], jobGroupId: string): 
 	return entities.map((e) => (e.job_group_id === jobGroupId ? stripJobGroupFields(e) : e));
 }
 
+/**
+ * After reordering, any `job_group_id` run shorter than 2 in array order loses grouping
+ * (folder UI requires contiguous members).
+ */
+export function sanitizeFragmentedJobGroups(entities: SceneEntity[]): SceneEntity[] {
+	const next = entities.map((e) => ({ ...e }));
+	const n = next.length;
+	let i = 0;
+	while (i < n) {
+		const gid = next[i]?.job_group_id;
+		if (!gid) {
+			i++;
+			continue;
+		}
+		let j = i + 1;
+		while (j < n && next[j]?.job_group_id === gid) j++;
+		const len = j - i;
+		if (len < 2) {
+			for (let k = i; k < j; k++) {
+				next[k] = stripJobGroupFields(next[k]!);
+			}
+		}
+		i = j;
+	}
+	return next;
+}
+
 export function moveEntityBlockUp(entities: SceneEntity[], blockStart: number, blockLen: number): SceneEntity[] {
 	if (blockStart <= 0 || blockLen < 1) return entities;
 	const next = [...entities];

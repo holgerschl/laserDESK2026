@@ -11,11 +11,15 @@
 		moveEntityBlockUp,
 		nextJobGroupId,
 		nextJobGroupLabel,
+		reorderEntities,
 		remapIndexAfterBlockMoveDown,
 		remapIndexAfterBlockMoveUp,
 		reorderSelectedIntoContiguousBlock,
+		sanitizeFragmentedJobGroups,
+		selectionAfterReorder,
 		selectionIndicesAfterBlockMoveDown,
 		selectionIndicesAfterBlockMoveUp,
+		selectionIndicesAfterReorder,
 		ungroupJobGroupId,
 		type LaserGroupV1,
 		type SceneEntity
@@ -95,24 +99,47 @@
 		return false;
 	}
 
-	/** True when the group folder row should show move actions (same indices as segment). */
+	/** True when the group folder row should show block move actions (same indices as segment). */
 	function groupFullySelected(seg: { indices: number[] }): boolean {
 		if (selectedIndices.length !== seg.indices.length) return false;
 		const sel = new Set(selectedIndices);
 		return seg.indices.every((idx) => sel.has(idx));
 	}
 
-	/** Avoid duplicate ↑↓ on every nested row when the whole group is selected — use folder or first row only. */
-	function showNestedRowActions(i: number): boolean {
-		if (!isSelectionExactlyBlockAt(i)) return false;
-		const run = contiguousJobGroupRun(entities, i);
-		if (run && selectedIndices.length > 1) {
-			return i === run.start;
-		}
-		return true;
+	function remapOneAfterReorder(from: number, to: number, idx: number | null): number | null {
+		if (idx === null) return null;
+		return selectionAfterReorder(from, to, idx);
 	}
 
-	function moveUp(i: number) {
+	/** One entity, one step — swaps with neighbour (nested or top-level row). May split a job group; `sanitizeFragmentedJobGroups` clears broken markers. */
+	function moveEntityStepUp(i: number) {
+		if (selectedIndices.length !== 1 || selectedIndices[0] !== i) return;
+		if (i <= 0) return;
+		const from = i;
+		const to = i - 1;
+		let next = reorderEntities(entities, from, to);
+		next = sanitizeFragmentedJobGroups(next);
+		entities = next;
+		selectedIndices = selectionIndicesAfterReorder(from, to, selectedIndices);
+		anchorIndex = remapOneAfterReorder(from, to, anchorIndex);
+		lastClickedIndex = remapOneAfterReorder(from, to, lastClickedIndex);
+	}
+
+	function moveEntityStepDown(i: number) {
+		if (selectedIndices.length !== 1 || selectedIndices[0] !== i) return;
+		if (i >= entities.length - 1) return;
+		const from = i;
+		const to = i + 1;
+		let next = reorderEntities(entities, from, to);
+		next = sanitizeFragmentedJobGroups(next);
+		entities = next;
+		selectedIndices = selectionIndicesAfterReorder(from, to, selectedIndices);
+		anchorIndex = remapOneAfterReorder(from, to, anchorIndex);
+		lastClickedIndex = remapOneAfterReorder(from, to, lastClickedIndex);
+	}
+
+	/** Folder row only: move the whole contiguous job-group block. */
+	function moveBlockUp(i: number) {
 		if (!isSelectionExactlyBlockAt(i)) return;
 		const { start, length } = effectiveBlockForMove(i);
 		if (start <= 0) return;
@@ -126,7 +153,7 @@
 				: null;
 	}
 
-	function moveDown(i: number) {
+	function moveBlockDown(i: number) {
 		if (!isSelectionExactlyBlockAt(i)) return;
 		const { start, length } = effectiveBlockForMove(i);
 		if (start + length >= entities.length) return;
@@ -217,7 +244,7 @@
 	<h3 class="ldk-tree-title">Job tree</h3>
 	<p class="ldk-muted" style="margin:0 0 0.75rem;font-size:0.82rem">
 		Execution order is top → bottom. <strong>Shift+click</strong> for a range; select a row for preset and details;
-		<strong>↑</strong> / <strong>↓</strong> / remove for the selected row or <strong>whole job group</strong> (folder or one member).
+		<strong>↑</strong> / <strong>↓</strong> on a <strong>row</strong> move that entity one step; on the <strong>group folder</strong> (when the whole group is selected) move the <strong>entire block</strong>. Remove as before.
 		<strong>Group</strong> when several are selected.
 		<strong>Esc</strong> clears selection.
 	</p>
@@ -280,8 +307,8 @@
 										class="ldk-btn secondary ldk-tree-icon"
 										disabled={effectiveBlockForMove(seg.indices[0]!).start <= 0}
 										data-testid="editor-tree-group-up"
-										onclick={() => moveUp(seg.indices[0]!)}
-										title="Move group up">↑</button
+										onclick={() => moveBlockUp(seg.indices[0]!)}
+										title="Move whole group up">↑</button
 									>
 									<button
 										type="button"
@@ -290,8 +317,8 @@
 											effectiveBlockForMove(seg.indices[0]!).length >=
 											entities.length}
 										data-testid="editor-tree-group-down"
-										onclick={() => moveDown(seg.indices[0]!)}
-										title="Move group down">↓</button
+										onclick={() => moveBlockDown(seg.indices[0]!)}
+										title="Move whole group down">↓</button
 									>
 								</div>
 							{/if}
@@ -345,26 +372,25 @@
 											{/if}
 										{/if}
 									</div>
-									{#if expanded && showNestedRowActions(i)}
+									{#if expanded && selectedIndices.length === 1 && selectedIndices[0] === i}
 										<div class="ldk-tree-actions">
 											<button
 												type="button"
 												class="ldk-btn secondary ldk-tree-icon"
-												disabled={effectiveBlockForMove(i).start <= 0}
+												disabled={i <= 0}
 												data-testid="editor-tree-up"
 												data-tree-index={i}
-												onclick={() => moveUp(i)}
-												title="Move up">↑</button
+												onclick={() => moveEntityStepUp(i)}
+												title="Move this entity up">↑</button
 											>
 											<button
 												type="button"
 												class="ldk-btn secondary ldk-tree-icon"
-												disabled={effectiveBlockForMove(i).start + effectiveBlockForMove(i).length >=
-													entities.length}
+												disabled={i >= entities.length - 1}
 												data-testid="editor-tree-down"
 												data-tree-index={i}
-												onclick={() => moveDown(i)}
-												title="Move down">↓</button
+												onclick={() => moveEntityStepDown(i)}
+												title="Move this entity down">↓</button
 											>
 											<button
 												type="button"
@@ -429,26 +455,25 @@
 								{/if}
 							{/if}
 						</div>
-						{#if expanded && isSelectionExactlyBlockAt(i)}
+						{#if expanded && selectedIndices.length === 1 && selectedIndices[0] === i}
 							<div class="ldk-tree-actions">
 								<button
 									type="button"
 									class="ldk-btn secondary ldk-tree-icon"
-									disabled={effectiveBlockForMove(i).start <= 0}
+									disabled={i <= 0}
 									data-testid="editor-tree-up"
 									data-tree-index={i}
-									onclick={() => moveUp(i)}
-									title="Move up">↑</button
+									onclick={() => moveEntityStepUp(i)}
+									title="Move this entity up">↑</button
 								>
 								<button
 									type="button"
 									class="ldk-btn secondary ldk-tree-icon"
-									disabled={effectiveBlockForMove(i).start + effectiveBlockForMove(i).length >=
-										entities.length}
+									disabled={i >= entities.length - 1}
 									data-testid="editor-tree-down"
 									data-tree-index={i}
-									onclick={() => moveDown(i)}
-									title="Move down">↓</button
+									onclick={() => moveEntityStepDown(i)}
+									title="Move this entity down">↓</button
 								>
 								<button
 									type="button"
