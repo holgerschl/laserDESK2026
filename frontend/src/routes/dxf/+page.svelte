@@ -4,6 +4,7 @@
 	import * as api from '$lib/api/laserdesk';
 	import type { DxfJobEntity, DxfJobResponse } from '$lib/api/laserdesk';
 	import { postRtcLog } from '$lib/laser/rtcChannel';
+	import { fmtMmLabel, mmTicks, niceMmStep } from '$lib/scene/mmAxes';
 	import { onMount, tick } from 'svelte';
 
 	function rtcLog(line: string) {
@@ -77,37 +78,6 @@
 			rtcState = '—';
 			dxfLineCount = null;
 		}
-	}
-
-	/** ~12 ticks across span; returns step in drawing units (treated as mm in UI). */
-	function niceMmStep(span: number): number {
-		if (!Number.isFinite(span) || span <= 0) return 1;
-		const raw = span / 12;
-		const exp = Math.floor(Math.log10(raw));
-		const f = raw / Math.pow(10, exp);
-		let nf = 1;
-		if (f <= 1) nf = 1;
-		else if (f <= 2) nf = 2;
-		else if (f <= 5) nf = 5;
-		else nf = 10;
-		return nf * Math.pow(10, exp);
-	}
-
-	function mmTicks(minV: number, maxV: number, step: number): number[] {
-		const ticks: number[] = [];
-		const start = Math.ceil((minV - 1e-9) / step) * step;
-		let v = start;
-		for (let n = 0; n < 400 && v <= maxV + 1e-9; n++, v += step) {
-			ticks.push(Number(v.toPrecision(14)));
-		}
-		return ticks;
-	}
-
-	function fmtMmLabel(v: number): string {
-		const a = Math.abs(v);
-		if (a >= 100) return v.toFixed(0);
-		if (a >= 10) return v.toFixed(1);
-		return v.toFixed(2);
 	}
 
 	function svgLayout(entities: DxfJobEntity[]) {

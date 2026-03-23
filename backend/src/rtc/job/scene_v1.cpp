@@ -94,23 +94,41 @@ bool scene_v1_to_parse_result(const nlohmann::json& scene, dxf::ParseResult& out
           error = "rect width and height must be positive";
           return false;
         }
-        const double x0 = x, y0 = y, x1 = x + w, y1 = y, x2 = x + w, y2 = y + h, x3 = x, y3 = y + h;
-        auto push_seg = [&](double ax, double ay, double bx, double by) {
+        double rot_deg = 0;
+        if (ent.contains("rotation_deg") && ent["rotation_deg"].is_number()) rot_deg = ent["rotation_deg"].get<double>();
+        const double pi = std::acos(-1.0);
+        const double rad = rot_deg * pi / 180.0;
+        const double cx = x + w * 0.5;
+        const double cy = y + h * 0.5;
+        const double c = std::cos(rad);
+        const double s = std::sin(rad);
+        auto rot = [&](double px, double py, double& ox, double& oy) {
+          const double dx = px - cx;
+          const double dy = py - cy;
+          ox = cx + dx * c - dy * s;
+          oy = cy + dx * s + dy * c;
+        };
+        double ax0, ay0, ax1, ay1, ax2, ay2, ax3, ay3;
+        rot(x, y, ax0, ay0);
+        rot(x + w, y, ax1, ay1);
+        rot(x + w, y + h, ax2, ay2);
+        rot(x, y + h, ax3, ay3);
+        auto push_seg = [&](double p0x, double p0y, double p1x, double p1y) {
           dxf::LineEntity le;
           le.index = next_index++;
           le.layer = layer_name;
-          le.x0 = ax;
-          le.y0 = ay;
+          le.x0 = p0x;
+          le.y0 = p0y;
           le.z0 = z;
-          le.x1 = bx;
-          le.y1 = by;
+          le.x1 = p1x;
+          le.y1 = p1y;
           le.z1 = z;
           out.lines.push_back(std::move(le));
         };
-        push_seg(x0, y0, x1, y1);
-        push_seg(x1, y1, x2, y2);
-        push_seg(x2, y2, x3, y3);
-        push_seg(x3, y3, x0, y0);
+        push_seg(ax0, ay0, ax1, ay1);
+        push_seg(ax1, ay1, ax2, ay2);
+        push_seg(ax2, ay2, ax3, ay3);
+        push_seg(ax3, ay3, ax0, ay0);
       } else {
         std::ostringstream os;
         os << "unsupported entity type: " << t;

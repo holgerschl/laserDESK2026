@@ -45,6 +45,25 @@ TEST(SceneV1, RectFourLines) {
   ASSERT_EQ(pr.lines.size(), 4u);
 }
 
+TEST(SceneV1, RectRotatedProducesFourLines) {
+  auto j = nlohmann::json::parse(R"({
+    "schemaVersion": 1,
+    "kind": "scene_v1",
+    "layers": [
+      {
+        "id": "0",
+        "entities": [
+          { "type": "rect", "x": 0, "y": 0, "width": 10, "height": 5, "z": 0, "rotation_deg": 45 }
+        ]
+      }
+    ]
+  })");
+  laserdesk::dxf::ParseResult pr;
+  std::string err;
+  ASSERT_TRUE(laserdesk::rtc::job::scene_v1_to_parse_result(j, pr, err)) << err;
+  ASSERT_EQ(pr.lines.size(), 4u);
+}
+
 TEST(SceneV1, RejectsBadVersion) {
   auto j = nlohmann::json::parse(R"({"schemaVersion": 2, "kind": "scene_v1", "layers": [{"entities": []}]})");
   laserdesk::dxf::ParseResult pr;

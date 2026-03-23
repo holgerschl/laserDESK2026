@@ -2,15 +2,27 @@
 	import { base } from '$app/paths';
 	import RtcConnectionPanel from '$lib/components/RtcConnectionPanel.svelte';
 	import SceneEditor from '$lib/components/SceneEditor.svelte';
+	import SceneJobTree from '$lib/components/SceneJobTree.svelte';
+	import LaserPropertiesPanel from '$lib/components/LaserPropertiesPanel.svelte';
 	import * as api from '$lib/api/laserdesk';
 	import type { DxfJobResponse } from '$lib/api/laserdesk';
-	import type { SceneV1 } from '$lib/scene/sceneV1';
+	import { clampLaserProperties, defaultLaserProperties } from '$lib/scene/laserProperties';
+	import { sceneFromEntities, type SceneEntity } from '$lib/scene/sceneV1';
 	import { postRtcLog } from '$lib/laser/rtcChannel';
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 
 	function rtcLog(line: string) {
 		postRtcLog(line);
 	}
+
+	const initialEntities: SceneEntity[] = [
+		{ type: 'line', x0: 20, y0: 30, z0: 0, x1: 120, y1: 30, z1: 0 },
+		{ type: 'rect', x: 200, y: 50, width: 80, height: 40, z: 0, rotation_deg: 0 }
+	];
+
+	let entities = $state<SceneEntity[]>([...initialEntities]);
+	let selectedIndex = $state<number | null>(null);
+	let laser = $state(defaultLaserProperties());
 
 	onMount(() => {
 		rtcLog(
@@ -34,25 +46,8 @@
 	let hint = $state<string | null>(null);
 	let jobId = $state<string | null>(null);
 	let job = $state<DxfJobResponse | null>(null);
-	let selectedIndex = $state<number | null>(null);
 	let rtcState = $state<string>('—');
 	let dxfLineCount = $state<number | null>(null);
-
-	let sceneEditor = $state<{ getSceneV1: () => SceneV1 } | undefined>(undefined);
-
-	function toggleEntitySelection(i: number) {
-		selectedIndex = selectedIndex === i ? null : i;
-	}
-
-	$effect(() => {
-		const idx = selectedIndex;
-		if (idx === null || typeof document === 'undefined') return;
-		void tick().then(() => {
-			document
-				.querySelector<HTMLElement>(`[data-editor-entity-row="${idx}"]`)
-				?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-		});
-	});
 
 	function clearHints() {
 		err = null;
@@ -87,10 +82,8 @@
 	});
 
 	async function submitScene() {
-		const ed = sceneEditor;
-		if (!ed) return;
 		await withBusy(async () => {
-			const scene = ed.getSceneV1();
+			const scene = sceneFromEntities(entities, 'editor', clampLaserProperties(laser));
 			const r = await api.postJobsScene(scene);
 			jobId = r.job_id;
 			job = await api.getJobsDxf(r.job_id);
@@ -141,11 +134,13 @@
 	<title>Scene editor · laserDESK 2026</title>
 </svelte:head>
 
-<article class="ldk-doc">
+<article class="ldk-doc ldk-editor-page">
 	<h1 style="margin-top:0">Phase H – Scene editor</h1>
 	<p class="ldk-muted" style="margin-top:0">
-		Draw lines and rectangles (mm, +Y up), submit as <code>scene_v1</code>, then use the same RTC job pipeline as DXF:
-		<code>/api/v1/jobs/scene</code> → <code>/api/v1/jobs/dxf/&#123;id&#125;</code> (load / run / stop).
+		Draw lines and rectangles (mm, +Y up), set laser parameters, order items in the job tree, then submit as
+		<code>scene_v1</code>. Backend geometry path:
+		<code>/api/v1/jobs/scene</code> → <code>/api/v1/jobs/dxf/&#123;id&#125;</code> (load / run / stop). Optional
+		<code>laser</code> block is stored for future RTC use.
 	</p>
 
 	{#if err}
@@ -186,21 +181,28 @@
 		<a href="{base}/rtc">RTC activity log</a> — same host as this page.
 	</p>
 
-	<h2 style="font-size:1.05rem;margin-top:1.25rem">Editor</h2>
-	<SceneEditor bind:this={sceneEditor} />
-
-	<div class="ldk-row" style="flex-wrap:wrap;margin:0.75rem 0">
-		<button
-			type="button"
-			class="ldk-btn"
-			disabled={busy || !sceneEditor}
-			data-testid="editor-submit-scene"
-			onclick={() => submitScene()}>Submit scene to backend</button
-		>
+	<div class="ldk-editor-layout">
+		<aside class="ldk-editor-aside">
+			<SceneJobTree bind:entities bind:selectedIndex />
+			<LaserPropertiesPanel bind:laser />
+		</aside>
+		<section class="ldk-editor-canvas">
+			<h2 style="font-size:1.05rem;margin:0 0 0.5rem">Canvas</h2>
+			<SceneEditor bind:entities bind:selectedIndex />
+			<div class="ldk-row" style="flex-wrap:wrap;margin:0.75rem 0 0">
+				<button
+					type="button"
+					class="ldk-btn"
+					disabled={busy}
+					data-testid="editor-submit-scene"
+					onclick={() => submitScene()}>Submit scene to backend</button
+				>
+			</div>
+		</section>
 	</div>
 
 	{#if job}
-		<p class="ldk-muted" data-testid="editor-entity-count">
+		<p class="ldk-muted" data-testid="editor-entity-count" style="margin-top:1rem">
 			<strong>{job.line_count}</strong> LINE entities · source <code>{job.source_name}</code> · job
 			<code>{job.job_id}</code>
 		</p>
@@ -218,12 +220,7 @@
 				</thead>
 				<tbody>
 					{#each job.entities as e, i (e.index)}
-						<tr
-							data-editor-entity-row={i}
-							class:ldk-row-sel={selectedIndex === i}
-							onclick={() => toggleEntitySelection(i)}
-							style="cursor:pointer"
-						>
+						<tr data-editor-entity-row={i}>
 							<td>{e.index}</td>
 							<td>{e.layer}</td>
 							<td>{e.length.toFixed(3)}</td>
@@ -263,6 +260,29 @@
 </article>
 
 <style>
+	.ldk-editor-page {
+		max-width: 72rem;
+	}
+	.ldk-editor-layout {
+		display: grid;
+		grid-template-columns: minmax(14rem, 18rem) 1fr;
+		gap: 1rem;
+		align-items: start;
+		margin-top: 0.5rem;
+	}
+	@media (max-width: 52rem) {
+		.ldk-editor-layout {
+			grid-template-columns: 1fr;
+		}
+	}
+	.ldk-editor-aside {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+	.ldk-editor-canvas {
+		min-width: 0;
+	}
 	.ldk-table {
 		width: 100%;
 		border-collapse: collapse;
@@ -277,8 +297,5 @@
 	.ldk-table th {
 		background: #f4f6f8;
 		font-weight: 600;
-	}
-	:global(tr.ldk-row-sel) {
-		background: #e8f5ee;
 	}
 </style>

@@ -45,7 +45,7 @@ Bounded scope for the first shippable increment. Anything not listed here is **o
 | F-06 | **Display DXF + entity / job item window** | Visualise geometry (e.g. 2D paths) and show a list panel of entities / job items mapped from the parser |
 | F-07 | **DXF laser job flow** | Workflow steps (or equivalent) to parse via backend, review entity list, then **run** the DXF-derived job through the same RTC stack as B-09 |
 | F-08 | **Canvas library integration** | Konva *or* Fabric.js (or equivalent); document choice in `docs/`; Svelte mount/teardown pattern |
-| F-09 | **Editor shell** | Pan/zoom viewport, layer panel (visibility / order in first slice), optional dedicated route or workflow step |
+| F-09 | **Editor shell** | **Pan/zoom (done):** wheel zoom toward cursor (clamped range), **Space + drag** or **middle mouse** to pan, **Reset view** control; Konva stage content in a scaled/translated `Group`, mm tick **SVG** overlay uses the same transform so axes stay aligned. **Still open:** layer panel (visibility / order), workflow step kind (optional). **Route:** `/editor` — `frontend/src/lib/components/SceneEditor.svelte`. |
 | F-10 | **Place primitives** | Initial slice: at least **line** and **rectangle**; extend to polyline/arc in later promotions |
 | F-11 | **Select / move / transform** | Selection, drag, scale/rotate using library capabilities; delete |
 | F-12 | **Undo / redo** | Stable against exported scene model (command stack or library history + sync) |
@@ -94,6 +94,8 @@ Phase H (**vector scene editor**, Konva / Fabric.js / similar) was **promoted in
 
 **Approach (unchanged):** Browser **canvas library** (MIT license); **canonical** data is **versioned scene JSON** in laserDESK; backend uses the same **`RtcJobPlan`** / Remote Interface mapping as the DXF path.
 
+**F-09 pan/zoom (March 2026):** Documented as implemented in **F-09** row and [`docs/implementation-plan.md`](../implementation-plan.md) §4 Phase H (H.4 progress note).
+
 ---
 
-*Version: 1.3 · Phase H promoted to MVP §2 · March 2026*
+*Version: 1.4 · F-09 pan/zoom documented · March 2026*
