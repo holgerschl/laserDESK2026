@@ -1304,81 +1304,6 @@
 		konvaLib = null;
 	});
 
-	function addDemoLine() {
-		pushHistory();
-		entities = [
-			...entities,
-			{
-				type: 'line',
-				x0: 10,
-				y0: 10,
-				z0: 0,
-				x1: 100,
-				y1: 80,
-				z1: 0,
-				entity_label: nextEntityLabelForKind('line', entities),
-				laser_group_id: defaultLaserGroupId
-			}
-		];
-		redraw();
-	}
-
-	function addDemoRect() {
-		pushHistory();
-		entities = [
-			...entities,
-			{
-				type: 'rect',
-				x: 300,
-				y: 80,
-				width: 50,
-				height: 35,
-				z: 0,
-				rotation_deg: 0,
-				entity_label: nextEntityLabelForKind('rect', entities),
-				laser_group_id: defaultLaserGroupId
-			}
-		];
-		redraw();
-	}
-
-	function addDemoArc() {
-		pushHistory();
-		entities = [
-			...entities,
-			{
-				type: 'arc',
-				cx: 400,
-				cy: 120,
-				cz: 0,
-				radius: 60,
-				start_angle_deg: 180,
-				sweep_angle_deg: DEFAULT_ARC_SWEEP_DEG,
-				entity_label: nextEntityLabelForKind('arc', entities),
-				laser_group_id: defaultLaserGroupId
-			}
-		];
-		redraw();
-	}
-
-	function addDemoText() {
-		pushHistory();
-		entities = [
-			...entities,
-			{
-				type: 'text',
-				x: 500,
-				y: 100,
-				z: 0,
-				text: 'Text',
-				height_mm: DEFAULT_TEXT_HEIGHT_MM,
-				rotation_deg: 0,
-				entity_label: nextEntityLabelForKind('text', entities),
-				laser_group_id: defaultLaserGroupId
-			}
-		];
-		redraw();
-	}
 </script>
 
 <div class="ldk-scene-tools scene-editor-root">
@@ -1400,9 +1325,11 @@
 		>
 		<button
 			type="button"
-			class="ldk-btn secondary"
+			class="ldk-btn secondary editor-tool-icon"
 			class:ldk-btn-active={tool === 'line'}
 			data-testid="editor-tool-line"
+			aria-label="Line tool"
+			title="Line"
 			onclick={() => {
 				tool = 'line';
 				clearPlacementPointer();
@@ -1410,13 +1337,27 @@
 				rectPlacement = null;
 				arcPlacement = null;
 				redraw();
-			}}>Line</button
+			}}
+			><svg class="editor-tool-svg" viewBox="0 0 20 20" aria-hidden="true"
+				><line
+					x1="3"
+					y1="17"
+					x2="17"
+					y2="3"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+				/></svg
+			></button
 		>
 		<button
 			type="button"
-			class="ldk-btn secondary"
+			class="ldk-btn secondary editor-tool-icon"
 			class:ldk-btn-active={tool === 'rect'}
 			data-testid="editor-tool-rect"
+			aria-label="Rectangle tool"
+			title="Rectangle"
 			onclick={() => {
 				tool = 'rect';
 				clearPlacementPointer();
@@ -1424,13 +1365,27 @@
 				rectPlacement = null;
 				arcPlacement = null;
 				redraw();
-			}}>Rect</button
+			}}
+			><svg class="editor-tool-svg" viewBox="0 0 20 20" aria-hidden="true"
+				><rect
+					x="4"
+					y="5"
+					width="12"
+					height="10"
+					rx="1"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+				/></svg
+			></button
 		>
 		<button
 			type="button"
-			class="ldk-btn secondary"
+			class="ldk-btn secondary editor-tool-icon"
 			class:ldk-btn-active={tool === 'arc'}
 			data-testid="editor-tool-arc"
+			aria-label="Arc tool"
+			title="Arc"
 			onclick={() => {
 				tool = 'arc';
 				clearPlacementPointer();
@@ -1438,13 +1393,24 @@
 				rectPlacement = null;
 				arcPlacement = null;
 				redraw();
-			}}>Arc</button
+			}}
+			><svg class="editor-tool-svg" viewBox="0 0 20 20" aria-hidden="true"
+				><path
+					d="M4 16 A 10 10 0 0 1 17 5"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+				/></svg
+			></button
 		>
 		<button
 			type="button"
 			class="ldk-btn secondary"
 			class:ldk-btn-active={tool === 'text'}
 			data-testid="editor-tool-text"
+			aria-label="Text tool"
+			title="Text"
 			onclick={() => {
 				tool = 'text';
 				clearPlacementPointer();
@@ -1605,20 +1571,6 @@
 		Axes and tick labels use <strong>millimetres</strong>; origin at (0, 0); <strong>+Y</strong> points up on screen (same
 		convention as the DXF demo).
 	</p>
-	<div class="ldk-scene-tool-row scene-editor-demo-row">
-		<button type="button" class="ldk-btn secondary" data-testid="editor-add-line" onclick={() => addDemoLine()}
-			>Add line</button
-		>
-		<button type="button" class="ldk-btn secondary" data-testid="editor-add-rect" onclick={() => addDemoRect()}
-			>Add rect</button
-		>
-		<button type="button" class="ldk-btn secondary" data-testid="editor-add-arc" onclick={() => addDemoArc()}
-			>Add arc</button
-		>
-		<button type="button" class="ldk-btn secondary" data-testid="editor-add-text" onclick={() => addDemoText()}
-			>Add text</button
-		>
-	</div>
 </div>
 
 <style>
@@ -1636,9 +1588,6 @@
 		margin: 0.15rem 0 0;
 		font-size: 0.8rem;
 		line-height: 1.32;
-	}
-	.scene-editor-demo-row {
-		margin-top: 0.35rem;
 	}
 	.editor-stage-stack {
 		position: relative;
@@ -1686,5 +1635,19 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.28rem;
+	}
+	.editor-tool-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.28rem 0.42rem;
+		min-width: 2.1rem;
+		min-height: 2.1rem;
+	}
+	.editor-tool-svg {
+		display: block;
+		width: 1.25rem;
+		height: 1.25rem;
+		flex-shrink: 0;
 	}
 </style>

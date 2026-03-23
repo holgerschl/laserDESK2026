@@ -115,10 +115,12 @@ Phase H (**vector scene editor**, Konva / Fabric.js / similar) was **promoted in
 
 **F-10 arc transform & text default size (March 2026):** **Arc** — **Group** with local polyline + invisible guide **circle** for centered transform bounds; **Transformer** resize/rotate (bakes **radius** / **start_angle_deg**); **sweep** edited via **orange end handle** (`sweepAngleDegCCWToPointer` in `arcMm.ts`). **Text** — default cap height **`DEFAULT_TEXT_HEIGHT_MM`** for new labels. See **F-10** and `SceneEditor.svelte`.
 
+**F-10 editor toolbar (March 2026):** **Line** / **Rect** / **Arc** tool buttons use **inline SVG** glyphs; **Text** stays a **text** label. Preset **Add line / rect / arc / text** buttons under the canvas were **removed** — primitives are added only via tools + canvas interaction. See **F-10** and `SceneEditor.svelte`.
+
 **F-11 job tree group reorder (March 2026):** Reorder **↑/↓** works when a **whole job group** is selected (folder header or matching indices), not only single-row selection — see **`SceneJobTree.svelte`** (`isSelectionExactlyBlockAt`, folder actions).
 
 **F-11 job tree entity step vs block (March 2026):** **↑/↓** on a **row inside a group** (single selection) moves **that entity** one step; after reorder, **`sanitizeFragmentedJobGroups()`** in `sceneV1.ts` clears **`job_group_*`** on fragmented one-member groups. **↑/↓** on the **folder** row when the **full group** is selected moves the **entire block**. Nested member rows show **↑/↓/×** like the first member — see **`SceneJobTree.svelte`** (`moveEntityStepUp` / `moveBlockUp`).
 
 ---
 
-*Version: 1.6.10 · F-10 arc transform/sweep handle + default text height · March 2026*
+*Version: 1.6.11 · F-10 toolbar icons + remove demo Add buttons · March 2026*
