@@ -199,7 +199,8 @@
 			const sel = selectedIndex === idx;
 			const stroke = sel ? '#b45309' : ent.type === 'line' ? '#1e3a5f' : '#059669';
 			const strokeW = sel ? 3.5 : 2;
-			const canDragWhole = tool === 'select' && selectedIndex !== idx;
+			/** In select mode, all shapes stay draggable (move). Selected items also use the Transformer for resize/rotate. */
+			const canDragWhole = tool === 'select';
 
 			if (ent.type === 'line') {
 				const ln = new K.Line({
@@ -215,7 +216,6 @@
 					selectedIndex = idx;
 				});
 				ln.on('dragend', () => {
-					if (selectedIndex === idx) return;
 					const abs = ln.getAbsoluteTransform();
 					const pts = ln.points();
 					const p0 = abs.point({ x: pts[0]!, y: pts[1]! });
@@ -253,7 +253,6 @@
 					selectedIndex = idx;
 				});
 				r.on('dragend', () => {
-					if (selectedIndex === idx) return;
 					const nx = r.x();
 					const ny = r.y();
 					const w = r.width();
@@ -548,24 +547,20 @@
 		style="width:{stageWidth}px;height:{stageHeight}px;"
 	>
 		<div bind:this={container} class="konva-host"></div>
+		<!-- Pan/zoom on the SVG *element* (CSS, pixel space) matches Konva Group: screen = pan + zoom × local. Inner SVG matrix in user units + %-sized viewport desynced from the canvas. -->
 		<svg
 			class="editor-coords-svg"
 			data-testid="editor-coords-svg"
+			width={stageWidth}
+			height={stageHeight}
 			viewBox="{editorAxis.layout.minX} {editorAxis.layout.minY} {editorAxis.layout.w} {editorAxis.layout.h}"
-			width="100%"
-			height="100%"
-			preserveAspectRatio="xMidYMid meet"
+			preserveAspectRatio="xMinYMin meet"
 			overflow="visible"
 			role="img"
 			aria-label="Scene editor axes with millimetre ticks"
+			style="transform: matrix({viewZoom}, 0, 0, {viewZoom}, {viewPanX}px, {viewPanY}px); transform-origin: 0 0;"
 		>
-			<!-- Same as Konva viewport: screen = pan + zoom * local. SVG applies transform list right-to-left; use matrix to avoid order bugs. -->
-			<g
-				class="editor-coords"
-				pointer-events="none"
-				aria-hidden="true"
-				transform="matrix({viewZoom} 0 0 {viewZoom} {viewPanX} {viewPanY})"
-			>
+			<g class="editor-coords" pointer-events="none" aria-hidden="true">
 				<rect
 					x={editorAxis.layout.minX}
 					y={editorAxis.layout.minY}
@@ -709,6 +704,8 @@
 		top: 0;
 		z-index: 1;
 		pointer-events: none;
+		display: block;
+		box-sizing: border-box;
 	}
 	.editor-stage-stack.editor-space-pan {
 		cursor: grab;
