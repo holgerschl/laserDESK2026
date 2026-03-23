@@ -12,6 +12,7 @@
 		defaultLaserGroups,
 		type SceneEntity
 	} from '$lib/scene/sceneV1';
+	import { applyShiftSelection } from '$lib/scene/selection';
 	import { postRtcLog } from '$lib/laser/rtcChannel';
 	import { onMount } from 'svelte';
 
@@ -43,9 +44,36 @@
 	];
 
 	let entities = $state<SceneEntity[]>([...initialEntities]);
-	let selectedIndex = $state<number | null>(null);
+	let selectedIndices = $state<number[]>([]);
+	let anchorIndex = $state<number | null>(null);
+	let lastClickedIndex = $state<number | null>(null);
 	let laserGroups = $state(defaultLaserGroups());
+
+	let panelEditIndex = $derived.by(() => {
+		if (selectedIndices.length === 0) return null;
+		if (lastClickedIndex !== null && selectedIndices.includes(lastClickedIndex)) return lastClickedIndex;
+		return selectedIndices[0] ?? null;
+	});
+
+	function selectAt(i: number, shift: boolean) {
+		const out = applyShiftSelection(entities.length, i, shift, anchorIndex, lastClickedIndex);
+		selectedIndices = out.selectedIndices;
+		anchorIndex = out.anchorIndex;
+		lastClickedIndex = out.lastClickedIndex;
+	}
+
+	function clearSelection() {
+		selectedIndices = [];
+		anchorIndex = null;
+		lastClickedIndex = null;
+	}
 	let defaultLaserGroupId = $state(DEFAULT_LASER_GROUP_ID);
+
+	function isFormField(t: EventTarget | null): boolean {
+		if (!t || !(t instanceof HTMLElement)) return false;
+		const tag = t.tagName;
+		return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable;
+	}
 
 	onMount(() => {
 		rtcLog(
@@ -61,7 +89,16 @@
 			rtcLog('Scene editor: tab focused — Connect (mock) or Submit scene if the log is still empty.');
 		};
 		document.addEventListener('visibilitychange', onVis);
-		return () => document.removeEventListener('visibilitychange', onVis);
+
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'Escape' && !isFormField(e.target)) clearSelection();
+		};
+		window.addEventListener('keydown', onKeyDown);
+
+		return () => {
+			document.removeEventListener('visibilitychange', onVis);
+			window.removeEventListener('keydown', onKeyDown);
+		};
 	});
 
 	let busy = $state(false);
@@ -115,7 +152,7 @@
 			const r = await api.postJobsScene(scene);
 			jobId = r.job_id;
 			job = await api.getJobsDxf(r.job_id);
-			selectedIndex = null;
+			clearSelection();
 			hint = `Parsed ${job.line_count} LINE segments from scene.`;
 			rtcLog(`Scene editor: POST /jobs/scene → job_id=${r.job_id}, ${job.line_count} segments`);
 		});
@@ -212,17 +249,30 @@
 
 	<div class="ldk-editor-layout">
 		<div class="ldk-editor-sidebar">
-			<SceneJobTree bind:entities bind:selectedIndex laserGroups={laserGroups} />
+			<SceneJobTree
+				bind:entities
+				bind:selectedIndices
+				bind:anchorIndex
+				bind:lastClickedIndex
+				laserGroups={laserGroups}
+			/>
 			<EntityLaserPanel
 				bind:entities
 				bind:laserGroups
 				bind:defaultLaserGroupId
-				selectedIndex={selectedIndex}
+				selectedIndex={panelEditIndex}
+				selectionCount={selectedIndices.length}
 			/>
 		</div>
 		<section class="ldk-editor-canvas">
 			<h2 style="font-size:1.05rem;margin:0 0 0.5rem">Canvas</h2>
-			<SceneEditor bind:entities bind:selectedIndex defaultLaserGroupId={defaultLaserGroupId} />
+			<SceneEditor
+				bind:entities
+				selectedIndices={selectedIndices}
+				onSelectEntity={selectAt}
+				onClearSelection={clearSelection}
+				defaultLaserGroupId={defaultLaserGroupId}
+			/>
 			<div class="ldk-row" style="flex-wrap:wrap;margin:0.75rem 0 0">
 				<button
 					type="button"

@@ -178,6 +178,12 @@ export function selectionAfterReorder(from: number, to: number, sel: number | nu
 	return sel;
 }
 
+/** Remap multi-selection indices after `reorderEntities(from, to, …)`. */
+export function selectionIndicesAfterReorder(from: number, to: number, indices: number[]): number[] {
+	const next = indices.map((sel) => selectionAfterReorder(from, to, sel)).filter((x): x is number => x !== null);
+	return [...new Set(next)].sort((a, b) => a - b);
+}
+
 let _gidSeq = 1;
 export function nextLaserGroupId(): string {
 	return `g_${Date.now()}_${++_gidSeq}`;

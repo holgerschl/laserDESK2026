@@ -13,6 +13,8 @@
 	interface Props {
 		entities?: SceneEntity[];
 		selectedIndex?: number | null;
+		/** Number of selected entities (job tree / canvas); when &gt; 1, show multi-select hint. */
+		selectionCount?: number;
 		laserGroups?: LaserGroupV1[];
 		defaultLaserGroupId?: string;
 	}
@@ -20,6 +22,7 @@
 	let {
 		entities = $bindable<SceneEntity[]>([]),
 		selectedIndex = null,
+		selectionCount = 1,
 		laserGroups = $bindable<LaserGroupV1[]>([]),
 		defaultLaserGroupId = $bindable(DEFAULT_LASER_GROUP_ID)
 	}: Props = $props();
@@ -115,6 +118,12 @@
 
 <div class="ldk-card ldk-entity-laser" data-testid="editor-entity-laser">
 	<h3 class="ldk-el-title">Parameters</h3>
+	{#if selectionCount > 1}
+		<p class="ldk-muted" style="margin:0 0 0.65rem;font-size:0.82rem" data-testid="editor-multi-select-hint">
+			<strong>{selectionCount}</strong> entities selected — the fields below apply to the <strong>focused</strong> entity
+			(last clicked in the list or on the canvas).
+		</p>
+	{/if}
 	<p class="ldk-muted" style="margin:0 0 0.65rem;font-size:0.82rem">
 		<strong>Presets</strong> are shared parameter sets: every entity that uses the same preset gets the same power,
 		speed, and timing. Edit the preset here (or pick another in the job list). Use <strong>override</strong> only when

@@ -1,17 +1,32 @@
 <script lang="ts">
+	import { applyShiftSelection } from '$lib/scene/selection';
 	import {
 		DEFAULT_LASER_GROUP_ID,
 		reorderEntities,
 		selectionAfterReorder,
+		selectionIndicesAfterReorder,
 		type LaserGroupV1,
 		type SceneEntity
 	} from '$lib/scene/sceneV1';
 
 	let {
 		entities = $bindable<SceneEntity[]>([]),
-		selectedIndex = $bindable<number | null>(null),
+		selectedIndices = $bindable<number[]>([]),
+		anchorIndex = $bindable<number | null>(null),
+		lastClickedIndex = $bindable<number | null>(null),
 		laserGroups = [] as LaserGroupV1[]
 	} = $props();
+
+	function isSelected(i: number): boolean {
+		return selectedIndices.includes(i);
+	}
+
+	function handleRowClick(i: number, ev: MouseEvent) {
+		const out = applyShiftSelection(entities.length, i, ev.shiftKey, anchorIndex, lastClickedIndex);
+		selectedIndices = out.selectedIndices;
+		anchorIndex = out.anchorIndex;
+		lastClickedIndex = out.lastClickedIndex;
+	}
 
 	function setEntityGroup(i: number, gid: string) {
 		entities = entities.map((e, j) =>
@@ -34,46 +49,79 @@
 	}
 
 	function moveUp(i: number) {
+		if (selectedIndices.length !== 1 || selectedIndices[0] !== i) return;
 		if (i <= 0) return;
 		const from = i;
 		const to = i - 1;
 		entities = reorderEntities(entities, from, to);
-		selectedIndex = selectionAfterReorder(from, to, selectedIndex);
+		selectedIndices = selectionIndicesAfterReorder(from, to, selectedIndices);
+		anchorIndex =
+			anchorIndex !== null ? selectionAfterReorder(from, to, anchorIndex) : null;
+		lastClickedIndex =
+			lastClickedIndex !== null ? selectionAfterReorder(from, to, lastClickedIndex) : null;
 	}
 
 	function moveDown(i: number) {
+		if (selectedIndices.length !== 1 || selectedIndices[0] !== i) return;
 		if (i >= entities.length - 1) return;
 		const from = i;
 		const to = i + 1;
 		entities = reorderEntities(entities, from, to);
-		selectedIndex = selectionAfterReorder(from, to, selectedIndex);
+		selectedIndices = selectionIndicesAfterReorder(from, to, selectedIndices);
+		anchorIndex =
+			anchorIndex !== null ? selectionAfterReorder(from, to, anchorIndex) : null;
+		lastClickedIndex =
+			lastClickedIndex !== null ? selectionAfterReorder(from, to, lastClickedIndex) : null;
+	}
+
+	function removeAllSelected() {
+		const toRemove = new Set(selectedIndices);
+		entities = entities.filter((_, j) => !toRemove.has(j));
+		selectedIndices = [];
+		anchorIndex = null;
+		lastClickedIndex = null;
 	}
 
 	function removeAt(i: number) {
+		if (selectedIndices.length > 1) {
+			removeAllSelected();
+			return;
+		}
 		entities = entities.filter((_, j) => j !== i);
-		if (selectedIndex === i) selectedIndex = null;
-		else if (selectedIndex !== null && selectedIndex > i) selectedIndex = selectedIndex - 1;
+		selectedIndices = [];
+		anchorIndex = null;
+		lastClickedIndex = null;
 	}
 </script>
 
 <div class="ldk-card ldk-job-tree" data-testid="editor-job-tree">
 	<h3 class="ldk-tree-title">Job tree</h3>
 	<p class="ldk-muted" style="margin:0 0 0.75rem;font-size:0.82rem">
-		Execution order is top → bottom. Select a row to show preset and details; use <strong>↑</strong> /
-		<strong>↓</strong> to reorder.
+		Execution order is top → bottom. <strong>Shift+click</strong> for a range; select a row for preset and details;
+		<strong>↑</strong> / <strong>↓</strong> / remove when one item is selected. <strong>Esc</strong> clears selection.
 	</p>
+	{#if selectedIndices.length > 1}
+		<div class="ldk-tree-bulk">
+			<button
+				type="button"
+				class="ldk-btn secondary danger"
+				data-testid="editor-tree-remove-bulk"
+				onclick={() => removeAllSelected()}>Remove {selectedIndices.length} selected</button
+			>
+		</div>
+	{/if}
 	{#if entities.length === 0}
 		<p class="ldk-muted" data-testid="editor-job-tree-empty">No items</p>
 	{:else}
 		<ul class="ldk-tree-list" role="tree">
 			{#each entities as e, i (i)}
-				{@const expanded = selectedIndex === i}
+				{@const expanded = isSelected(i)}
 				<li
 					class="ldk-tree-row"
 					class:ldk-tree-row-collapsed={!expanded}
-					class:ldk-tree-sel={selectedIndex === i}
+					class:ldk-tree-sel={expanded}
 					role="treeitem"
-					aria-selected={selectedIndex === i}
+					aria-selected={expanded}
 					aria-expanded={expanded}
 					data-testid="editor-job-tree-item"
 					data-tree-index={i}
@@ -83,7 +131,7 @@
 							type="button"
 							class="ldk-tree-label"
 							class:ldk-tree-label-compact={!expanded}
-							onclick={() => (selectedIndex = i)}
+							onclick={(ev) => handleRowClick(i, ev)}
 							title={summary(e)}
 						>
 							<span class="ldk-tree-name">{label(i, e)}</span>
@@ -113,34 +161,36 @@
 							{/if}
 						{/if}
 					</div>
-					<div class="ldk-tree-actions">
-						<button
-							type="button"
-							class="ldk-btn secondary ldk-tree-icon"
-							disabled={i === 0}
-							data-testid="editor-tree-up"
-							data-tree-index={i}
-							onclick={() => moveUp(i)}
-							title="Move up">↑</button
-						>
-						<button
-							type="button"
-							class="ldk-btn secondary ldk-tree-icon"
-							disabled={i >= entities.length - 1}
-							data-testid="editor-tree-down"
-							data-tree-index={i}
-							onclick={() => moveDown(i)}
-							title="Move down">↓</button
-						>
-						<button
-							type="button"
-							class="ldk-btn secondary ldk-tree-icon danger"
-							data-testid="editor-tree-remove"
-							data-tree-index={i}
-							onclick={() => removeAt(i)}
-							title="Remove">×</button
-						>
-					</div>
+					{#if expanded && selectedIndices.length === 1 && selectedIndices[0] === i}
+						<div class="ldk-tree-actions">
+							<button
+								type="button"
+								class="ldk-btn secondary ldk-tree-icon"
+								disabled={i === 0}
+								data-testid="editor-tree-up"
+								data-tree-index={i}
+								onclick={() => moveUp(i)}
+								title="Move up">↑</button
+							>
+							<button
+								type="button"
+								class="ldk-btn secondary ldk-tree-icon"
+								disabled={i >= entities.length - 1}
+								data-testid="editor-tree-down"
+								data-tree-index={i}
+								onclick={() => moveDown(i)}
+								title="Move down">↓</button
+							>
+							<button
+								type="button"
+								class="ldk-btn secondary ldk-tree-icon danger"
+								data-testid="editor-tree-remove"
+								data-tree-index={i}
+								onclick={() => removeAt(i)}
+								title="Remove">×</button
+							>
+						</div>
+					{/if}
 				</li>
 			{/each}
 		</ul>
@@ -151,6 +201,9 @@
 	.ldk-job-tree {
 		min-width: 0;
 		max-width: 100%;
+	}
+	.ldk-tree-bulk {
+		margin-bottom: 0.5rem;
 	}
 	.ldk-tree-title {
 		margin: 0 0 0.5rem;
@@ -236,9 +289,21 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
+	.ldk-tree-row-collapsed {
+		min-height: 0;
+	}
 	.ldk-tree-row-collapsed .ldk-tree-main {
-		padding-top: 0.25rem;
-		padding-bottom: 0.25rem;
+		padding: 0.12rem 0.45rem 0.12rem 0.45rem;
+		gap: 0;
+	}
+	.ldk-tree-row-collapsed .ldk-tree-name {
+		font-size: 0.78rem;
+		font-weight: 600;
+		line-height: 1.2;
+	}
+	.ldk-tree-row-collapsed .ldk-tree-label-compact {
+		padding: 0.05rem 0;
+		min-height: 0;
 	}
 	.ldk-tree-list {
 		font-size: 0.85rem;

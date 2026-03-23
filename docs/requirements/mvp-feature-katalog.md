@@ -47,9 +47,9 @@ Bounded scope for the first shippable increment. Anything not listed here is **o
 | F-08 | **Canvas library integration** | Konva *or* Fabric.js (or equivalent); document choice in `docs/`; Svelte mount/teardown pattern |
 | F-09 | **Editor shell** | **Pan/zoom (done):** wheel, **Space + drag** / middle-mouse pan, **Reset view**; Konva `Group` viewport. **mm SVG overlay:** explicit `width`/`height` = stage (px), same affine as Konva on an inner `<g>` (`matrix(zoom,0,0,zoom,panX,panY)` in user space — **no** CSS `transform` on the root `<svg>`, which can blank the overlay in some browsers). **Still open:** layer panel, workflow step kind (optional). **Route:** `/editor` — `SceneEditor.svelte`. |
 | F-10 | **Place primitives** | Initial slice: at least **line** and **rectangle**; extend to polyline/arc in later promotions |
-| F-11 | **Select / move / transform** | Selection, drag, scale/rotate using library capabilities; delete |
+| F-11 | **Select / move / transform** | Selection, drag, scale/rotate using library capabilities; delete. **Multi-select:** **Shift+click** range selection in the **job tree** and on the **canvas** (shared logic in `frontend/src/lib/scene/selection.ts`); **Esc** clears selection. Transformer (resize/rotate) when **exactly one** entity is selected. |
 | F-12 | **Undo / redo** | Stable against exported scene model (command stack or library history + sync) |
-| F-13 | **Laser groups & per-entity laser** | **Groups:** named presets (`LaserGroupV1`) editable in **Laser groups** panel; **default for new shapes** selector. **Grouping:** assign the same `laser_group_id` on multiple entities (job tree dropdown or **Selected entity**). **Per-entity:** optional **custom laser** (full override). Scene JSON built with `buildSceneV1()` in `frontend/src/lib/scene/sceneV1.ts`; components: `LaserGroupsPanel.svelte`, `EntityLaserPanel.svelte`, `SceneJobTree` group column. |
+| F-13 | **Laser presets & per-entity laser** | **Presets** (`LaserGroupV1` in JSON): shared parameter sets; **default for new shapes** and **Add / remove preset** live in the **Parameters** column (`EntityLaserPanel.svelte`). **Grouping:** same `laser_group_id` on multiple entities (job tree **Preset** when expanded, or parameter panel). **Per-entity:** optional **override** (`laser`). **Layout:** job list and parameters **side-by-side** beside the canvas; `/editor` uses a **wide** shell. **No** separate laser-groups panel. Scene JSON: `buildSceneV1()` in `frontend/src/lib/scene/sceneV1.ts`; UI: `EntityLaserPanel.svelte`, `SceneJobTree.svelte`. |
 
 ### Cross-cutting
 
@@ -91,16 +91,18 @@ A feature moves from “out” to “in” when:
 
 ## 5. Phase H — catalog promotion
 
-Phase H (**vector scene editor**, Konva / Fabric.js / similar) was **promoted into §2 (MVP)** in catalog **v1.3** per §4. Feature IDs: **B-10…B-12**, **F-08…F-12**, **X-04…X-05**; **F-13** added in **v1.5** (laser groups / per-entity laser). Engineering tasks **H.1–H.9** and deliverables: [`docs/implementation-plan.md`](../implementation-plan.md) **§4 Phase H**.
+Phase H (**vector scene editor**, Konva / Fabric.js / similar) was **promoted into §2 (MVP)** in catalog **v1.3** per §4. Feature IDs: **B-10…B-12**, **F-08…F-12**, **X-04…X-05**; **F-13** added in **v1.5** (laser presets / per-entity laser). Engineering tasks **H.1–H.9** and deliverables: [`docs/implementation-plan.md`](../implementation-plan.md) **§4 Phase H**.
 
 **Approach (unchanged):** Browser **canvas library** (MIT license); **canonical** data is **versioned scene JSON** in laserDESK; backend uses the same **`RtcJobPlan`** / Remote Interface mapping as the DXF path.
 
 **F-09 pan/zoom (March 2026):** Documented as implemented in **F-09** row and [`docs/implementation-plan.md`](../implementation-plan.md) §4 Phase H (H.4 progress note).
 
-**F-13 laser groups (March 2026):** Per-entity / grouped laser parameters in scene JSON and editor UI — see **F-13** row and implementation plan §4 Phase H.
+**F-13 laser presets (March 2026):** Per-entity / grouped laser parameters in `scene_v1` and editor UI — presets edited in the parameter column (not a separate groups panel); built-in **Default / Cut / Mark** presets in `defaultLaserGroups()`. See **F-13** row and implementation plan §4 Phase H.
+
+**F-11 multi-select (March 2026):** **Shift+click** range selection in job list and canvas; **Esc** clears — see **F-11** row and `frontend/src/lib/scene/selection.ts`.
 
 **F-09 / F-11 viewport & drag (March 2026):** mm overlay uses **fixed px** SVG size + inner `<g>` `matrix` (same as Konva); select-mode **move** for selected entities (see **F-09** / **F-11** and implementation plan §4 Phase H).
 
 ---
 
-*Version: 1.6.1 · F-09 SVG overlay: inner-g matrix, not CSS transform on root svg · March 2026*
+*Version: 1.6.2 · F-11 multi-select; F-13 presets-only UI (no LaserGroupsPanel) · March 2026*

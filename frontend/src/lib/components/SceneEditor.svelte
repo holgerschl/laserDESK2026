@@ -12,7 +12,11 @@
 		stageWidth?: number;
 		stageHeight?: number;
 		entities?: SceneEntity[];
-		selectedIndex?: number | null;
+		/** Multi-selection indices (same as job tree). */
+		selectedIndices?: number[];
+		onSelectEntity?: (index: number, shiftKey: boolean) => void;
+		/** Clear selection (e.g. empty canvas click, Esc handled by parent). */
+		onClearSelection?: () => void;
 		/** New shapes get this `laser_group_id`. */
 		defaultLaserGroupId?: string;
 	}
@@ -41,7 +45,9 @@
 				laser_group_id: DEFAULT_LASER_GROUP_ID
 			}
 		]),
-		selectedIndex = $bindable<number | null>(null),
+		selectedIndices = [] as number[],
+		onSelectEntity,
+		onClearSelection,
 		defaultLaserGroupId = DEFAULT_LASER_GROUP_ID
 	}: Props = $props();
 
@@ -196,7 +202,7 @@
 		const drawn: KonvaShape[] = [];
 
 		entities.forEach((ent, idx) => {
-			const sel = selectedIndex === idx;
+			const sel = selectedIndices.includes(idx);
 			const stroke = sel ? '#b45309' : ent.type === 'line' ? '#1e3a5f' : '#059669';
 			const strokeW = sel ? 3.5 : 2;
 			/** In select mode, all shapes stay draggable (move). Selected items also use the Transformer for resize/rotate. */
@@ -213,7 +219,7 @@
 				});
 				ln.on('click', (e) => {
 					e.cancelBubble = true;
-					selectedIndex = idx;
+					onSelectEntity?.(idx, e.evt.shiftKey);
 				});
 				ln.on('dragend', () => {
 					const abs = ln.getAbsoluteTransform();
@@ -250,7 +256,7 @@
 				});
 				r.on('click', (e) => {
 					e.cancelBubble = true;
-					selectedIndex = idx;
+					onSelectEntity?.(idx, e.evt.shiftKey);
 				});
 				r.on('dragend', () => {
 					const nx = r.x();
@@ -273,8 +279,10 @@
 			}
 		});
 
-		if (tool === 'select' && selectedIndex !== null) {
-			const n = drawn[selectedIndex];
+		const singleSel =
+			selectedIndices.length === 1 && selectedIndices[0] !== undefined ? selectedIndices[0] : null;
+		if (tool === 'select' && singleSel !== null) {
+			const n = drawn[singleSel];
 			if (n) {
 				const tr = new K.Transformer({
 					nodes: [n],
@@ -291,10 +299,10 @@
 					}
 				});
 				tr.on('transformend', () => {
-					const ent = entities[selectedIndex!];
+					const ent = entities[singleSel];
 					if (!ent) return;
-					if (ent.type === 'line') applyLineTransformEnd(n as KonvaLine, selectedIndex!);
-					else applyRectTransformEnd(n as KonvaRect, selectedIndex!);
+					if (ent.type === 'line') applyLineTransformEnd(n as KonvaLine, singleSel);
+					else applyRectTransformEnd(n as KonvaRect, singleSel);
 				});
 				viewport.add(tr);
 			}
@@ -305,7 +313,7 @@
 
 	$effect(() => {
 		tool;
-		selectedIndex;
+		selectedIndices;
 		entities;
 		viewPanX;
 		viewPanY;
@@ -388,9 +396,16 @@
 			stage.on('mouseup', endPan);
 			stage.on('mouseleave', endPan);
 
-			stage.on('click', () => {
+			stage.on('click', (e) => {
 				if (panDragged) {
 					panDragged = false;
+					return;
+				}
+				if (tool === 'select') {
+					const t = e.target;
+					if (t === stage || t.getClassName?.() === 'Layer') {
+						onClearSelection?.();
+					}
 					return;
 				}
 				if (tool === 'line') {
@@ -537,8 +552,9 @@
 	</div>
 	<p class="ldk-muted" style="margin:0.35rem 0 0;font-size:0.85rem">
 		<strong>Wheel</strong>: zoom toward cursor. <strong>Space+drag</strong> or <strong>middle mouse</strong>: pan.
-		<strong>Select</strong>: drag shapes. <strong>Selected</strong>: handles to rotate/resize. <strong>Line</strong> /
-		<strong>Rect</strong>: place as before. Units: mm; +Y up.
+		<strong>Select</strong>: click shapes; <strong>Shift+click</strong> extends range (same as job list). Drag to move.
+		<strong>One selected</strong>: handles to rotate/resize. <strong>Esc</strong> or empty canvas: clear selection.
+		<strong>Line</strong> / <strong>Rect</strong>: place as before. Units: mm; +Y up.
 	</p>
 	<div
 		class="ldk-scene-stage-wrap editor-stage-stack"
