@@ -45,7 +45,7 @@ Bounded scope for the first shippable increment. Anything not listed here is **o
 | F-06 | **Display DXF + entity / job item window** | Visualise geometry (e.g. 2D paths) and show a list panel of entities / job items mapped from the parser |
 | F-07 | **DXF laser job flow** | Workflow steps (or equivalent) to parse via backend, review entity list, then **run** the DXF-derived job through the same RTC stack as B-09 |
 | F-08 | **Canvas library integration** | Konva *or* Fabric.js (or equivalent); document choice in `docs/`; Svelte mount/teardown pattern |
-| F-09 | **Editor shell** | **Pan/zoom (done):** wheel zoom toward cursor (clamped range), **Space + drag** or **middle mouse** to pan, **Reset view**; Konva `Group` viewport (`viewPan` / `viewZoom`). **mm SVG overlay:** same transform in **pixel space** — explicit `width`/`height` = stage (px), **`transform: matrix(zoom,0,0,zoom,panX,panY)`** + `transform-origin: 0 0` on the SVG element (avoids misalignment from %-sized SVG vs canvas). **Still open:** layer panel (visibility / order), workflow step kind (optional). **Route:** `/editor` — `SceneEditor.svelte`. |
+| F-09 | **Editor shell** | **Pan/zoom (done):** wheel, **Space + drag** / middle-mouse pan, **Reset view**; Konva `Group` viewport. **mm SVG overlay:** explicit `width`/`height` = stage (px), same affine as Konva on an inner `<g>` (`matrix(zoom,0,0,zoom,panX,panY)` in user space — **no** CSS `transform` on the root `<svg>`, which can blank the overlay in some browsers). **Still open:** layer panel, workflow step kind (optional). **Route:** `/editor` — `SceneEditor.svelte`. |
 | F-10 | **Place primitives** | Initial slice: at least **line** and **rectangle**; extend to polyline/arc in later promotions |
 | F-11 | **Select / move / transform** | Selection, drag, scale/rotate using library capabilities; delete |
 | F-12 | **Undo / redo** | Stable against exported scene model (command stack or library history + sync) |
@@ -99,8 +99,8 @@ Phase H (**vector scene editor**, Konva / Fabric.js / similar) was **promoted in
 
 **F-13 laser groups (March 2026):** Per-entity / grouped laser parameters in scene JSON and editor UI — see **F-13** row and implementation plan §4 Phase H.
 
-**F-09 / F-11 viewport & drag (March 2026):** SVG mm overlay aligned with Konva via **CSS matrix** on the SVG element and fixed pixel size; select-mode **move** restored for selected entities (see **F-09** / **F-11** rows and implementation plan §4 Phase H).
+**F-09 / F-11 viewport & drag (March 2026):** mm overlay uses **fixed px** SVG size + inner `<g>` `matrix` (same as Konva); select-mode **move** for selected entities (see **F-09** / **F-11** and implementation plan §4 Phase H).
 
 ---
 
-*Version: 1.6 · viewport SVG alignment & select drag notes · March 2026*
+*Version: 1.6.1 · F-09 SVG overlay: inner-g matrix, not CSS transform on root svg · March 2026*

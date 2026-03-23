@@ -547,7 +547,10 @@
 		style="width:{stageWidth}px;height:{stageHeight}px;"
 	>
 		<div bind:this={container} class="konva-host"></div>
-		<!-- Pan/zoom on the SVG *element* (CSS, pixel space) matches Konva Group: screen = pan + zoom × local. Inner SVG matrix in user units + %-sized viewport desynced from the canvas. -->
+		<!--
+			Same affine as Konva viewport Group: x' = zoom*x + panX, y' = zoom*y + panY (user units = stage px; viewBox 1:1 with explicit width/height).
+			Do not use CSS transform on the root <svg> — it can hide the overlay in some browsers. %-sized SVG without fixed px desyncs from Konva; keep width/height = stage.
+		-->
 		<svg
 			class="editor-coords-svg"
 			data-testid="editor-coords-svg"
@@ -558,9 +561,13 @@
 			overflow="visible"
 			role="img"
 			aria-label="Scene editor axes with millimetre ticks"
-			style="transform: matrix({viewZoom}, 0, 0, {viewZoom}, {viewPanX}px, {viewPanY}px); transform-origin: 0 0;"
 		>
-			<g class="editor-coords" pointer-events="none" aria-hidden="true">
+			<g
+				class="editor-coords"
+				pointer-events="none"
+				aria-hidden="true"
+				transform="matrix({viewZoom} 0 0 {viewZoom} {viewPanX} {viewPanY})"
+			>
 				<rect
 					x={editorAxis.layout.minX}
 					y={editorAxis.layout.minY}
