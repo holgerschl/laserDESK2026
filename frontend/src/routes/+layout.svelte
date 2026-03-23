@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { base } from '$app/paths';
+	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import favicon from '$lib/assets/favicon.svg';
 	import '$lib/app.css';
 
 	let { children } = $props();
+
+	let editorWideShell = $derived($page.url.pathname.includes('/editor'));
 
 	let onGithubPages = $state(false);
 	onMount(() => {
@@ -17,7 +20,7 @@
 	<title>laserDESK 2026</title>
 </svelte:head>
 
-<div class="ldk-shell">
+<div class="ldk-shell" class:ldk-shell-wide={editorWideShell}>
 	<header class="ldk-header">
 		<h1>laserDESK 2026</h1>
 		<nav class="ldk-nav" aria-label="Main">

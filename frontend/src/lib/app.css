@@ -30,6 +30,12 @@ button:focus-visible {
 	padding: 1rem 1.25rem 2rem;
 }
 
+/** Scene editor: use full viewport width (job list + parameters + canvas). */
+.ldk-shell.ldk-shell-wide {
+	max-width: none;
+	width: 100%;
+}
+
 .ldk-header {
 	display: flex;
 	flex-wrap: wrap;

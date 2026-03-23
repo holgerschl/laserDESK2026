@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { base } from '$app/paths';
 	import EntityLaserPanel from '$lib/components/EntityLaserPanel.svelte';
-	import LaserGroupsPanel from '$lib/components/LaserGroupsPanel.svelte';
 	import RtcConnectionPanel from '$lib/components/RtcConnectionPanel.svelte';
 	import SceneEditor from '$lib/components/SceneEditor.svelte';
 	import SceneJobTree from '$lib/components/SceneJobTree.svelte';
@@ -166,8 +165,8 @@
 <article class="ldk-doc ldk-editor-page">
 	<h1 style="margin-top:0">Phase H – Scene editor</h1>
 	<p class="ldk-muted" style="margin-top:0">
-		Draw lines and rectangles (mm, +Y up), define <strong>laser groups</strong> (shared parameters), assign entities to
-		a group or set a <strong>custom laser</strong> per entity, order items in the job tree, then submit as
+		Draw lines and rectangles (mm, +Y up). Use <strong>presets</strong> (shared laser parameters) or a per-entity
+		<strong>override</strong> in the parameter column; order items in the job tree, then submit as
 		<code>scene_v1</code>. Backend geometry path:
 		<code>/api/v1/jobs/scene</code> → <code>/api/v1/jobs/dxf/&#123;id&#125;</code> (load / run / stop). Optional
 		<code>laser</code> block is stored for future RTC use.
@@ -212,24 +211,15 @@
 	</p>
 
 	<div class="ldk-editor-layout">
-		<aside class="ldk-editor-aside">
+		<div class="ldk-editor-sidebar">
 			<SceneJobTree bind:entities bind:selectedIndex laserGroups={laserGroups} />
-			<LaserGroupsPanel
-				bind:laserGroups
-				bind:defaultLaserGroupId
-				onBeforeRemoveGroup={(removedId, fallbackId) => {
-					entities = entities.map((e) =>
-						e.laser_group_id === removedId ? { ...e, laser_group_id: fallbackId } : e
-					);
-				}}
-			/>
 			<EntityLaserPanel
 				bind:entities
+				bind:laserGroups
+				bind:defaultLaserGroupId
 				selectedIndex={selectedIndex}
-				laserGroups={laserGroups}
-				defaultLaserGroupId={defaultLaserGroupId}
 			/>
-		</aside>
+		</div>
 		<section class="ldk-editor-canvas">
 			<h2 style="font-size:1.05rem;margin:0 0 0.5rem">Canvas</h2>
 			<SceneEditor bind:entities bind:selectedIndex defaultLaserGroupId={defaultLaserGroupId} />
@@ -305,11 +295,12 @@
 
 <style>
 	.ldk-editor-page {
-		max-width: 72rem;
+		max-width: none;
+		width: 100%;
 	}
 	.ldk-editor-layout {
 		display: grid;
-		grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+		grid-template-columns: minmax(22rem, 42rem) minmax(0, 1fr);
 		gap: 1rem;
 		align-items: start;
 		margin-top: 0.5rem;
@@ -320,12 +311,17 @@
 			grid-template-columns: 1fr;
 		}
 	}
-	.ldk-editor-aside {
-		display: flex;
-		flex-direction: column;
+	.ldk-editor-sidebar {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(12rem, 20rem);
 		gap: 0.75rem;
+		align-items: start;
 		min-width: 0;
-		max-width: 100%;
+	}
+	@media (max-width: 52rem) {
+		.ldk-editor-sidebar {
+			grid-template-columns: 1fr;
+		}
 	}
 	.ldk-editor-canvas {
 		min-width: 0;

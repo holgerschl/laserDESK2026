@@ -9,6 +9,10 @@ import {
 /** Default group id for new entities and legacy scenes without `laser_group_id`. */
 export const DEFAULT_LASER_GROUP_ID = 'g0';
 
+/** Built-in preset ids (same as `laser_group_id` on entities). */
+export const CUT_LASER_GROUP_ID = 'g_cut';
+export const MARK_LASER_GROUP_ID = 'g_mark';
+
 export interface LaserGroupV1 {
 	id: string;
 	name: string;
@@ -61,11 +65,18 @@ export interface SceneV1 {
 }
 
 export function defaultLaserGroups(): LaserGroupV1[] {
+	const base = defaultLaserProperties();
 	return [
+		{ id: DEFAULT_LASER_GROUP_ID, name: 'Default', laser: { ...base } },
 		{
-			id: DEFAULT_LASER_GROUP_ID,
-			name: 'Default',
-			laser: defaultLaserProperties()
+			id: CUT_LASER_GROUP_ID,
+			name: 'Cut',
+			laser: clampLaserProperties({ ...base, power_percent: 85, mark_speed_mm_s: 50 })
+		},
+		{
+			id: MARK_LASER_GROUP_ID,
+			name: 'Mark',
+			laser: clampLaserProperties({ ...base, power_percent: 35, mark_speed_mm_s: 800 })
 		}
 	];
 }

@@ -59,18 +59,22 @@
 <div class="ldk-card ldk-job-tree" data-testid="editor-job-tree">
 	<h3 class="ldk-tree-title">Job tree</h3>
 	<p class="ldk-muted" style="margin:0 0 0.75rem;font-size:0.82rem">
-		Execution order is top → bottom. Use <strong>↑</strong> / <strong>↓</strong> to reorder.
+		Execution order is top → bottom. Select a row to show preset and details; use <strong>↑</strong> /
+		<strong>↓</strong> to reorder.
 	</p>
 	{#if entities.length === 0}
 		<p class="ldk-muted" data-testid="editor-job-tree-empty">No items</p>
 	{:else}
 		<ul class="ldk-tree-list" role="tree">
 			{#each entities as e, i (i)}
+				{@const expanded = selectedIndex === i}
 				<li
 					class="ldk-tree-row"
+					class:ldk-tree-row-collapsed={!expanded}
 					class:ldk-tree-sel={selectedIndex === i}
 					role="treeitem"
 					aria-selected={selectedIndex === i}
+					aria-expanded={expanded}
 					data-testid="editor-job-tree-item"
 					data-tree-index={i}
 				>
@@ -78,30 +82,35 @@
 						<button
 							type="button"
 							class="ldk-tree-label"
+							class:ldk-tree-label-compact={!expanded}
 							onclick={() => (selectedIndex = i)}
 							title={summary(e)}
 						>
 							<span class="ldk-tree-name">{label(i, e)}</span>
-							<span class="ldk-tree-sum">{summary(e)}</span>
+							{#if expanded}
+								<span class="ldk-tree-sum">{summary(e)}</span>
+							{/if}
 						</button>
-						<label class="ldk-tree-group-wrap">
-							<span class="ldk-tree-group-h">Laser group</span>
-							<select
-								class="ldk-tree-group"
-								value={e.laser_group_id ?? DEFAULT_LASER_GROUP_ID}
-								data-testid="editor-tree-laser-group"
-								data-tree-index={i}
-								onclick={(ev) => ev.stopPropagation()}
-								onchange={(ev) =>
-									setEntityGroup(i, (ev.currentTarget as HTMLSelectElement).value)}
-							>
-								{#each laserGroups as g (g.id)}
-									<option value={g.id}>{g.name}</option>
-								{/each}
-							</select>
-						</label>
-						{#if e.laser}
-							<span class="ldk-tree-custom" title="Custom laser override">Custom laser</span>
+						{#if expanded}
+							<label class="ldk-tree-group-wrap">
+								<span class="ldk-tree-group-h">Preset</span>
+								<select
+									class="ldk-tree-group"
+									value={e.laser_group_id ?? DEFAULT_LASER_GROUP_ID}
+									data-testid="editor-tree-laser-group"
+									data-tree-index={i}
+									onclick={(ev) => ev.stopPropagation()}
+									onchange={(ev) =>
+										setEntityGroup(i, (ev.currentTarget as HTMLSelectElement).value)}
+								>
+									{#each laserGroups as g (g.id)}
+										<option value={g.id}>{g.name}</option>
+									{/each}
+								</select>
+							</label>
+							{#if e.laser}
+								<span class="ldk-tree-custom" title="Custom laser override">Custom laser</span>
+							{/if}
 						{/if}
 					</div>
 					<div class="ldk-tree-actions">
@@ -213,6 +222,23 @@
 		cursor: pointer;
 		text-align: left;
 		font: inherit;
+		width: 100%;
+		min-width: 0;
+	}
+	.ldk-tree-label-compact {
+		flex-direction: row;
+		align-items: center;
+		flex-wrap: nowrap;
+		padding: 0.15rem 0;
+	}
+	.ldk-tree-label-compact .ldk-tree-name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.ldk-tree-row-collapsed .ldk-tree-main {
+		padding-top: 0.25rem;
+		padding-bottom: 0.25rem;
 	}
 	.ldk-tree-list {
 		font-size: 0.85rem;
