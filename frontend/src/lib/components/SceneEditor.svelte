@@ -64,7 +64,23 @@
 	let removeWindowKeyListeners: (() => void) | null = null;
 	let konvaLib: typeof import('konva').default | null = null;
 	let tool = $state<'select' | 'line' | 'rect'>('select');
-	let lineStart = $state<{ x: number; y: number } | null>(null);
+	/** Rubber-band preview while drag-drawing a line (world mm). */
+	let linePlacement = $state<{
+		start: { x: number; y: number };
+		current: { x: number; y: number };
+	} | null>(null);
+	/** Rubber-band preview while drag-drawing a rect (world mm). */
+	let rectPlacement = $state<{
+		start: { x: number; y: number };
+		current: { x: number; y: number };
+	} | null>(null);
+	/** Remove window listeners if drag ends early (e.g. tool switch). */
+	let placementPointerCleanup: (() => void) | null = null;
+
+	function clearPlacementPointer() {
+		placementPointerCleanup?.();
+		placementPointerCleanup = null;
+	}
 
 	/** Screen-space pan (px) and uniform zoom for the world mm canvas. */
 	let viewPanX = $state(0);
@@ -239,6 +255,7 @@
 			const strokeW = sel ? 3.5 : 2;
 			/** In select mode, all shapes stay draggable (move). Selected items also use the Transformer for resize/rotate. */
 			const canDragWhole = tool === 'select';
+			const shapeListening = tool === 'select';
 
 			if (ent.type === 'line') {
 				const ln = new K.Line({
@@ -247,6 +264,7 @@
 					strokeWidth: strokeW,
 					lineCap: 'round',
 					draggable: canDragWhole,
+					listening: shapeListening,
 					hitStrokeWidth: 12
 				});
 				viewport.add(ln);
@@ -266,12 +284,49 @@
 					stroke,
 					strokeWidth: strokeW,
 					fill: sel ? 'rgba(180, 83, 9, 0.12)' : 'rgba(5, 150, 105, 0.08)',
-					draggable: canDragWhole
+					draggable: canDragWhole,
+					listening: shapeListening
 				});
 				viewport.add(r);
 				drawn[idx] = r;
 			}
 		});
+
+		if (linePlacement) {
+			const { start, current } = linePlacement;
+			const rubber = new K.Line({
+				points: [start.x, konvaY(start.y), current.x, konvaY(current.y)],
+				stroke: '#64748b',
+				strokeWidth: 1.5,
+				dash: [6, 4],
+				lineCap: 'round',
+				listening: false
+			});
+			viewport.add(rubber);
+		}
+		if (rectPlacement) {
+			const { start, current } = rectPlacement;
+			const rx = Math.min(start.x, current.x);
+			const ry = Math.min(start.y, current.y);
+			const rw = Math.abs(current.x - start.x);
+			const rh = Math.abs(current.y - start.y);
+			const rcx = rx + rw / 2;
+			const rcy = ry + rh / 2;
+			const pr = new K.Rect({
+				x: rcx,
+				y: konvaY(rcy),
+				offsetX: rw / 2,
+				offsetY: rh / 2,
+				width: rw,
+				height: rh,
+				stroke: '#64748b',
+				strokeWidth: 1.5,
+				dash: [6, 4],
+				fill: 'rgba(100, 116, 139, 0.1)',
+				listening: false
+			});
+			viewport.add(pr);
+		}
 
 		function syncGroupDragPeersFromLine(ln: KonvaLine, idx: number) {
 			const snap = groupDragSnapshot;
@@ -521,6 +576,8 @@
 		viewPanX;
 		viewPanY;
 		viewZoom;
+		linePlacement;
+		rectPlacement;
 		if (layer) redraw();
 	});
 
@@ -570,14 +627,132 @@
 				viewZoom = newZ;
 			});
 
+			function clientToWorldMm(clientX: number, clientY: number) {
+				if (!container) return { x: 0, y: 0 };
+				const r = container.getBoundingClientRect();
+				return stageToWorldMm(clientX - r.left, clientY - r.top);
+			}
+
+			function bindLinePlacement(start: { x: number; y: number }) {
+				clearPlacementPointer();
+				linePlacement = { start, current: start };
+				rectPlacement = null;
+				const onMove = (ev: MouseEvent) => {
+					const w = clientToWorldMm(ev.clientX, ev.clientY);
+					linePlacement = { start, current: w };
+					redraw();
+				};
+				const onUp = (ev: MouseEvent) => {
+					if (ev.button !== 0) return;
+					window.removeEventListener('mousemove', onMove);
+					window.removeEventListener('mouseup', onUp);
+					placementPointerCleanup = null;
+					const pl = linePlacement;
+					linePlacement = null;
+					redraw();
+					if (!pl) return;
+					const dx = pl.current.x - pl.start.x;
+					const dy = pl.current.y - pl.start.y;
+					if (Math.hypot(dx, dy) >= 0.5) {
+						pushHistory();
+						entities = [
+							...entities,
+							{
+								type: 'line',
+								x0: pl.start.x,
+								y0: pl.start.y,
+								z0: 0,
+								x1: pl.current.x,
+								y1: pl.current.y,
+								z1: 0,
+								entity_label: nextEntityLabelForKind('line', entities),
+								laser_group_id: defaultLaserGroupId
+							}
+						];
+					}
+					redraw();
+				};
+				window.addEventListener('mousemove', onMove);
+				window.addEventListener('mouseup', onUp);
+				placementPointerCleanup = () => {
+					window.removeEventListener('mousemove', onMove);
+					window.removeEventListener('mouseup', onUp);
+				};
+				redraw();
+			}
+
+			function bindRectPlacement(start: { x: number; y: number }) {
+				clearPlacementPointer();
+				rectPlacement = { start, current: start };
+				linePlacement = null;
+				const onMove = (ev: MouseEvent) => {
+					const w = clientToWorldMm(ev.clientX, ev.clientY);
+					rectPlacement = { start, current: w };
+					redraw();
+				};
+				const onUp = (ev: MouseEvent) => {
+					if (ev.button !== 0) return;
+					window.removeEventListener('mousemove', onMove);
+					window.removeEventListener('mouseup', onUp);
+					placementPointerCleanup = null;
+					const pl = rectPlacement;
+					rectPlacement = null;
+					redraw();
+					if (!pl) return;
+					const x0 = Math.min(pl.start.x, pl.current.x);
+					const y0 = Math.min(pl.start.y, pl.current.y);
+					const rw = Math.abs(pl.current.x - pl.start.x);
+					const rh = Math.abs(pl.current.y - pl.start.y);
+					if (rw >= 0.5 && rh >= 0.5) {
+						pushHistory();
+						entities = [
+							...entities,
+							{
+								type: 'rect',
+								x: x0,
+								y: y0,
+								width: rw,
+								height: rh,
+								z: 0,
+								rotation_deg: 0,
+								entity_label: nextEntityLabelForKind('rect', entities),
+								laser_group_id: defaultLaserGroupId
+							}
+						];
+					}
+					redraw();
+				};
+				window.addEventListener('mousemove', onMove);
+				window.addEventListener('mouseup', onUp);
+				placementPointerCleanup = () => {
+					window.removeEventListener('mousemove', onMove);
+					window.removeEventListener('mouseup', onUp);
+				};
+				redraw();
+			}
+
 			stage.on('mousedown', (e) => {
 				const wantPan = e.evt.button === 1 || (e.evt.button === 0 && spaceDown);
-				if (!wantPan) return;
-				e.evt.preventDefault();
-				panning = true;
-				panDragged = false;
-				const pos = stage!.getPointerPosition();
-				lastPan = pos ? { x: pos.x, y: pos.y } : null;
+				if (wantPan) {
+					e.evt.preventDefault();
+					panning = true;
+					panDragged = false;
+					const pos = stage!.getPointerPosition();
+					lastPan = pos ? { x: pos.x, y: pos.y } : null;
+					return;
+				}
+				if (e.evt.button === 0 && tool === 'line' && !spaceDown) {
+					e.evt.preventDefault();
+					const w = clientToWorldMm(e.evt.clientX, e.evt.clientY);
+					bindLinePlacement(w);
+					return;
+				}
+				if (e.evt.button === 0 && tool === 'rect' && !spaceDown) {
+					e.evt.preventDefault();
+					const w = clientToWorldMm(e.evt.clientX, e.evt.clientY);
+					bindRectPlacement(w);
+					return;
+				}
 			});
 
 			stage.on('mousemove', () => {
@@ -609,53 +784,6 @@
 					if (t === stage || t.getClassName?.() === 'Layer') {
 						onClearSelection?.();
 					}
-					return;
-				}
-				if (tool === 'line') {
-					const p = stage!.getPointerPosition();
-					if (!p) return;
-					const w = stageToWorldMm(p.x, p.y);
-					if (!lineStart) {
-						lineStart = { x: w.x, y: w.y };
-					} else {
-						pushHistory();
-						entities = [
-							...entities,
-							{
-								type: 'line',
-								x0: lineStart.x,
-								y0: lineStart.y,
-								z0: 0,
-								x1: w.x,
-								y1: w.y,
-								z1: 0,
-								entity_label: nextEntityLabelForKind('line', entities),
-								laser_group_id: defaultLaserGroupId
-							}
-						];
-						lineStart = null;
-						redraw();
-					}
-				} else if (tool === 'rect') {
-					const p = stage!.getPointerPosition();
-					if (!p) return;
-					const w = stageToWorldMm(p.x, p.y);
-					pushHistory();
-					entities = [
-						...entities,
-						{
-							type: 'rect',
-							x: w.x,
-							y: w.y,
-							width: 60,
-							height: 40,
-							z: 0,
-							rotation_deg: 0,
-							entity_label: nextEntityLabelForKind('rect', entities),
-							laser_group_id: defaultLaserGroupId
-						}
-					];
-					redraw();
 				}
 			});
 
@@ -664,6 +792,8 @@
 	});
 
 	onDestroy(() => {
+		placementPointerCleanup?.();
+		placementPointerCleanup = null;
 		removeWindowKeyListeners?.();
 		removeWindowKeyListeners = null;
 		stage?.destroy();
@@ -721,7 +851,9 @@
 			data-testid="editor-tool-select"
 			onclick={() => {
 				tool = 'select';
-				lineStart = null;
+				clearPlacementPointer();
+				linePlacement = null;
+				rectPlacement = null;
 				redraw();
 			}}>Select</button
 		>
@@ -732,7 +864,9 @@
 			data-testid="editor-tool-line"
 			onclick={() => {
 				tool = 'line';
-				lineStart = null;
+				clearPlacementPointer();
+				linePlacement = null;
+				rectPlacement = null;
 				redraw();
 			}}>Line</button
 		>
@@ -743,7 +877,9 @@
 			data-testid="editor-tool-rect"
 			onclick={() => {
 				tool = 'rect';
-				lineStart = null;
+				clearPlacementPointer();
+				linePlacement = null;
+				rectPlacement = null;
 				redraw();
 			}}>Rect</button
 		>
@@ -761,7 +897,7 @@
 		<strong>Wheel</strong>: zoom toward cursor. <strong>Space+drag</strong> or <strong>middle mouse</strong>: pan.
 		<strong>Select</strong>: click shapes; <strong>Shift+click</strong> extends range (same as job list). Drag to move; multiple selected shapes move together.
 		<strong>Selection</strong>: handles rotate/resize (one shape or the whole selection together). <strong>Esc</strong> or empty canvas: clear selection.
-		<strong>Line</strong> / <strong>Rect</strong>: place as before. Units: mm; +Y up.
+		<strong>Line</strong>: click-drag-release for a segment (dashed preview). <strong>Rect</strong>: drag an axis-aligned box (dashed preview). Units: mm; +Y up.
 	</p>
 	<div
 		class="ldk-scene-stage-wrap editor-stage-stack"
