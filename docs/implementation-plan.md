@@ -214,7 +214,7 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 |------|------------------|
 | Feature catalog rows | [`docs/requirements/mvp-feature-katalog.md`](requirements/mvp-feature-katalog.md) — §2 **MVP** (**B-10…B-12**, **F-08…F-13**, **X-04…X-05**); §5 promotion note |
 | Scene schema | TypeScript types + `buildSceneV1()` in [`frontend/src/lib/scene/sceneV1.ts`](../frontend/src/lib/scene/sceneV1.ts); optional JSON Schema / OpenAPI later |
-| Editor UI | `SceneEditor.svelte` (Konva + pan/zoom + mm overlay); `EntityLaserPanel.svelte`, `SceneJobTree.svelte`, `scene/selection.ts`; route [`frontend/src/routes/editor/`](../frontend/src/routes/editor/) |
+| Editor UI | `SceneEditor.svelte` (Konva + pan/zoom + mm overlay); `EntityLaserPanel.svelte`, `SceneJobTree.svelte` (job **groups**: reorder **↑/↓** for the whole block when the folder or full group is selected), `scene/selection.ts`; route [`frontend/src/routes/editor/`](../frontend/src/routes/editor/) |
 | API | `backend` — scene job endpoint + validation; mapper next to existing DXF → RIF path |
 
 **Out of scope for Phase H (initial slice)**

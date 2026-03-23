@@ -75,8 +75,45 @@
 		return { start: i, length: 1 };
 	}
 
+	/**
+	 * Move is allowed when the selection is exactly one entity, or the full contiguous job-group
+	 * block (one member selected moves the whole block; header multi-select is all indices of the group).
+	 */
+	function isSelectionExactlyBlockAt(i: number): boolean {
+		const run = contiguousJobGroupRun(entities, i);
+		if (!run) {
+			return selectedIndices.length === 1 && selectedIndices[0] === i;
+		}
+		const block = Array.from({ length: run.length }, (_, k) => run.start + k);
+		const sel = new Set(selectedIndices);
+		if (selectedIndices.length === 1 && selectedIndices[0] === i) {
+			return block.includes(i);
+		}
+		if (selectedIndices.length === block.length && block.every((idx) => sel.has(idx))) {
+			return true;
+		}
+		return false;
+	}
+
+	/** True when the group folder row should show move actions (same indices as segment). */
+	function groupFullySelected(seg: { indices: number[] }): boolean {
+		if (selectedIndices.length !== seg.indices.length) return false;
+		const sel = new Set(selectedIndices);
+		return seg.indices.every((idx) => sel.has(idx));
+	}
+
+	/** Avoid duplicate ↑↓ on every nested row when the whole group is selected — use folder or first row only. */
+	function showNestedRowActions(i: number): boolean {
+		if (!isSelectionExactlyBlockAt(i)) return false;
+		const run = contiguousJobGroupRun(entities, i);
+		if (run && selectedIndices.length > 1) {
+			return i === run.start;
+		}
+		return true;
+	}
+
 	function moveUp(i: number) {
-		if (selectedIndices.length !== 1 || selectedIndices[0] !== i) return;
+		if (!isSelectionExactlyBlockAt(i)) return;
 		const { start, length } = effectiveBlockForMove(i);
 		if (start <= 0) return;
 		entities = moveEntityBlockUp(entities, start, length);
@@ -90,7 +127,7 @@
 	}
 
 	function moveDown(i: number) {
-		if (selectedIndices.length !== 1 || selectedIndices[0] !== i) return;
+		if (!isSelectionExactlyBlockAt(i)) return;
 		const { start, length } = effectiveBlockForMove(i);
 		if (start + length >= entities.length) return;
 		const n = entities.length;
@@ -180,7 +217,8 @@
 	<h3 class="ldk-tree-title">Job tree</h3>
 	<p class="ldk-muted" style="margin:0 0 0.75rem;font-size:0.82rem">
 		Execution order is top → bottom. <strong>Shift+click</strong> for a range; select a row for preset and details;
-		<strong>↑</strong> / <strong>↓</strong> / remove when one item is selected. <strong>Group</strong> when several are selected.
+		<strong>↑</strong> / <strong>↓</strong> / remove for the selected row or <strong>whole job group</strong> (folder or one member).
+		<strong>Group</strong> when several are selected.
 		<strong>Esc</strong> clears selection.
 	</p>
 	{#if selectedIndices.length > 1}
@@ -235,6 +273,28 @@
 								<span class="ldk-tree-name">{seg.label}</span>
 								<span class="ldk-tree-sum">{seg.indices.length} items</span>
 							</button>
+							{#if groupFullySelected(seg)}
+								<div class="ldk-tree-actions">
+									<button
+										type="button"
+										class="ldk-btn secondary ldk-tree-icon"
+										disabled={effectiveBlockForMove(seg.indices[0]!).start <= 0}
+										data-testid="editor-tree-group-up"
+										onclick={() => moveUp(seg.indices[0]!)}
+										title="Move group up">↑</button
+									>
+									<button
+										type="button"
+										class="ldk-btn secondary ldk-tree-icon"
+										disabled={effectiveBlockForMove(seg.indices[0]!).start +
+											effectiveBlockForMove(seg.indices[0]!).length >=
+											entities.length}
+										data-testid="editor-tree-group-down"
+										onclick={() => moveDown(seg.indices[0]!)}
+										title="Move group down">↓</button
+									>
+								</div>
+							{/if}
 						</div>
 						<ul class="ldk-tree-nested" role="group">
 							{#each seg.indices as i (i)}
@@ -285,7 +345,7 @@
 											{/if}
 										{/if}
 									</div>
-									{#if expanded && selectedIndices.length === 1 && selectedIndices[0] === i}
+									{#if expanded && showNestedRowActions(i)}
 										<div class="ldk-tree-actions">
 											<button
 												type="button"
@@ -369,7 +429,7 @@
 								{/if}
 							{/if}
 						</div>
-						{#if expanded && selectedIndices.length === 1 && selectedIndices[0] === i}
+						{#if expanded && isSelectionExactlyBlockAt(i)}
 							<div class="ldk-tree-actions">
 								<button
 									type="button"
@@ -440,9 +500,16 @@
 		border-bottom: none;
 	}
 	.ldk-tree-folder-header {
+		display: flex;
+		align-items: stretch;
+		gap: 0.25rem;
 		background: #eef2f7;
 		border-bottom: 1px solid #dde4ee;
 		padding: 0.25rem 0.45rem 0.25rem 0.5rem;
+	}
+	.ldk-tree-folder-header .ldk-tree-folder-title {
+		flex: 1;
+		min-width: 0;
 	}
 	.ldk-tree-folder-title {
 		display: flex;
