@@ -79,6 +79,34 @@
 
 	let history = $state<string[]>([]);
 
+	/** Set in `dragstart` when moving multiple selected entities together. */
+	let groupDragSnapshot: SceneEntity[] | null = null;
+
+	function applyDragDeltaToSelection(
+		snap: SceneEntity[],
+		sel: number[],
+		dx: number,
+		dy: number
+	): SceneEntity[] {
+		return snap.map((e, i) => {
+			if (!sel.includes(i)) return e;
+			if (e.type === 'line') {
+				return {
+					...e,
+					x0: e.x0 + dx,
+					y0: e.y0 + dy,
+					x1: e.x1 + dx,
+					y1: e.y1 + dy
+				};
+			}
+			return {
+				...e,
+				x: e.x + dx,
+				y: e.y + dy
+			};
+		}) as SceneEntity[];
+	}
+
 	function isFormField(t: EventTarget | null): boolean {
 		if (!t || !(t instanceof HTMLElement)) return false;
 		const tag = t.tagName;
@@ -154,42 +182,39 @@
 		};
 	});
 
-	function applyLineTransformEnd(line: KonvaLine, idx: number) {
+	function worldLineEndpointsFromKonva(line: KonvaLine): {
+		x0: number;
+		y0: number;
+		x1: number;
+		y1: number;
+	} | null {
 		const abs = line.getAbsoluteTransform();
 		const pts = line.points();
-		if (pts.length < 4) return;
+		if (pts.length < 4) return null;
 		const p0 = abs.point({ x: pts[0]!, y: pts[1]! });
 		const p1 = abs.point({ x: pts[2]!, y: pts[3]! });
 		const w0 = stageToWorldMm(p0.x, p0.y);
 		const w1 = stageToWorldMm(p1.x, p1.y);
-		pushHistory();
-		entities = entities.map((e, i) =>
-			i === idx && e.type === 'line'
-				? { ...e, x0: w0.x, y0: w0.y, x1: w1.x, y1: w1.y }
-				: e
-		);
+		return { x0: w0.x, y0: w0.y, x1: w1.x, y1: w1.y };
 	}
 
-	function applyRectTransformEnd(rect: KonvaRect, idx: number) {
+	function worldRectFromKonva(rect: KonvaRect): {
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+		rotation_deg: number;
+	} {
 		let w = rect.width() * rect.scaleX();
 		let h = rect.height() * rect.scaleY();
 		if (w < 1) w = 1;
 		if (h < 1) h = 1;
-		rect.scaleX(1);
-		rect.scaleY(1);
-		rect.width(w);
-		rect.height(h);
 		const rotDeg = -rect.rotation();
-		const cx = rect.x();
-		const cyWorld = worldFromKonva(rect.x(), rect.y()).y;
-		const x = cx - w / 2;
+		const nx = rect.x();
+		const cyWorld = worldFromKonva(nx, rect.y()).y;
+		const x = nx - w / 2;
 		const y = cyWorld - h / 2;
-		pushHistory();
-		entities = entities.map((e, i) =>
-			i === idx && e.type === 'rect'
-				? { ...e, x, y, width: w, height: h, rotation_deg: rotDeg }
-				: e
-		);
+		return { x, y, width: w, height: h, rotation_deg: rotDeg };
 	}
 
 	function redraw() {
@@ -224,26 +249,8 @@
 					draggable: canDragWhole,
 					hitStrokeWidth: 12
 				});
-				ln.on('click', (e) => {
-					e.cancelBubble = true;
-					onSelectEntity?.(idx, e.evt.shiftKey);
-				});
-				ln.on('dragend', () => {
-					const abs = ln.getAbsoluteTransform();
-					const pts = ln.points();
-					const p0 = abs.point({ x: pts[0]!, y: pts[1]! });
-					const p1 = abs.point({ x: pts[2]!, y: pts[3]! });
-					const w0 = stageToWorldMm(p0.x, p0.y);
-					const w1 = stageToWorldMm(p1.x, p1.y);
-					pushHistory();
-					entities = entities.map((e, i) =>
-						i === idx && e.type === 'line'
-							? { ...e, x0: w0.x, y0: w0.y, x1: w1.x, y1: w1.y }
-							: e
-					);
-				});
 				viewport.add(ln);
-				drawn.push(ln);
+				drawn[idx] = ln;
 			} else {
 				const rot = ent.rotation_deg ?? 0;
 				const cx = ent.x + ent.width / 2;
@@ -261,10 +268,159 @@
 					fill: sel ? 'rgba(180, 83, 9, 0.12)' : 'rgba(5, 150, 105, 0.08)',
 					draggable: canDragWhole
 				});
+				viewport.add(r);
+				drawn[idx] = r;
+			}
+		});
+
+		function syncGroupDragPeersFromLine(ln: KonvaLine, idx: number) {
+			const snap = groupDragSnapshot;
+			if (!snap || selectedIndices.length <= 1 || !selectedIndices.includes(idx)) return;
+			const old = snap[idx];
+			if (old.type !== 'line') return;
+			const abs = ln.getAbsoluteTransform();
+			const pts = ln.points();
+			const p0 = abs.point({ x: pts[0]!, y: pts[1]! });
+			const p1 = abs.point({ x: pts[2]!, y: pts[3]! });
+			const w0 = stageToWorldMm(p0.x, p0.y);
+			const w1 = stageToWorldMm(p1.x, p1.y);
+			const oldMidX = (old.x0 + old.x1) / 2;
+			const oldMidY = (old.y0 + old.y1) / 2;
+			const newMidX = (w0.x + w1.x) / 2;
+			const newMidY = (w0.y + w1.y) / 2;
+			const dx = newMidX - oldMidX;
+			const dy = newMidY - oldMidY;
+			for (const j of selectedIndices) {
+				if (j === idx) continue;
+				const node = drawn[j];
+				if (!node) continue;
+				const oe = snap[j];
+				if (oe.type === 'line') {
+					(node as KonvaLine).points([
+						oe.x0 + dx,
+						konvaY(oe.y0 + dy),
+						oe.x1 + dx,
+						konvaY(oe.y1 + dy)
+					]);
+				} else {
+					const rr = node as KonvaRect;
+					const cx = oe.x + oe.width / 2 + dx;
+					const cy = oe.y + oe.height / 2 + dy;
+					rr.x(cx);
+					rr.y(konvaY(cy));
+				}
+			}
+		}
+
+		function syncGroupDragPeersFromRect(r: KonvaRect, idx: number) {
+			const snap = groupDragSnapshot;
+			if (!snap || selectedIndices.length <= 1 || !selectedIndices.includes(idx)) return;
+			const old = snap[idx];
+			if (old.type !== 'rect') return;
+			const nx = r.x();
+			const ny = r.y();
+			const w = r.width();
+			const h = r.height();
+			const cyWorld = worldFromKonva(nx, ny).y;
+			const x = nx - w / 2;
+			const y = cyWorld - h / 2;
+			const oldCx = old.x + old.width / 2;
+			const oldCy = old.y + old.height / 2;
+			const newCx = x + w / 2;
+			const newCy = y + h / 2;
+			const dx = newCx - oldCx;
+			const dy = newCy - oldCy;
+			for (const j of selectedIndices) {
+				if (j === idx) continue;
+				const node = drawn[j];
+				if (!node) continue;
+				const oe = snap[j];
+				if (oe.type === 'line') {
+					(node as KonvaLine).points([
+						oe.x0 + dx,
+						konvaY(oe.y0 + dy),
+						oe.x1 + dx,
+						konvaY(oe.y1 + dy)
+					]);
+				} else {
+					const rr = node as KonvaRect;
+					const cx = oe.x + oe.width / 2 + dx;
+					const cy = oe.y + oe.height / 2 + dy;
+					rr.x(cx);
+					rr.y(konvaY(cy));
+				}
+			}
+		}
+
+		entities.forEach((ent, idx) => {
+			if (ent.type === 'line') {
+				const ln = drawn[idx] as KonvaLine;
+				ln.on('click', (e) => {
+					e.cancelBubble = true;
+					onSelectEntity?.(idx, e.evt.shiftKey);
+				});
+				ln.on('dragstart', () => {
+					if (tool !== 'select') return;
+					if (selectedIndices.length > 1 && selectedIndices.includes(idx)) {
+						groupDragSnapshot = JSON.parse(JSON.stringify(entities)) as SceneEntity[];
+					} else {
+						groupDragSnapshot = null;
+					}
+				});
+				ln.on('dragmove', () => syncGroupDragPeersFromLine(ln, idx));
+				ln.on('dragend', () => {
+					const abs = ln.getAbsoluteTransform();
+					const pts = ln.points();
+					const p0 = abs.point({ x: pts[0]!, y: pts[1]! });
+					const p1 = abs.point({ x: pts[2]!, y: pts[3]! });
+					const w0 = stageToWorldMm(p0.x, p0.y);
+					const w1 = stageToWorldMm(p1.x, p1.y);
+
+					if (groupDragSnapshot && selectedIndices.length > 1 && selectedIndices.includes(idx)) {
+						const old = groupDragSnapshot[idx];
+						if (old.type !== 'line') {
+							groupDragSnapshot = null;
+							return;
+						}
+						const oldMidX = (old.x0 + old.x1) / 2;
+						const oldMidY = (old.y0 + old.y1) / 2;
+						const newMidX = (w0.x + w1.x) / 2;
+						const newMidY = (w0.y + w1.y) / 2;
+						const dx = newMidX - oldMidX;
+						const dy = newMidY - oldMidY;
+						pushHistory();
+						entities = applyDragDeltaToSelection(
+							groupDragSnapshot,
+							selectedIndices,
+							dx,
+							dy
+						);
+						groupDragSnapshot = null;
+						return;
+					}
+					groupDragSnapshot = null;
+					pushHistory();
+					entities = entities.map((e, i) =>
+						i === idx && e.type === 'line'
+							? { ...e, x0: w0.x, y0: w0.y, x1: w1.x, y1: w1.y }
+							: e
+					);
+				});
+			} else {
+				const r = drawn[idx] as KonvaRect;
 				r.on('click', (e) => {
 					e.cancelBubble = true;
 					onSelectEntity?.(idx, e.evt.shiftKey);
 				});
+				r.on('dragstart', () => {
+					if (tool !== 'select') return;
+					if (selectedIndices.length > 1 && selectedIndices.includes(idx)) {
+						groupDragSnapshot = JSON.parse(JSON.stringify(entities)) as SceneEntity[];
+					} else {
+						groupDragSnapshot = null;
+					}
+				});
+				r.on('dragmove', () => syncGroupDragPeersFromRect(r, idx));
 				r.on('dragend', () => {
 					const nx = r.x();
 					const ny = r.y();
@@ -274,6 +430,30 @@
 					const cyWorld = worldFromKonva(nx, ny).y;
 					const x = nx - w / 2;
 					const y = cyWorld - h / 2;
+
+					if (groupDragSnapshot && selectedIndices.length > 1 && selectedIndices.includes(idx)) {
+						const old = groupDragSnapshot[idx];
+						if (old.type !== 'rect') {
+							groupDragSnapshot = null;
+							return;
+						}
+						const oldCx = old.x + old.width / 2;
+						const oldCy = old.y + old.height / 2;
+						const newCx = x + w / 2;
+						const newCy = y + h / 2;
+						const dx = newCx - oldCx;
+						const dy = newCy - oldCy;
+						pushHistory();
+						entities = applyDragDeltaToSelection(
+							groupDragSnapshot,
+							selectedIndices,
+							dx,
+							dy
+						);
+						groupDragSnapshot = null;
+						return;
+					}
+					groupDragSnapshot = null;
 					pushHistory();
 					entities = entities.map((e, i) =>
 						i === idx && e.type === 'rect'
@@ -281,18 +461,34 @@
 							: e
 					);
 				});
-				viewport.add(r);
-				drawn.push(r);
 			}
 		});
 
-		const singleSel =
-			selectedIndices.length === 1 && selectedIndices[0] !== undefined ? selectedIndices[0] : null;
-		if (tool === 'select' && singleSel !== null) {
-			const n = drawn[singleSel];
-			if (n) {
+		function commitSelectionTransformFromDrawn() {
+			pushHistory();
+			entities = entities.map((e, i) => {
+				if (!selectedIndices.includes(i)) return e;
+				const n = drawn[i];
+				if (!n) return e;
+				if (e.type === 'line' && n.getClassName() === 'Line') {
+					const pts = worldLineEndpointsFromKonva(n as KonvaLine);
+					if (!pts) return e;
+					return { ...e, ...pts };
+				}
+				if (e.type === 'rect' && n.getClassName() === 'Rect') {
+					return { ...e, ...worldRectFromKonva(n as KonvaRect) };
+				}
+				return e;
+			}) as SceneEntity[];
+		}
+
+		if (tool === 'select' && selectedIndices.length >= 1) {
+			const nodes = selectedIndices
+				.map((i) => drawn[i])
+				.filter((n): n is KonvaShape => Boolean(n));
+			if (nodes.length === selectedIndices.length) {
 				const tr = new K.Transformer({
-					nodes: [n],
+					nodes,
 					rotateEnabled: true,
 					resizeEnabled: true,
 					borderStroke: '#246',
@@ -300,16 +496,16 @@
 					anchorFill: '#fff',
 					anchorStroke: '#246',
 					boundBoxFunc: (_old, nbox) => {
-						if (n.getClassName() === 'Line') return nbox;
+						if (selectedIndices.length === 1) {
+							const only = drawn[selectedIndices[0]!];
+							if (only?.getClassName() === 'Line') return nbox;
+						}
 						if (nbox.width < 4 || nbox.height < 4) return _old;
 						return nbox;
 					}
 				});
 				tr.on('transformend', () => {
-					const ent = entities[singleSel];
-					if (!ent) return;
-					if (ent.type === 'line') applyLineTransformEnd(n as KonvaLine, singleSel);
-					else applyRectTransformEnd(n as KonvaRect, singleSel);
+					commitSelectionTransformFromDrawn();
 				});
 				viewport.add(tr);
 			}
@@ -563,8 +759,8 @@
 	</div>
 	<p class="ldk-muted" style="margin:0.35rem 0 0;font-size:0.85rem">
 		<strong>Wheel</strong>: zoom toward cursor. <strong>Space+drag</strong> or <strong>middle mouse</strong>: pan.
-		<strong>Select</strong>: click shapes; <strong>Shift+click</strong> extends range (same as job list). Drag to move.
-		<strong>One selected</strong>: handles to rotate/resize. <strong>Esc</strong> or empty canvas: clear selection.
+		<strong>Select</strong>: click shapes; <strong>Shift+click</strong> extends range (same as job list). Drag to move; multiple selected shapes move together.
+		<strong>Selection</strong>: handles rotate/resize (one shape or the whole selection together). <strong>Esc</strong> or empty canvas: clear selection.
 		<strong>Line</strong> / <strong>Rect</strong>: place as before. Units: mm; +Y up.
 	</p>
 	<div

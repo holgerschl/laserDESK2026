@@ -26,6 +26,12 @@ type SceneEntityCommon = {
 	laser?: LaserPropertiesV1;
 	/** Stable job-tree label (e.g. `Line 2`); set at creation — **not** derived from list order. */
 	entity_label?: string;
+	/**
+	 * Optional job-tree grouping: entities with the same id are shown nested under one folder.
+	 * Members must be contiguous in the array; backend ignores these fields.
+	 */
+	job_group_id?: string;
+	job_group_label?: string;
 };
 
 export type SceneEntity =
@@ -189,6 +195,206 @@ export function selectionIndicesAfterReorder(from: number, to: number, indices: 
 let _gidSeq = 1;
 export function nextLaserGroupId(): string {
 	return `g_${Date.now()}_${++_gidSeq}`;
+}
+
+let _jobGidSeq = 1;
+export function nextJobGroupId(): string {
+	return `jg_${Date.now()}_${++_jobGidSeq}`;
+}
+
+/** Next label like `Group 2` from existing `job_group_label` values. */
+export function nextJobGroupLabel(list: SceneEntity[]): string {
+	const prefix = 'Group ';
+	let max = 0;
+	for (const e of list) {
+		const lab = e.job_group_label;
+		if (lab?.startsWith(prefix)) {
+			const n = parseInt(lab.slice(prefix.length).trim(), 10);
+			if (!Number.isNaN(n)) max = Math.max(max, n);
+		}
+	}
+	return `${prefix}${max + 1}`;
+}
+
+/** Contiguous run of the same `job_group_id` containing `index`, or null. */
+export function contiguousJobGroupRun(
+	entities: SceneEntity[],
+	index: number
+): { start: number; length: number; id: string } | null {
+	if (index < 0 || index >= entities.length) return null;
+	const id = entities[index]?.job_group_id;
+	if (!id) return null;
+	let start = index;
+	while (start > 0 && entities[start - 1]?.job_group_id === id) start--;
+	let end = index;
+	while (end < entities.length - 1 && entities[end + 1]?.job_group_id === id) end++;
+	const length = end - start + 1;
+	if (length < 2) return null;
+	return { start, length, id };
+}
+
+/**
+ * Put selected entities in one contiguous block at `min(selected)` (same relative order as before).
+ * Returns null if fewer than two indices selected.
+ */
+export function reorderSelectedIntoContiguousBlock(
+	entities: SceneEntity[],
+	selectedIndices: number[]
+): { merged: SceneEntity[]; blockStart: number; blockLength: number } | null {
+	const sorted = [...new Set(selectedIndices)].sort((a, b) => a - b);
+	if (sorted.length < 2) return null;
+	const block = sorted.map((i) => entities[i]!);
+	const insertAt = sorted[0]!;
+	const before: SceneEntity[] = [];
+	const after: SceneEntity[] = [];
+	for (let j = 0; j < entities.length; j++) {
+		if (sorted.includes(j)) continue;
+		if (j < insertAt) before.push(entities[j]!);
+		else after.push(entities[j]!);
+	}
+	const merged = [...before, ...block, ...after];
+	return { merged, blockStart: before.length, blockLength: block.length };
+}
+
+export function assignJobGroupToRange(
+	entities: SceneEntity[],
+	blockStart: number,
+	blockLength: number,
+	groupId: string,
+	groupLabel: string
+): SceneEntity[] {
+	return entities.map((e, i) =>
+		i >= blockStart && i < blockStart + blockLength
+			? { ...e, job_group_id: groupId, job_group_label: groupLabel }
+			: e
+	) as SceneEntity[];
+}
+
+export function stripJobGroupFields(e: SceneEntity): SceneEntity {
+	const o = { ...e } as Record<string, unknown>;
+	delete o.job_group_id;
+	delete o.job_group_label;
+	return o as SceneEntity;
+}
+
+/** Remove job-group fields from every entity with `jobGroupId`. */
+export function ungroupJobGroupId(entities: SceneEntity[], jobGroupId: string): SceneEntity[] {
+	return entities.map((e) => (e.job_group_id === jobGroupId ? stripJobGroupFields(e) : e));
+}
+
+export function moveEntityBlockUp(entities: SceneEntity[], blockStart: number, blockLen: number): SceneEntity[] {
+	if (blockStart <= 0 || blockLen < 1) return entities;
+	const next = [...entities];
+	const block = next.splice(blockStart, blockLen);
+	next.splice(blockStart - 1, 0, ...block);
+	return next;
+}
+
+export function moveEntityBlockDown(
+	entities: SceneEntity[],
+	blockStart: number,
+	blockLen: number
+): SceneEntity[] {
+	const end = blockStart + blockLen;
+	if (end >= entities.length || blockLen < 1) return entities;
+	const next = [...entities];
+	const block = next.splice(blockStart, blockLen);
+	next.splice(blockStart + 1, 0, ...block);
+	return next;
+}
+
+export function remapIndexAfterBlockMoveUp(
+	blockStart: number,
+	blockLen: number,
+	index: number
+): number {
+	const lo = blockStart - 1;
+	const hi = blockStart + blockLen - 1;
+	if (index === lo) return lo + blockLen;
+	if (index >= blockStart && index <= hi) return index - 1;
+	return index;
+}
+
+export function remapIndexAfterBlockMoveDown(
+	blockStart: number,
+	blockLen: number,
+	n: number,
+	index: number
+): number {
+	const below = blockStart + blockLen;
+	if (below >= n) return index;
+	if (index >= blockStart && index < blockStart + blockLen) return index + 1;
+	if (index === below) return blockStart;
+	return index;
+}
+
+export function selectionIndicesAfterBlockMoveUp(
+	blockStart: number,
+	blockLen: number,
+	indices: number[]
+): number[] {
+	const next = indices.map((i) => remapIndexAfterBlockMoveUp(blockStart, blockLen, i));
+	return [...new Set(next)].sort((a, b) => a - b);
+}
+
+export function selectionIndicesAfterBlockMoveDown(
+	blockStart: number,
+	blockLen: number,
+	n: number,
+	indices: number[]
+): number[] {
+	const next = indices.map((i) => remapIndexAfterBlockMoveDown(blockStart, blockLen, n, i));
+	return [...new Set(next)].sort((a, b) => a - b);
+}
+
+export function anchorIndexAfterBlockMoveUp(
+	blockStart: number,
+	blockLen: number,
+	anchor: number | null
+): number | null {
+	if (anchor === null) return null;
+	return remapIndexAfterBlockMoveUp(blockStart, blockLen, anchor);
+}
+
+export function anchorIndexAfterBlockMoveDown(
+	blockStart: number,
+	blockLen: number,
+	n: number,
+	anchor: number | null
+): number | null {
+	if (anchor === null) return null;
+	return remapIndexAfterBlockMoveDown(blockStart, blockLen, n, anchor);
+}
+
+export type JobTreeSegment =
+	| { kind: 'single'; index: number }
+	| { kind: 'group'; id: string; label: string; indices: number[] };
+
+/** Build job-tree rows: contiguous entities sharing `job_group_id` (≥2) become one group segment. */
+export function buildJobTreeSegments(entities: SceneEntity[]): JobTreeSegment[] {
+	const out: JobTreeSegment[] = [];
+	let i = 0;
+	while (i < entities.length) {
+		const gid = entities[i]?.job_group_id;
+		if (gid) {
+			let j = i + 1;
+			while (j < entities.length && entities[j]?.job_group_id === gid) j++;
+			const indices = Array.from({ length: j - i }, (_, k) => i + k);
+			if (indices.length >= 2) {
+				out.push({
+					kind: 'group',
+					id: gid,
+					label: entities[i]?.job_group_label ?? 'Group',
+					indices
+				});
+				i = j;
+				continue;
+			}
+		}
+		out.push({ kind: 'single', index: i });
+		i++;
+	}
+	return out;
 }
 
 /**

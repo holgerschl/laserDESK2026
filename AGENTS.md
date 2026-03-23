@@ -14,7 +14,7 @@
 - **Workflow:** Only steps from the active workflow JSON are shown; generic building blocks live in `frontend/src/lib/`.
 - **API:** Browser calls same-origin `/api/v1/…`; Vite dev proxy uses `LASERDESK_BACKEND_URL` (default `http://127.0.0.1:8080`).
 - **RTC route:** `/rtc` — monitor health/status and **BroadcastChannel** `laserdesk-rtc-v1` (`frontend/src/lib/laser/rtcChannel.ts`).
-- **Scene editor:** `/editor` — Konva canvas (`SceneEditor.svelte`), job tree + **parameters** beside canvas (wide shell); laser **presets** with editable names (`EntityLaserPanel`, `sceneV1`); optional **`entity_label`** for stable tree names; **Shift+click** multi-select (`scene/selection.ts`).
+- **Scene editor:** `/editor` — Konva canvas (`SceneEditor.svelte`), job tree + **parameters** beside canvas (wide shell); laser **presets** with editable names and **preset parameters** (power, speed, etc.) in **`EntityLaserPanel`** without requiring a selection; optional **`entity_label`** for stable tree names; optional **`job_group_id`** for nested **job tree** groups; **Shift+click** multi-select (`scene/selection.ts`); multi-select **move** and **transform** (rotate/resize) as a group on the canvas.
 - **E2E:** Playwright in `frontend/e2e/`; `npm run test:e2e` starts backend + dev server (see `frontend/README.md`).
 - **Phase F (distribution):** Static build + `paths.base` for GitHub project Pages; `LASERDESK_CORS_ORIGIN` on backend for `github.io`; workflows in `.github/workflows/` (Pages, Release backend, backend CI).
 

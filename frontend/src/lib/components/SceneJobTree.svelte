@@ -1,10 +1,22 @@
 <script lang="ts">
 	import { applyShiftSelection } from '$lib/scene/selection';
 	import {
+		anchorIndexAfterBlockMoveDown,
+		anchorIndexAfterBlockMoveUp,
+		assignJobGroupToRange,
+		buildJobTreeSegments,
+		contiguousJobGroupRun,
 		DEFAULT_LASER_GROUP_ID,
-		reorderEntities,
-		selectionAfterReorder,
-		selectionIndicesAfterReorder,
+		moveEntityBlockDown,
+		moveEntityBlockUp,
+		nextJobGroupId,
+		nextJobGroupLabel,
+		remapIndexAfterBlockMoveDown,
+		remapIndexAfterBlockMoveUp,
+		reorderSelectedIntoContiguousBlock,
+		selectionIndicesAfterBlockMoveDown,
+		selectionIndicesAfterBlockMoveUp,
+		ungroupJobGroupId,
 		type LaserGroupV1,
 		type SceneEntity
 	} from '$lib/scene/sceneV1';
@@ -17,6 +29,8 @@
 		laserGroups = [] as LaserGroupV1[]
 	} = $props();
 
+	const segments = $derived(buildJobTreeSegments(entities));
+
 	function isSelected(i: number): boolean {
 		return selectedIndices.includes(i);
 	}
@@ -26,6 +40,12 @@
 		selectedIndices = out.selectedIndices;
 		anchorIndex = out.anchorIndex;
 		lastClickedIndex = out.lastClickedIndex;
+	}
+
+	function selectGroupIndices(indices: number[]) {
+		selectedIndices = [...indices];
+		anchorIndex = indices[0] ?? null;
+		lastClickedIndex = indices[indices.length - 1] ?? null;
 	}
 
 	function setEntityGroup(i: number, gid: string) {
@@ -49,30 +69,39 @@
 		return `${e.width.toFixed(0)}×${e.height.toFixed(0)} @ ${e.x.toFixed(0)},${e.y.toFixed(0)} mm${rotS}`;
 	}
 
+	function effectiveBlockForMove(i: number): { start: number; length: number } {
+		const run = contiguousJobGroupRun(entities, i);
+		if (run) return { start: run.start, length: run.length };
+		return { start: i, length: 1 };
+	}
+
 	function moveUp(i: number) {
 		if (selectedIndices.length !== 1 || selectedIndices[0] !== i) return;
-		if (i <= 0) return;
-		const from = i;
-		const to = i - 1;
-		entities = reorderEntities(entities, from, to);
-		selectedIndices = selectionIndicesAfterReorder(from, to, selectedIndices);
+		const { start, length } = effectiveBlockForMove(i);
+		if (start <= 0) return;
+		entities = moveEntityBlockUp(entities, start, length);
+		selectedIndices = selectionIndicesAfterBlockMoveUp(start, length, selectedIndices);
 		anchorIndex =
-			anchorIndex !== null ? selectionAfterReorder(from, to, anchorIndex) : null;
+			anchorIndex !== null ? anchorIndexAfterBlockMoveUp(start, length, anchorIndex) : null;
 		lastClickedIndex =
-			lastClickedIndex !== null ? selectionAfterReorder(from, to, lastClickedIndex) : null;
+			lastClickedIndex !== null
+				? remapIndexAfterBlockMoveUp(start, length, lastClickedIndex)
+				: null;
 	}
 
 	function moveDown(i: number) {
 		if (selectedIndices.length !== 1 || selectedIndices[0] !== i) return;
-		if (i >= entities.length - 1) return;
-		const from = i;
-		const to = i + 1;
-		entities = reorderEntities(entities, from, to);
-		selectedIndices = selectionIndicesAfterReorder(from, to, selectedIndices);
+		const { start, length } = effectiveBlockForMove(i);
+		if (start + length >= entities.length) return;
+		const n = entities.length;
+		entities = moveEntityBlockDown(entities, start, length);
+		selectedIndices = selectionIndicesAfterBlockMoveDown(start, length, n, selectedIndices);
 		anchorIndex =
-			anchorIndex !== null ? selectionAfterReorder(from, to, anchorIndex) : null;
+			anchorIndex !== null ? anchorIndexAfterBlockMoveDown(start, length, n, anchorIndex) : null;
 		lastClickedIndex =
-			lastClickedIndex !== null ? selectionAfterReorder(from, to, lastClickedIndex) : null;
+			lastClickedIndex !== null
+				? remapIndexAfterBlockMoveDown(start, length, n, lastClickedIndex)
+				: null;
 	}
 
 	function removeAllSelected() {
@@ -88,10 +117,62 @@
 			removeAllSelected();
 			return;
 		}
+		const gid = entities[i]?.job_group_id;
 		entities = entities.filter((_, j) => j !== i);
+		if (gid) {
+			const run = contiguousJobGroupRun(entities, Math.min(i, entities.length - 1));
+			if (run && run.length < 2) {
+				entities = ungroupJobGroupId(entities, gid);
+			}
+		}
 		selectedIndices = [];
 		anchorIndex = null;
 		lastClickedIndex = null;
+	}
+
+	function groupSelectedEntities() {
+		const out = reorderSelectedIntoContiguousBlock(entities, selectedIndices);
+		if (!out) return;
+		const id = nextJobGroupId();
+		const lab = nextJobGroupLabel(out.merged);
+		let next = assignJobGroupToRange(
+			out.merged,
+			out.blockStart,
+			out.blockLength,
+			id,
+			lab
+		);
+		entities = next;
+		const sel = Array.from(
+			{ length: out.blockLength },
+			(_, k) => out.blockStart + k
+		);
+		selectedIndices = sel;
+		anchorIndex = sel[0] ?? null;
+		lastClickedIndex = sel[sel.length - 1] ?? null;
+	}
+
+	const canUngroup = $derived.by(() => {
+		if (selectedIndices.length === 0) return false;
+		const ids = new Set<string>();
+		for (const i of selectedIndices) {
+			const id = entities[i]?.job_group_id;
+			if (id) ids.add(id);
+		}
+		return ids.size > 0;
+	});
+
+	function ungroupSelection() {
+		const ids = new Set<string>();
+		for (const i of selectedIndices) {
+			const id = entities[i]?.job_group_id;
+			if (id) ids.add(id);
+		}
+		let next = entities;
+		for (const id of ids) {
+			next = ungroupJobGroupId(next, id);
+		}
+		entities = next;
 	}
 </script>
 
@@ -99,10 +180,25 @@
 	<h3 class="ldk-tree-title">Job tree</h3>
 	<p class="ldk-muted" style="margin:0 0 0.75rem;font-size:0.82rem">
 		Execution order is top → bottom. <strong>Shift+click</strong> for a range; select a row for preset and details;
-		<strong>↑</strong> / <strong>↓</strong> / remove when one item is selected. <strong>Esc</strong> clears selection.
+		<strong>↑</strong> / <strong>↓</strong> / remove when one item is selected. <strong>Group</strong> when several are selected.
+		<strong>Esc</strong> clears selection.
 	</p>
 	{#if selectedIndices.length > 1}
 		<div class="ldk-tree-bulk">
+			<button
+				type="button"
+				class="ldk-btn secondary"
+				data-testid="editor-tree-group"
+				onclick={() => groupSelectedEntities()}>Group selection</button
+			>
+			{#if canUngroup}
+				<button
+					type="button"
+					class="ldk-btn secondary"
+					data-testid="editor-tree-ungroup"
+					onclick={() => ungroupSelection()}>Ungroup</button
+				>
+			{/if}
 			<button
 				type="button"
 				class="ldk-btn secondary danger"
@@ -110,89 +206,202 @@
 				onclick={() => removeAllSelected()}>Remove {selectedIndices.length} selected</button
 			>
 		</div>
+	{:else if selectedIndices.length === 1 && canUngroup}
+		<div class="ldk-tree-bulk">
+			<button
+				type="button"
+				class="ldk-btn secondary"
+				data-testid="editor-tree-ungroup-single"
+				onclick={() => ungroupSelection()}>Ungroup</button
+			>
+		</div>
 	{/if}
 	{#if entities.length === 0}
 		<p class="ldk-muted" data-testid="editor-job-tree-empty">No items</p>
 	{:else}
 		<ul class="ldk-tree-list" role="tree">
-			{#each entities as e, i (i)}
-				{@const expanded = isSelected(i)}
-				<li
-					class="ldk-tree-row"
-					class:ldk-tree-row-collapsed={!expanded}
-					class:ldk-tree-sel={expanded}
-					role="treeitem"
-					aria-selected={expanded}
-					aria-expanded={expanded}
-					data-testid="editor-job-tree-item"
-					data-tree-index={i}
-				>
-					<div class="ldk-tree-main">
-						<button
-							type="button"
-							class="ldk-tree-label"
-							class:ldk-tree-label-compact={!expanded}
-							onclick={(ev) => handleRowClick(i, ev)}
-							title={summary(e)}
-						>
-							<span class="ldk-tree-name">{label(i, e)}</span>
-							{#if expanded}
-								<span class="ldk-tree-sum">{summary(e)}</span>
-							{/if}
-						</button>
-						{#if expanded}
-							<label class="ldk-tree-group-wrap">
-								<span class="ldk-tree-group-h">Preset</span>
-								<select
-									class="ldk-tree-group"
-									value={e.laser_group_id ?? DEFAULT_LASER_GROUP_ID}
-									data-testid="editor-tree-laser-group"
-									data-tree-index={i}
-									onclick={(ev) => ev.stopPropagation()}
-									onchange={(ev) =>
-										setEntityGroup(i, (ev.currentTarget as HTMLSelectElement).value)}
-								>
-									{#each laserGroups as g (g.id)}
-										<option value={g.id}>{g.name}</option>
-									{/each}
-								</select>
-							</label>
-							{#if e.laser}
-								<span class="ldk-tree-custom" title="Custom laser override">Custom laser</span>
-							{/if}
-						{/if}
-					</div>
-					{#if expanded && selectedIndices.length === 1 && selectedIndices[0] === i}
-						<div class="ldk-tree-actions">
+			{#each segments as seg (seg.kind === 'group' ? 'g-' + seg.id : 'e-' + seg.index)}
+				{#if seg.kind === 'group'}
+					<li class="ldk-tree-folder" role="presentation">
+						<div class="ldk-tree-folder-header">
 							<button
 								type="button"
-								class="ldk-btn secondary ldk-tree-icon"
-								disabled={i === 0}
-								data-testid="editor-tree-up"
-								data-tree-index={i}
-								onclick={() => moveUp(i)}
-								title="Move up">↑</button
+								class="ldk-tree-folder-title"
+								data-testid="editor-job-tree-group-header"
+								onclick={() => selectGroupIndices(seg.indices)}
+								title="{seg.indices.length} entities"
 							>
-							<button
-								type="button"
-								class="ldk-btn secondary ldk-tree-icon"
-								disabled={i >= entities.length - 1}
-								data-testid="editor-tree-down"
-								data-tree-index={i}
-								onclick={() => moveDown(i)}
-								title="Move down">↓</button
-							>
-							<button
-								type="button"
-								class="ldk-btn secondary ldk-tree-icon danger"
-								data-testid="editor-tree-remove"
-								data-tree-index={i}
-								onclick={() => removeAt(i)}
-								title="Remove">×</button
-							>
+								<span class="ldk-tree-folder-chev">▾</span>
+								<span class="ldk-tree-name">{seg.label}</span>
+								<span class="ldk-tree-sum">{seg.indices.length} items</span>
+							</button>
 						</div>
-					{/if}
-				</li>
+						<ul class="ldk-tree-nested" role="group">
+							{#each seg.indices as i (i)}
+								{@const e = entities[i]!}
+								{@const expanded = isSelected(i)}
+								<li
+									class="ldk-tree-row ldk-tree-row-nested"
+									class:ldk-tree-row-collapsed={!expanded}
+									class:ldk-tree-sel={expanded}
+									role="treeitem"
+									aria-selected={expanded}
+									aria-expanded={expanded}
+									data-testid="editor-job-tree-item"
+									data-tree-index={i}
+								>
+									<div class="ldk-tree-main">
+										<button
+											type="button"
+											class="ldk-tree-label"
+											class:ldk-tree-label-compact={!expanded}
+											onclick={(ev) => handleRowClick(i, ev)}
+											title={summary(e)}
+										>
+											<span class="ldk-tree-name">{label(i, e)}</span>
+											{#if expanded}
+												<span class="ldk-tree-sum">{summary(e)}</span>
+											{/if}
+										</button>
+										{#if expanded}
+											<label class="ldk-tree-group-wrap">
+												<span class="ldk-tree-group-h">Preset</span>
+												<select
+													class="ldk-tree-group"
+													value={e.laser_group_id ?? DEFAULT_LASER_GROUP_ID}
+													data-testid="editor-tree-laser-group"
+													data-tree-index={i}
+													onclick={(ev) => ev.stopPropagation()}
+													onchange={(ev) =>
+														setEntityGroup(i, (ev.currentTarget as HTMLSelectElement).value)}
+												>
+													{#each laserGroups as g (g.id)}
+														<option value={g.id}>{g.name}</option>
+													{/each}
+												</select>
+											</label>
+											{#if e.laser}
+												<span class="ldk-tree-custom" title="Custom laser override">Custom laser</span>
+											{/if}
+										{/if}
+									</div>
+									{#if expanded && selectedIndices.length === 1 && selectedIndices[0] === i}
+										<div class="ldk-tree-actions">
+											<button
+												type="button"
+												class="ldk-btn secondary ldk-tree-icon"
+												disabled={effectiveBlockForMove(i).start <= 0}
+												data-testid="editor-tree-up"
+												data-tree-index={i}
+												onclick={() => moveUp(i)}
+												title="Move up">↑</button
+											>
+											<button
+												type="button"
+												class="ldk-btn secondary ldk-tree-icon"
+												disabled={effectiveBlockForMove(i).start + effectiveBlockForMove(i).length >=
+													entities.length}
+												data-testid="editor-tree-down"
+												data-tree-index={i}
+												onclick={() => moveDown(i)}
+												title="Move down">↓</button
+											>
+											<button
+												type="button"
+												class="ldk-btn secondary ldk-tree-icon danger"
+												data-testid="editor-tree-remove"
+												data-tree-index={i}
+												onclick={() => removeAt(i)}
+												title="Remove">×</button
+											>
+										</div>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					</li>
+				{:else}
+					{@const i = seg.index}
+					{@const e = entities[i]!}
+					{@const expanded = isSelected(i)}
+					<li
+						class="ldk-tree-row"
+						class:ldk-tree-row-collapsed={!expanded}
+						class:ldk-tree-sel={expanded}
+						role="treeitem"
+						aria-selected={expanded}
+						aria-expanded={expanded}
+						data-testid="editor-job-tree-item"
+						data-tree-index={i}
+					>
+						<div class="ldk-tree-main">
+							<button
+								type="button"
+								class="ldk-tree-label"
+								class:ldk-tree-label-compact={!expanded}
+								onclick={(ev) => handleRowClick(i, ev)}
+								title={summary(e)}
+							>
+								<span class="ldk-tree-name">{label(i, e)}</span>
+								{#if expanded}
+									<span class="ldk-tree-sum">{summary(e)}</span>
+								{/if}
+							</button>
+							{#if expanded}
+								<label class="ldk-tree-group-wrap">
+									<span class="ldk-tree-group-h">Preset</span>
+									<select
+										class="ldk-tree-group"
+										value={e.laser_group_id ?? DEFAULT_LASER_GROUP_ID}
+										data-testid="editor-tree-laser-group"
+										data-tree-index={i}
+										onclick={(ev) => ev.stopPropagation()}
+										onchange={(ev) =>
+											setEntityGroup(i, (ev.currentTarget as HTMLSelectElement).value)}
+									>
+										{#each laserGroups as g (g.id)}
+											<option value={g.id}>{g.name}</option>
+										{/each}
+									</select>
+								</label>
+								{#if e.laser}
+									<span class="ldk-tree-custom" title="Custom laser override">Custom laser</span>
+								{/if}
+							{/if}
+						</div>
+						{#if expanded && selectedIndices.length === 1 && selectedIndices[0] === i}
+							<div class="ldk-tree-actions">
+								<button
+									type="button"
+									class="ldk-btn secondary ldk-tree-icon"
+									disabled={effectiveBlockForMove(i).start <= 0}
+									data-testid="editor-tree-up"
+									data-tree-index={i}
+									onclick={() => moveUp(i)}
+									title="Move up">↑</button
+								>
+								<button
+									type="button"
+									class="ldk-btn secondary ldk-tree-icon"
+									disabled={effectiveBlockForMove(i).start + effectiveBlockForMove(i).length >=
+										entities.length}
+									data-testid="editor-tree-down"
+									data-tree-index={i}
+									onclick={() => moveDown(i)}
+									title="Move down">↓</button
+								>
+								<button
+									type="button"
+									class="ldk-btn secondary ldk-tree-icon danger"
+									data-testid="editor-tree-remove"
+									data-tree-index={i}
+									onclick={() => removeAt(i)}
+									title="Remove">×</button
+								>
+							</div>
+						{/if}
+					</li>
+				{/if}
 			{/each}
 		</ul>
 	{/if}
@@ -205,6 +414,10 @@
 	}
 	.ldk-tree-bulk {
 		margin-bottom: 0.5rem;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		align-items: center;
 	}
 	.ldk-tree-title {
 		margin: 0 0 0.5rem;
@@ -219,6 +432,44 @@
 		border-radius: 6px;
 		overflow: hidden;
 		background: #fafbfc;
+	}
+	.ldk-tree-folder {
+		border-bottom: 1px solid #e8ecf0;
+	}
+	.ldk-tree-folder:last-child {
+		border-bottom: none;
+	}
+	.ldk-tree-folder-header {
+		background: #eef2f7;
+		border-bottom: 1px solid #dde4ee;
+		padding: 0.25rem 0.45rem 0.25rem 0.5rem;
+	}
+	.ldk-tree-folder-title {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		width: 100%;
+		padding: 0.2rem 0;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		text-align: left;
+		font: inherit;
+		min-width: 0;
+	}
+	.ldk-tree-folder-chev {
+		color: #64748b;
+		font-size: 0.75rem;
+		line-height: 1;
+	}
+	.ldk-tree-nested {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		background: #fafbfc;
+	}
+	.ldk-tree-row-nested .ldk-tree-main {
+		padding-left: 1.1rem;
 	}
 	.ldk-tree-row {
 		display: flex;

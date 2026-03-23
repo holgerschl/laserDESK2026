@@ -42,7 +42,19 @@
 
 	let draftLaser = $state(defaultLaserProperties());
 
+	/** Which preset’s laser block is shown at the top (always; independent of entity selection). */
+	let presetEditId = $state(DEFAULT_LASER_GROUP_ID);
+
 	let ent = $derived(selectedIndex !== null ? entities[selectedIndex!] : null);
+
+	let presetEditIdx = $derived(laserGroups.findIndex((g) => g.id === presetEditId));
+
+	$effect(() => {
+		if (laserGroups.length === 0) return;
+		if (!laserGroups.some((g) => g.id === presetEditId)) {
+			presetEditId = laserGroups[0]!.id;
+		}
+	});
 
 	/** Entity indices to apply laser changes to (all selected, or single). */
 	function targets(): number[] {
@@ -64,21 +76,8 @@
 	let useCustomMixed = $derived(
 		selectedIndex !== null && targets().length > 1 ? someCustom && !allCustom : false
 	);
-	/** Show shared-preset editor (not when any selected entity uses a mixed override state). */
-	let showPresetLaserEditor = $derived(
-		selectedIndex !== null && !someCustom && !useCustomMixed && !allCustom
-	);
 	let showOverridePanel = $derived(
 		selectedIndex !== null && (allCustom || someCustom || useCustomMixed)
-	);
-
-	let presetIdx = $derived(
-		ent && laserGroups.length
-			? (() => {
-					const i = laserGroups.findIndex((g) => g.id === ent!.laser_group_id);
-					return i >= 0 ? i : 0;
-				})()
-			: -1
 	);
 
 	$effect(() => {
@@ -144,6 +143,7 @@
 			...laserGroups,
 			{ id, name: `Preset ${n}`, laser: defaultLaserProperties() }
 		];
+		presetEditId = id;
 		if (selectedIndex === null) return;
 		const idxs = targets();
 		if (idxs.length === 0) return;
@@ -224,6 +224,36 @@
 		</ul>
 	</div>
 
+	<div class="ldk-preset-laser-block" data-testid="editor-preset-laser-params">
+		<p class="ldk-el-sub" style="margin:0 0 0.35rem">Preset parameters</p>
+		<p class="ldk-muted" style="margin:0 0 0.5rem;font-size:0.78rem">
+			Power, speed, and timing for each shared preset. Choose which preset to edit below.
+		</p>
+		<label class="ldk-el-field">
+			<span>Edit parameters for</span>
+			<select
+				class="ldk-el-select"
+				bind:value={presetEditId}
+				data-testid="editor-preset-edit-target"
+			>
+				{#each laserGroups as g (g.id)}
+					<option value={g.id}>{g.name}</option>
+				{/each}
+			</select>
+		</label>
+		{#if presetEditIdx >= 0 && laserGroups[presetEditIdx]}
+			<div class="ldk-el-preset-editor">
+				{#key presetEditId}
+					<LaserPropertiesPanel
+						embedded
+						heading={`Preset “${laserGroups[presetEditIdx]!.name}” (shared)`}
+						bind:laser={laserGroups[presetEditIdx].laser}
+					/>
+				{/key}
+			</div>
+		{/if}
+	</div>
+
 	<label class="ldk-el-field">
 		<span>Default preset for new shapes</span>
 		<select
@@ -269,18 +299,6 @@
 					: 'Override preset for this entity only'}</span
 			>
 		</label>
-
-		{#if showPresetLaserEditor && presetIdx >= 0 && laserGroups[presetIdx]}
-			<div class="ldk-el-preset-editor">
-				{#key `${ent.laser_group_id}-${selectedIndex}`}
-					<LaserPropertiesPanel
-						embedded
-						heading={`Preset “${laserGroups[presetIdx]!.name}” (shared)`}
-						bind:laser={laserGroups[presetIdx].laser}
-					/>
-				{/key}
-			</div>
-		{/if}
 
 		{#if showOverridePanel && selectedIndex !== null}
 			<div class="ldk-el-custom">
@@ -380,6 +398,11 @@
 		border-top: 1px solid #e8ecf0;
 	}
 	.ldk-preset-names {
+		margin-bottom: 0.75rem;
+		padding-bottom: 0.65rem;
+		border-bottom: 1px solid #e8ecf0;
+	}
+	.ldk-preset-laser-block {
 		margin-bottom: 0.75rem;
 		padding-bottom: 0.65rem;
 		border-bottom: 1px solid #e8ecf0;
