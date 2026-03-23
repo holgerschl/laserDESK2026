@@ -196,33 +196,35 @@
 		one shape must differ.
 	</p>
 
-	<div class="ldk-preset-names" data-testid="editor-preset-names">
-		<p class="ldk-el-sub ldk-el-sub-tight">Preset names</p>
-		<p class="ldk-muted ldk-el-micro">
-			Shown in dropdowns and the job tree. The internal id (left) is fixed; the display name is editable.
-		</p>
-		<ul class="ldk-preset-names-list">
-			{#each laserGroups as g, i (g.id)}
-				<li class="ldk-preset-name-row">
-					<label class="ldk-preset-name-label">
-						<span class="ldk-preset-name-id" title="Internal id (not editable)">{g.id}</span>
-						<input
-							type="text"
-							class="ldk-preset-name-input"
-							value={g.name}
-							aria-label={`Display name for preset ${g.id}`}
-							data-testid="editor-preset-name"
-							data-preset-id={g.id}
-							oninput={(ev) =>
-								setPresetName(i, (ev.currentTarget as HTMLInputElement).value)}
-							onblur={(ev) =>
-								blurPresetName(i, (ev.currentTarget as HTMLInputElement).value)}
-						/>
-					</label>
-				</li>
-			{/each}
-		</ul>
-	</div>
+	<details class="ldk-preset-names" data-testid="editor-preset-names">
+		<summary class="ldk-preset-names-summary">Preset names</summary>
+		<div class="ldk-preset-names-inner">
+			<p class="ldk-muted ldk-el-micro ldk-preset-names-lead">
+				Shown in dropdowns and the job tree. The internal id (left) is fixed; the display name is editable.
+			</p>
+			<ul class="ldk-preset-names-list">
+				{#each laserGroups as g, i (g.id)}
+					<li class="ldk-preset-name-row">
+						<label class="ldk-preset-name-label">
+							<span class="ldk-preset-name-id" title="Internal id (not editable)">{g.id}</span>
+							<input
+								type="text"
+								class="ldk-preset-name-input"
+								value={g.name}
+								aria-label={`Display name for preset ${g.id}`}
+								data-testid="editor-preset-name"
+								data-preset-id={g.id}
+								oninput={(ev) =>
+									setPresetName(i, (ev.currentTarget as HTMLInputElement).value)}
+								onblur={(ev) =>
+									blurPresetName(i, (ev.currentTarget as HTMLInputElement).value)}
+							/>
+						</label>
+					</li>
+				{/each}
+			</ul>
+		</div>
+	</details>
 
 	<div class="ldk-preset-laser-block" data-testid="editor-preset-laser-params">
 		<p class="ldk-el-sub ldk-el-sub-tight">Preset parameters</p>
@@ -414,6 +416,36 @@
 		margin-bottom: 0.5rem;
 		padding-bottom: 0.45rem;
 		border-bottom: 1px solid #e8ecf0;
+	}
+	.ldk-preset-names-summary {
+		font-size: 0.82rem;
+		font-weight: 600;
+		color: #334155;
+		cursor: pointer;
+		list-style: none;
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		user-select: none;
+	}
+	.ldk-preset-names-summary::-webkit-details-marker {
+		display: none;
+	}
+	.ldk-preset-names-summary::before {
+		content: '▸';
+		display: inline-block;
+		font-size: 0.7rem;
+		color: #64748b;
+		transition: transform 0.12s ease;
+	}
+	.ldk-preset-names[open] .ldk-preset-names-summary::before {
+		transform: rotate(90deg);
+	}
+	.ldk-preset-names-inner {
+		margin-top: 0.35rem;
+	}
+	.ldk-preset-names-lead {
+		margin-top: 0;
 	}
 	.ldk-preset-laser-block {
 		margin-bottom: 0.5rem;
