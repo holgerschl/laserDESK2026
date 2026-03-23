@@ -30,7 +30,7 @@ The **RTC6 software package** ZIP from SCANLAB (e.g. linked from the Projektplan
 | Source | Use |
 |--------|-----|
 | `laserDESK_QuickGuide.pdf` §8.4 | Describes **laserDESK** remote control (laserDESK as server), **not** RTC6 Ethernet. |
-| Sirius3 / AMCF (GitHub) | Reference implementations only; SCANLAB manual + package win on conflicts. Phase D synthesis: [`docs/reference-phase-d-sirius3-amcf.md`](../reference-phase-d-sirius3-amcf.md). |
+| AMCF (GitHub) | Reference implementation only; SCANLAB manual + package win on conflicts. Phase D note: [`docs/reference-phase-d-amcf.md`](../reference-phase-d-amcf.md). |
 
 ## 4. Implementation in this repository (Phase C)
 

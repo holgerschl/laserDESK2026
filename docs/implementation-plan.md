@@ -10,7 +10,7 @@ This document turns the project proposal in `docs/laserDESK_2026_Projektplan.htm
 - **Stack**: **Svelte Kit** + TypeScript frontend; **backend** encapsulates laser and RTC logic; communication via **REST** (MVP) with a path to **WebSocket** for live status and logs.
 - **RTC6**: Use the **Remote Interface** model (Ethernet board, command telegrams) so the control PC is **not** tied to a Windows-only PCIe driver for the core product vision.
 - **Customization**: Structured **workflow definitions** (JSON/YAML or DSL) plus versioned **Cursor prompts** under `docs/prompts/` (per customer folder).
-- **References** for patterns and parity discussions: **Sirius3** (Spirallab), **Autodesk Machine Control Framework** (AMCF), and behaviour of current **laserDESK** where relevant.
+- **References** for patterns and parity discussions: **Autodesk Machine Control Framework** (AMCF) and behaviour of current **laserDESK** where relevant.
 
 Project rules in `AGENTS.md` (when present) apply: e.g. C++17 backend core without Windows-specific calls in the RTC kernel, MVP scope from `docs/requirements/mvp-feature-katalog.md` when that file exists.
 
@@ -106,15 +106,15 @@ Document this in a one-page **ADR** in `docs/` when the repo grows.
 
 ### Phase D – Reference code study (Projektplan Phase 3)
 
-**Status:** Complete — reference note: [`docs/reference-phase-d-sirius3-amcf.md`](reference-phase-d-sirius3-amcf.md).
+**Status:** Complete — reference note: [`docs/reference-phase-d-amcf.md`](reference-phase-d-amcf.md).
 
 **Objectives**
 
-- Review **Sirius3** and **AMCF** for structure, error handling, and list-building patterns—not feature-for-feature copying.
+- Review **AMCF** for structure, error handling, and list-building patterns—not feature-for-feature copying.
 
 **Deliverables**
 
-- Short note in `docs/`: what was adopted, deferred, or rejected. → [`docs/reference-phase-d-sirius3-amcf.md`](reference-phase-d-sirius3-amcf.md)
+- Short note in `docs/`: what was adopted, deferred, or rejected. → [`docs/reference-phase-d-amcf.md`](reference-phase-d-amcf.md)
 
 ### Phase E – Frontend and workflow model (Projektplan Phase 4)
 
