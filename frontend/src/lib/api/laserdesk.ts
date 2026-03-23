@@ -1,4 +1,5 @@
 import { getApiBase } from './config';
+import type { SceneV1 } from '$lib/scene/sceneV1';
 
 /** Fetch with clearer errors when HTTPS UI cannot reach http://127.0.0.1 (CORS / Private Network Access). */
 async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
@@ -165,6 +166,17 @@ export async function postJobsDxfDemo(): Promise<{ job_id: string }> {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ source: 'demo' })
+	});
+	if (!res.ok) throw new Error(await readError(res));
+	return res.json() as Promise<{ job_id: string }>;
+}
+
+/** Konva scene editor → same job storage as DXF (`GET /jobs/dxf/{id}`, load/run/stop). */
+export async function postJobsScene(body: SceneV1): Promise<{ job_id: string }> {
+	const res = await apiFetch(`${getApiBase()}/jobs/scene`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
 	});
 	if (!res.ok) throw new Error(await readError(res));
 	return res.json() as Promise<{ job_id: string }>;

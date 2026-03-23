@@ -29,6 +29,9 @@ Bounded scope for the first shippable increment. Anything not listed here is **o
 | B-07 | **DXF job ingestion** | Accept user `.dxf` upload and/or reference demo file [`demo/dxf/SCANLABLogo.dxf`](../../demo/dxf/SCANLABLogo.dxf); parse to an internal vector / job representation (entities + metadata) |
 | B-08 | **DXF → RTC Remote Interface command generation** | Map parsed geometry to RTC6 **Remote Interface** list / command sequence (per SCANLAB package: `telegrams.h`, list buffer semantics, Remote List Commands as required); **mock** RTC accepts the same logical job shape for CI |
 | B-09 | **Run DXF-derived laser job** | REST (or workflow-driven API) to arm, start, and stop execution of the DXF-derived job on mock and ethernet `IRtcClient` implementations |
+| B-10 | **Scene JSON schema + validation** | Versioned `schemaVersion`; layers, entities (IDs, type, geometry, transform), compatible with mapper to internal job representation |
+| B-11 | **REST: submit validated scene job** | e.g. `POST /api/v1/jobs/scene` (exact path in OpenAPI when implemented); reject invalid schema with structured errors (B-05) |
+| B-12 | **Scene → `RtcJobPlan` / RIF mapping** | Extend or share code with DXF → list path; mock RTC accepts same execution shape for CI |
 
 ### Frontend
 
@@ -41,6 +44,11 @@ Bounded scope for the first shippable increment. Anything not listed here is **o
 | F-05 | **Load a DXF file** | File picker; optional quick-load of bundled demo [`frontend/static/demo/dxf/SCANLABLogo.dxf`](../../frontend/static/demo/dxf/SCANLABLogo.dxf) (mirror of repo `demo/dxf/`) |
 | F-06 | **Display DXF + entity / job item window** | Visualise geometry (e.g. 2D paths) and show a list panel of entities / job items mapped from the parser |
 | F-07 | **DXF laser job flow** | Workflow steps (or equivalent) to parse via backend, review entity list, then **run** the DXF-derived job through the same RTC stack as B-09 |
+| F-08 | **Canvas library integration** | Konva *or* Fabric.js (or equivalent); document choice in `docs/`; Svelte mount/teardown pattern |
+| F-09 | **Editor shell** | Pan/zoom viewport, layer panel (visibility / order in first slice), optional dedicated route or workflow step |
+| F-10 | **Place primitives** | Initial slice: at least **line** and **rectangle**; extend to polyline/arc in later promotions |
+| F-11 | **Select / move / transform** | Selection, drag, scale/rotate using library capabilities; delete |
+| F-12 | **Undo / redo** | Stable against exported scene model (command stack or library history + sync) |
 
 ### Cross-cutting
 
@@ -49,17 +57,19 @@ Bounded scope for the first shippable increment. Anything not listed here is **o
 | X-01 | **Playwright** E2E: one path against **mock** backend | Required by project rules |
 | X-02 | **AGENTS.md** / Cursor rules | Already or separately maintained; must reference this catalog |
 | X-03 | **Tests for DXF path** | Unit tests for parser / mapper; E2E slice: load demo DXF → list visible → run on mock (extends X-01) |
+| X-04 | **Playwright E2E: editor → mock run** | Place or load minimal scene → submit → run on mock backend (extends E2E strategy) |
+| X-05 | **Tests for scene path** | Unit: schema validation, scene→plan mapper; optional round-trip JSON fixtures |
 
 **Reference demo asset (Phase G):** `demo/dxf/SCANLABLogo.dxf` (copy of SCANLAB logo DXF from internal `ui/DemoFiles`; same bytes under `frontend/static/demo/dxf/` for static hosting).
 
-**Implementation plan (next step):** [`phase-g-dxf-implementation-plan.md`](phase-g-dxf-implementation-plan.md)
+**Implementation plan (next step):** [`phase-g-dxf-implementation-plan.md`](phase-g-dxf-implementation-plan.md). **Phase H (vector editor):** [`docs/implementation-plan.md`](../implementation-plan.md) §4 Phase H (tasks H.1–H.9).
 
 ---
 
 ## 3. Explicitly out of MVP
 
 - Import or round-trip **laserDESK `.sld`** job files.
-- Full **geometry editor** parity with laserDESK 1.6 (CAD authoring beyond DXF **load/display/run** above remains out).
+- **Full** geometry / CAD **parity** with laserDESK 1.6 (every tool and command). **Incremental** interactive editor is **in MVP** (B-10…X-05); wholesale parity remains out.
 - **laserDESK application remote control** (serial/TCP server to `SLLaserDesk.exe`); separate product track.
 - **PCIe** RTC6 board as the primary supported path (optional lab-only bridge only, behind interface).
 - **Premium-only** laserDESK concepts (3D, vision, full tiling) unless a workflow-only stub is needed for demos.
@@ -78,4 +88,12 @@ A feature moves from “out” to “in” when:
 
 ---
 
-*Version: 1.1 · Phase G catalog extension · March 2026*
+## 5. Phase H — catalog promotion
+
+Phase H (**vector scene editor**, Konva / Fabric.js / similar) was **promoted into §2 (MVP)** in catalog **v1.3** per §4. Feature IDs: **B-10…B-12**, **F-08…F-12**, **X-04…X-05**. Engineering tasks **H.1–H.9** and deliverables: [`docs/implementation-plan.md`](../implementation-plan.md) **§4 Phase H**.
+
+**Approach (unchanged):** Browser **canvas library** (MIT license); **canonical** data is **versioned scene JSON** in laserDESK; backend uses the same **`RtcJobPlan`** / Remote Interface mapping as the DXF path.
+
+---
+
+*Version: 1.3 · Phase H promoted to MVP §2 · March 2026*

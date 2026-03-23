@@ -38,6 +38,7 @@ endif()
 add_library(laserdesk_rtc_core STATIC
   src/dxf/ascii_dxf_lines.cpp
   src/rtc/job_id.cpp
+  src/rtc/job/scene_v1.cpp
   src/rtc/job/rtc_job_plan.cpp
   src/rtc/job/dxf_rif_list_mapper.cpp
   src/rtc/mock_rtc_client.cpp
@@ -78,6 +79,7 @@ add_executable(laserdesk_tests
   tests/test_backend_session_dxf.cpp
   tests/test_dxf_parse.cpp
   tests/test_dxf_rif_list_mapper.cpp
+  tests/test_scene_v1.cpp
   tests/test_telegram_raw.cpp
   tests/test_rtc_discover.cpp
   tests/test_ethernet_integration.cpp

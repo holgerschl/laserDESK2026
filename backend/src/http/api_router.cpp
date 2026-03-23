@@ -4,6 +4,7 @@
 #include "rtc/ethernet_rtc_client.hpp"
 #include "rtc/rtc_discover.hpp"
 #include "rtc/job_id.hpp"
+#include "rtc/job/scene_v1.hpp"
 #include "rtc/mock_rtc_client.hpp"
 
 #include <cstdlib>
@@ -251,6 +252,24 @@ int BackendSession::handle_post_jobs_dxf(const httplib::Request& req, nlohmann::
   return 200;
 }
 
+int BackendSession::handle_post_jobs_scene(const nlohmann::json& body, nlohmann::json& out,
+                                             nlohmann::json& err_out) {
+  dxf::ParseResult pr;
+  std::string err;
+  if (!rtc::job::scene_v1_to_parse_result(body, pr, err)) {
+    err_out = nlohmann::json{{"code", "SCENE_INVALID"}, {"message", err}};
+    return 400;
+  }
+
+  const std::string job_id = rtc::make_demo_job_id();
+  nlohmann::json doc = dxf::job_to_json(job_id, pr);
+
+  std::lock_guard<std::mutex> lock(mutex_);
+  dxf_jobs_[job_id] = doc;
+  out = nlohmann::json{{"job_id", job_id}};
+  return 200;
+}
+
 int BackendSession::handle_get_jobs_dxf(const std::string& job_id, nlohmann::json& out,
                                         nlohmann::json& err_out) {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -393,6 +412,22 @@ void register_api_routes(httplib::Server& svr, BackendSession& session) {
   svr.Post("/api/v1/jobs/dxf", [&](const httplib::Request& req, httplib::Response& res) {
     nlohmann::json err, out;
     int code = session.handle_post_jobs_dxf(req, out, err);
+    res.status = code;
+    res.set_content((code == 200 ? out : err).dump(), "application/json");
+  });
+
+  svr.Post("/api/v1/jobs/scene", [&](const httplib::Request& req, httplib::Response& res) {
+    nlohmann::json err, out;
+    nlohmann::json body;
+    try {
+      body = nlohmann::json::parse(req.body.empty() ? "{}" : req.body);
+    } catch (...) {
+      err = error_json(rtc::RtcError{"RTC_INTERNAL", "Invalid JSON body"});
+      res.status = 400;
+      res.set_content(err.dump(), "application/json");
+      return;
+    }
+    int code = session.handle_post_jobs_scene(body, out, err);
     res.status = code;
     res.set_content((code == 200 ? out : err).dump(), "application/json");
   });
