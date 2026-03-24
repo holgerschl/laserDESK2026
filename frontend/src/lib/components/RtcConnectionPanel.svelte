@@ -501,8 +501,10 @@
 			</p>
 			<p class="ldk-muted" style="margin-top:0.35rem;font-size:0.88rem">
 				<strong>Echte RTC:</strong> dieselbe <code>tgm_format</code>-Einstellung wie beim Connect (meist
-				<strong>1</strong> = RAW, passend zu <code>eth_set_remote_tgm_format</code>). Bei LastError
-				<code>0x10</code> (ERROR_HEADER_FORMAT) zuerst dort prüfen und neu verbinden.
+				<strong>1</strong> = RAW). Wenn Connect klappt, Korrektur aber <code>0x10</code> meldet: oft
+				große <code>R_DC_LOAD_CORRECTION_FILE</code>-Telegramme — zuerst
+				<strong>Anzahl Tabellen</strong> z.&nbsp;B. <strong>1</strong> setzen, kleinere .ct5 testen,
+				BIOS-ETH/Firmware prüfen; nicht nur „tgm_format“ wechseln.
 			</p>
 			<div class="ldk-field">
 				<label for="cor-file">Datei</label>

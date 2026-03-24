@@ -31,10 +31,14 @@ std::optional<RtcError> check_answer(rif::ParsedAnswer& a, std::uint32_t expecte
   if (a.last_error != 0u) {
     std::string msg = rif::describe_last_error(a.last_error);
     if ((a.last_error & (1u << 4u)) != 0u) {
-      msg += " — TGM format mismatch: connect with `tgm_format` equal to `eth_set_remote_tgm_format` "
-             "on the board (RTC6conf / boot; telegrams.h: NONE=0, RAW=1). Sent format was ";
+      msg += " — ERROR_HEADER_FORMAT (bit 4). If GET_STATUS already works with the same session, "
+             "this is not only a RAW vs NONE mismatch: correction uses near-max UDP telegrams; "
+             "some firmware reports length/sequence issues as HEADER_FORMAT. Try "
+             "number_of_tables (e.g. 1) before upload, a smaller .ct5, or BIOS-ETH/firmware update. "
+             "Otherwise align client tgm_format with eth_set_remote_tgm_format (NONE=0, RAW=1). "
+             "Sent format was ";
       msg += std::to_string(telegram_format);
-      msg += ". SCANLAB `rtc6_rif_wrapper` always uses RAW (1); most RIF setups need `tgm_format`: 1.";
+      msg += ".";
     }
     return RtcError{"RTC_INTERNAL", msg};
   }
@@ -413,8 +417,11 @@ std::optional<RtcError> EthernetRtcClient::load_correction_file(const std::vecto
   }
 
   // rtc6_rif_wrapper.cpp load_correction_file — chunk size matches TGM payload minus 3 header words.
+  // Stay a few bytes under the theoretical max: some firmware rejects command telegrams whose total
+  // size equals TGM_MAX_SIZE exactly and may report ERROR_HEADER_FORMAT misleadingly.
   constexpr std::uint32_t kPayloadMax = rif::kTgmMaxTelegramBytes - rif::kTgmHeaderBytes;
-  constexpr std::uint32_t kMaxCorrData = kPayloadMax - 3u * static_cast<std::uint32_t>(sizeof(std::uint32_t));
+  constexpr std::uint32_t kMaxCorrData =
+      kPayloadMax - 3u * static_cast<std::uint32_t>(sizeof(std::uint32_t)) - 4u;
 
   for (std::uint32_t offset = 0; offset < file_bytes.size();) {
     const std::uint32_t rem = static_cast<std::uint32_t>(file_bytes.size() - offset);
