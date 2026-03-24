@@ -22,6 +22,8 @@ class BackendSession {
   /// 204 on success; error body + status on failure
   int handle_post_rtc_connect(const nlohmann::json& body, nlohmann::json& err_out);
   int handle_post_rtc_disconnect();
+  /// `R_DC_STOP_EXECUTION` — same as job stop handlers; no job id required.
+  int handle_post_rtc_stop(nlohmann::json& err_out);
 
   /// Multipart: field `file` (binary). Optional form fields: table_no, dim, head_a, head_b, number_of_tables.
   int handle_post_rtc_correction_load(const httplib::Request& req, nlohmann::json& err_out);
@@ -42,6 +44,9 @@ class BackendSession {
   void auto_demo_connect_mock();
 
  private:
+  /// Caller must hold `mutex_`.
+  int rtc_stop_execution_locked(nlohmann::json& err_out);
+
   mutable std::mutex mutex_;
   std::unique_ptr<rtc::IRtcClient> rtc_;
   std::unordered_map<std::string, nlohmann::json> dxf_jobs_;

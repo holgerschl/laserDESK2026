@@ -63,7 +63,7 @@ test.describe('DXF Phase G demo', () => {
 		await expect(page.getByTestId('dxf-stop')).toBeEnabled();
 
 		const stopWait = page.waitForResponse(
-			(r) => r.url().includes('/api/v1/jobs/dxf/') && r.url().endsWith('/stop') && r.status() === 204
+			(r) => r.url().includes('/api/v1/rtc/stop') && r.status() === 204
 		);
 		await page.getByTestId('dxf-stop').click();
 		await stopWait;

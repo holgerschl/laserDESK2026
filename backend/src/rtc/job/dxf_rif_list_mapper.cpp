@@ -45,7 +45,8 @@ bool build_dxf_rif_list_upload_sequence(const RtcJobPlan& plan, const DxfRifList
     return false;
   }
 
-  constexpr double kMarkTime = 0.0;
+  // Some firmware treats 0 as a degenerate mark; use a small positive dwell (seconds, SCANLAB list semantics).
+  constexpr double kMarkTime = 1.0e-4;
 
   for (const auto& ln : plan.lines) {
     std::int32_t x0, y0, x1, y1, z1;

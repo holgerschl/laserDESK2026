@@ -52,7 +52,7 @@ test.describe('Scene editor Phase H', () => {
 		await expect(page.getByTestId('editor-stop')).toBeEnabled();
 
 		const stopWait = page.waitForResponse(
-			(r) => r.url().includes('/api/v1/jobs/dxf/') && r.url().endsWith('/stop') && r.status() === 204
+			(r) => r.url().includes('/api/v1/rtc/stop') && r.status() === 204
 		);
 		await page.getByTestId('editor-stop').click();
 		await stopWait;

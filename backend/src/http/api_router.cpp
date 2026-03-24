@@ -280,19 +280,27 @@ int BackendSession::handle_post_minimal_demo_run(const httplib::Request& req, nl
   return 204;
 }
 
-int BackendSession::handle_post_minimal_demo_stop(nlohmann::json& err_out) {
-  std::lock_guard<std::mutex> lock(mutex_);
+int BackendSession::rtc_stop_execution_locked(nlohmann::json& err_out) {
   if (!rtc_) {
     err_out = error_json(rtc::RtcError{"RTC_NOT_CONNECTED", "RTC session not established"});
     return 409;
   }
   if (auto e = rtc_->stop_execution()) {
-    // Mock RTC finishes lists synchronously (never leaves "running"); treat stop as idempotent.
     if (e->code == "RTC_NOT_RUNNING") return 204;
     err_out = error_json(*e);
     return 409;
   }
   return 204;
+}
+
+int BackendSession::handle_post_minimal_demo_stop(nlohmann::json& err_out) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return rtc_stop_execution_locked(err_out);
+}
+
+int BackendSession::handle_post_rtc_stop(nlohmann::json& err_out) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return rtc_stop_execution_locked(err_out);
 }
 
 int BackendSession::handle_post_jobs_dxf(const httplib::Request& req, nlohmann::json& out,
@@ -470,6 +478,13 @@ void register_api_routes(httplib::Server& svr, BackendSession& session) {
 
   svr.Post("/api/v1/rtc/disconnect", [&](const httplib::Request&, httplib::Response& res) {
     res.status = session.handle_post_rtc_disconnect();
+  });
+
+  svr.Post("/api/v1/rtc/stop", [&](const httplib::Request&, httplib::Response& res) {
+    nlohmann::json err;
+    int code = session.handle_post_rtc_stop(err);
+    res.status = code;
+    if (code != 204) res.set_content(err.dump(), "application/json");
   });
 
   svr.Post("/api/v1/rtc/correction/load", [&](const httplib::Request& req, httplib::Response& res) {

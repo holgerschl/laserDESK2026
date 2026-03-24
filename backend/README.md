@@ -116,6 +116,8 @@ What actually helps:
 - **`rif_connect_status_attempts`**, **`rif_retry_delay_ms`**: retry idempotent **`R_DC_GET_STATUS`** during connect after UDP timeout (defaults **3** / **50 ms**).
 - **`rif_udp_max_extra_datagrams`**: cap on extra inbound datagrams while waiting for the matching answer **seq** (UDP reordering; default **8**). Same key is accepted on **subnet discover** JSON.
 
+**Stop execution:** `POST /api/v1/rtc/stop` (no job id) calls **`R_DC_STOP_EXECUTION`**, same as `POST /api/v1/jobs/dxf/{id}/stop` and minimal-demo stop.
+
 On connect, the client sends the **seq sync** payload **`0x12345678`** (header `seqnum` **0**, as in the SCANLAB wrapper), then **`R_DC_GET_STATUS` (31)** with the next strictly increasing `seqnum`.  
 **Load / run / stop** use **`R_DC_GET_INPUT_POINTER` (4)**, **`R_DC_SET_MAX_COUNT` (11)** (query `repeat_count` on `POST …/run`, default 1), **`R_DC_EXECUTE_LIST_POS` (15)** with list = **`rif_execute_list_no`** (default **`rif_config_list_mem1`**) and position = input pointer captured at DXF load, and **`R_DC_STOP_EXECUTION` (16)** — minimal vertical slice. Optional **DXF list build** (`dxf_rif_list_upload`) adds **`R_DC_CONFIG_LIST` (1)** and **`R_LC_*`** jump/mark telegrams per package `telegrams.h`.
 

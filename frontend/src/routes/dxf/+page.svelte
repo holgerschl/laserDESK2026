@@ -26,6 +26,8 @@
 		};
 		document.addEventListener('visibilitychange', onVis);
 
+		void refreshRtc();
+
 		return () => document.removeEventListener('visibilitychange', onVis);
 	});
 
@@ -71,13 +73,18 @@
 	}
 
 	async function refreshRtc() {
+		const prev = rtcState;
 		try {
 			const s = await api.getRtcStatus();
 			rtcState = s.connection_state ?? '—';
 			dxfLineCount = s.dxf_line_count ?? null;
 		} catch {
-			rtcState = '—';
-			dxfLineCount = null;
+			const keep =
+				prev === 'running' || prev === 'loaded' || prev === 'connected_idle';
+			if (!keep) {
+				rtcState = '—';
+				dxfLineCount = null;
+			}
 		}
 	}
 
@@ -172,13 +179,11 @@
 	}
 
 	async function stopRun() {
-		const id = jobId;
-		if (!id) return;
 		await withBusy(async () => {
-			await api.postJobsDxfStop(id);
+			await api.postRtcStop();
 			await refreshRtc();
 			hint = 'Execution stopped.';
-			rtcLog('DXF demo: POST /jobs/dxf/…/stop — ethernet: R_DC_STOP_EXECUTION; mock: state → loaded');
+			rtcLog('DXF demo: POST /rtc/stop');
 		});
 	}
 
@@ -485,7 +490,7 @@
 			<button
 				type="button"
 				class="ldk-btn danger"
-				disabled={busy || !jobId || !running}
+				disabled={busy || !running}
 				data-testid="dxf-stop"
 				onclick={() => stopRun()}>Stop</button
 			>

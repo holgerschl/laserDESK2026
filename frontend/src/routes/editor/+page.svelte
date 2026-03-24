@@ -97,6 +97,8 @@
 		};
 		window.addEventListener('keydown', onKeyDown);
 
+		void refreshRtc();
+
 		return () => {
 			document.removeEventListener('visibilitychange', onVis);
 			window.removeEventListener('keydown', onKeyDown);
@@ -130,19 +132,21 @@
 	}
 
 	async function refreshRtc() {
+		const prev = rtcState;
 		try {
 			const s = await api.getRtcStatus();
 			rtcState = s.connection_state ?? '—';
 			dxfLineCount = s.dxf_line_count ?? null;
 		} catch {
-			rtcState = '—';
-			dxfLineCount = null;
+			// Avoid flipping UI back to unknown while a session is active (CORS blip, UDP timeout on status).
+			const keep =
+				prev === 'running' || prev === 'loaded' || prev === 'connected_idle';
+			if (!keep) {
+				rtcState = '—';
+				dxfLineCount = null;
+			}
 		}
 	}
-
-	$effect(() => {
-		void refreshRtc();
-	});
 
 	async function submitScene() {
 		await withBusy(async () => {
@@ -186,13 +190,11 @@
 	}
 
 	async function stopRun() {
-		const id = jobId;
-		if (!id) return;
 		await withBusy(async () => {
-			await api.postJobsDxfStop(id);
+			await api.postRtcStop();
 			await refreshRtc();
 			hint = 'Execution stopped.';
-			rtcLog('Scene editor: POST /jobs/dxf/…/stop');
+			rtcLog('Scene editor: POST /rtc/stop');
 		});
 	}
 
@@ -353,7 +355,7 @@
 			<button
 				type="button"
 				class="ldk-btn danger"
-				disabled={busy || !jobId || !running}
+				disabled={busy || !running}
 				data-testid="editor-stop"
 				onclick={() => stopRun()}>Stop</button
 			>
