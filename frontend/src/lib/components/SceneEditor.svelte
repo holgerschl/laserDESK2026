@@ -205,6 +205,19 @@
 		viewZoom = 1;
 	}
 
+	/** Native tooltips (replacing the old hint paragraph above the canvas). */
+	const editorTooltipSelect =
+		'Select: click a shape; Shift+click extends selection (same as job list). Drag to move; all selected shapes move together. Handles rotate or resize the selection. Esc or empty canvas: clear. Units: mm; +Y up.';
+	const editorTooltipLine =
+		'Line: click and drag, then release to place a segment (dashed preview). Release off the canvas still completes.';
+	const editorTooltipRect =
+		'Rectangle: drag an axis-aligned box (dashed preview).';
+	const editorTooltipArc = `Arc: drag from centre to rim for radius and start angle (default ${DEFAULT_ARC_SWEEP_DEG}° sweep, CCW). When selected: orange handle on the end adjusts sweep; box handles resize and rotate.`;
+	const editorTooltipText = `Text: click to place; enter text in the prompt. Default cap height ${DEFAULT_TEXT_HEIGHT_MM} mm. Backend uses a box outline for marking.`;
+	const editorTooltipUndo = 'Undo the last scene edit.';
+	const editorTooltipResetView =
+		'Reset pan and zoom. Mouse wheel: zoom toward cursor. Space+drag or middle mouse: pan.';
+
 	let editorAxis = $derived.by(() => {
 		const layout = fixedStageLayout(stageWidth, stageHeight);
 		const previewStroke = Math.max(Math.max(layout.w, layout.h) * 0.004, 0.09);
@@ -1382,6 +1395,8 @@
 			class="ldk-btn secondary"
 			class:ldk-btn-active={tool === 'select'}
 			data-testid="editor-tool-select"
+			aria-label="Select tool"
+			title={editorTooltipSelect}
 			onclick={() => {
 				tool = 'select';
 				clearPlacementPointer();
@@ -1397,7 +1412,7 @@
 			class:ldk-btn-active={tool === 'line'}
 			data-testid="editor-tool-line"
 			aria-label="Line tool"
-			title="Line"
+			title={editorTooltipLine}
 			onclick={() => {
 				tool = 'line';
 				clearPlacementPointer();
@@ -1425,7 +1440,7 @@
 			class:ldk-btn-active={tool === 'rect'}
 			data-testid="editor-tool-rect"
 			aria-label="Rectangle tool"
-			title="Rectangle"
+			title={editorTooltipRect}
 			onclick={() => {
 				tool = 'rect';
 				clearPlacementPointer();
@@ -1453,7 +1468,7 @@
 			class:ldk-btn-active={tool === 'arc'}
 			data-testid="editor-tool-arc"
 			aria-label="Arc tool"
-			title="Arc"
+			title={editorTooltipArc}
 			onclick={() => {
 				tool = 'arc';
 				clearPlacementPointer();
@@ -1478,7 +1493,7 @@
 			class:ldk-btn-active={tool === 'text'}
 			data-testid="editor-tool-text"
 			aria-label="Text tool"
-			title="Text"
+			title={editorTooltipText}
 			onclick={() => {
 				tool = 'text';
 				clearPlacementPointer();
@@ -1488,24 +1503,23 @@
 				redraw();
 			}}>Text</button
 		>
-		<button type="button" class="ldk-btn secondary" data-testid="editor-undo" onclick={() => undo()}
-			>Undo</button
+		<button
+			type="button"
+			class="ldk-btn secondary"
+			data-testid="editor-undo"
+			aria-label="Undo"
+			title={editorTooltipUndo}
+			onclick={() => undo()}>Undo</button
 		>
 		<button
 			type="button"
 			class="ldk-btn secondary"
 			data-testid="editor-reset-view"
+			aria-label="Reset view"
+			title={editorTooltipResetView}
 			onclick={() => resetView()}>Reset view</button
 		>
 	</div>
-	<p class="ldk-muted scene-editor-hint">
-		<strong>Wheel</strong>: zoom toward cursor. <strong>Space+drag</strong> or <strong>middle mouse</strong>: pan.
-		<strong>Select</strong>: click shapes; <strong>Shift+click</strong> extends range (same as job list). Drag to move; multiple selected shapes move together.
-		<strong>Selection</strong>: handles rotate/resize (one shape or the whole selection together). <strong>Esc</strong> or empty canvas: clear selection.
-		<strong>Line</strong>: click-drag-release for a segment (dashed preview). <strong>Rect</strong>: drag an axis-aligned box (dashed preview).
-		<strong>Arc</strong>: drag from center to rim (default {DEFAULT_ARC_SWEEP_DEG}° sweep, CCW). Selected: orange handle at the end adjusts sweep; resize/rotate with the box. <strong>Text</strong>: click to place; prompt for string (default {DEFAULT_TEXT_HEIGHT_MM} mm cap height; backend uses a box outline for marking).
-		Units: mm; +Y up.
-	</p>
 	<div
 		class="ldk-scene-stage-wrap editor-stage-stack"
 		class:editor-space-pan={spaceDown}
@@ -1651,11 +1665,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.3rem;
-	}
-	.scene-editor-hint {
-		margin: 0.15rem 0 0;
-		font-size: 0.8rem;
-		line-height: 1.32;
 	}
 	.editor-stage-stack {
 		position: relative;
