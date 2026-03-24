@@ -58,7 +58,8 @@ struct CorrectionFileLoadParams {
   std::uint32_t dim{2};
   std::uint32_t head_a{1};
   std::uint32_t head_b{1};
-  /// If set, sends `R_DC_NUMBER_OF_COR_TABLES` before upload (optional board setup).
+  /// If set, sends `R_DC_NUMBER_OF_COR_TABLES` before upload. If unset, Ethernet sends 1 (some firmware
+  /// requires this before the first `R_DC_LOAD_CORRECTION_FILE` data chunk).
   std::optional<std::uint32_t> number_of_tables;
 };
 

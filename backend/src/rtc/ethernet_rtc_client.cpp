@@ -54,6 +54,11 @@ bool try_decode_double_return(const rif::ParsedAnswer& a, double& out) {
   return true;
 }
 
+std::optional<RtcError> with_correction_stage(const std::string& step, std::optional<RtcError> e) {
+  if (!e) return std::nullopt;
+  return RtcError{e->code, std::string("[correction ") + step + "] " + e->message};
+}
+
 }  // namespace
 
 std::unique_ptr<IRtcClient> make_ethernet_rtc_client() {
@@ -410,18 +415,37 @@ std::optional<RtcError> EthernetRtcClient::load_correction_file(const std::vecto
 
   rif::ParsedAnswer ans;
   if (params.number_of_tables.has_value()) {
-    if (auto e = send_remote_control({rif::kRdcNumberOfCorTables, *params.number_of_tables}, ans)) {
+    if (auto e = with_correction_stage(
+            "number_of_tables",
+            send_remote_control({rif::kRdcNumberOfCorTables, *params.number_of_tables}, ans))) {
       return e;
     }
-    if (auto e = check_answer(ans, rif::kRdcNumberOfCorTables, 2u, format_)) return e;
+    if (auto e = with_correction_stage(
+            "number_of_tables", check_answer(ans, rif::kRdcNumberOfCorTables, 2u, format_))) {
+      return e;
+    }
+  } else {
+    // rtc6_rif_wrapper::load_correction_file does not call this; some Ethernet firmware still expects
+    // a table count before the first correction chunk (otherwise LastError can show ERROR_HEADER_FORMAT).
+    if (auto e = with_correction_stage(
+            "number_of_tables(default=1)", send_remote_control({rif::kRdcNumberOfCorTables, 1u}, ans))) {
+      return e;
+    }
+    if (auto e = with_correction_stage(
+            "number_of_tables(default=1)", check_answer(ans, rif::kRdcNumberOfCorTables, 2u, format_))) {
+      return e;
+    }
   }
 
-  // rtc6_rif_wrapper.cpp load_correction_file — chunk size matches TGM payload minus 3 header words.
-  // Stay a few bytes under the theoretical max: some firmware rejects command telegrams whose total
-  // size equals TGM_MAX_SIZE exactly and may report ERROR_HEADER_FORMAT misleadingly.
+  // rtc6_rif_wrapper.cpp uses up to sizeof(TGM_PL_ANSW_RAW)-12 bytes per chunk; in practice some
+  // Ethernet firmware still returns ERROR_HEADER_FORMAT (0x10) on large R_DC_LOAD_CORRECTION_FILE
+  // telegrams even when tgm_format is correct. Cap data per chunk to stay well under TGM limits.
   constexpr std::uint32_t kPayloadMax = rif::kTgmMaxTelegramBytes - rif::kTgmHeaderBytes;
-  constexpr std::uint32_t kMaxCorrData =
+  constexpr std::uint32_t kMaxCorrDataTheoretical =
       kPayloadMax - 3u * static_cast<std::uint32_t>(sizeof(std::uint32_t)) - 4u;
+  constexpr std::uint32_t kMaxCorrDataFirmwareSafe = 512u;
+  const std::uint32_t kMaxCorrData =
+      (std::min)(kMaxCorrDataTheoretical, kMaxCorrDataFirmwareSafe);
 
   for (std::uint32_t offset = 0; offset < file_bytes.size();) {
     const std::uint32_t rem = static_cast<std::uint32_t>(file_bytes.size() - offset);
@@ -436,23 +460,33 @@ std::optional<RtcError> EthernetRtcClient::load_correction_file(const std::vecto
     words[2] = chunk;
     std::memcpy(words.data() + 3, file_bytes.data() + offset, chunk);
 
-    if (auto e = send_remote_control(words, ans)) return e;
-    if (auto e = check_answer(ans, rif::kRdcLoadCorrectionFile, 2u, format_)) return e;
+    const std::string chunk_step = "chunk offset=" + std::to_string(offset);
+    if (auto e = with_correction_stage(chunk_step, send_remote_control(words, ans))) return e;
+    if (auto e = with_correction_stage(chunk_step, check_answer(ans, rif::kRdcLoadCorrectionFile, 2u, format_)))
+      return e;
     offset += chunk;
   }
 
   constexpr std::uint32_t kFinalizeOffset = std::numeric_limits<std::uint32_t>::max();
   const std::uint32_t no_dim =
       (params.table_no & 0xFFFFu) | ((params.dim & 0xFFFFu) << 16u);
-  if (auto e = send_remote_control({rif::kRdcLoadCorrectionFile, kFinalizeOffset, no_dim}, ans)) {
+  if (auto e = with_correction_stage(
+          "finalize", send_remote_control({rif::kRdcLoadCorrectionFile, kFinalizeOffset, no_dim}, ans))) {
     return e;
   }
-  if (auto e = check_answer(ans, rif::kRdcLoadCorrectionFile, 2u, format_)) return e;
+  if (auto e = with_correction_stage(
+          "finalize", check_answer(ans, rif::kRdcLoadCorrectionFile, 2u, format_))) {
+    return e;
+  }
 
-  if (auto e = send_remote_control({rif::kRdcSelectCorTable, params.head_a, params.head_b}, ans)) {
+  if (auto e = with_correction_stage(
+          "select_cor_table", send_remote_control({rif::kRdcSelectCorTable, params.head_a, params.head_b}, ans))) {
     return e;
   }
-  if (auto e = check_answer(ans, rif::kRdcSelectCorTable, 2u, format_)) return e;
+  if (auto e = with_correction_stage(
+          "select_cor_table", check_answer(ans, rif::kRdcSelectCorTable, 2u, format_))) {
+    return e;
+  }
 
   // Manual Ch. 10 p. 465: `get_head_para(HeadNo, ParaNo)` — ParaNo 1 = K xy [bit/mm] (ct5 header, p. 191).
   std::vector<std::uint32_t> head_nos;

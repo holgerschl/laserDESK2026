@@ -52,7 +52,7 @@
 	let corDim = $state(2);
 	let corHeadA = $state(1);
 	let corHeadB = $state(1);
-	let corNumberOfTables = $state('');
+	let corNumberOfTables = $state('1');
 	let corFileInput = $state<HTMLInputElement | null>(null);
 
 	function clearMsgs() {
