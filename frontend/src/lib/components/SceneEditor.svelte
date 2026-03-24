@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import type { Layer } from 'konva/lib/Layer.js';
 	import type { Group as KonvaGroup } from 'konva/lib/Group.js';
 	import type { Line as KonvaLine } from 'konva/lib/shapes/Line.js';
@@ -69,6 +69,10 @@
 	}: Props = $props();
 
 	let container: HTMLDivElement | undefined = $state();
+	/** Pixel size of the Konva stage (fills this wrapper). */
+	let stageWrapEl: HTMLDivElement | undefined = $state();
+	let displayWidth = $state(640);
+	let displayHeight = $state(480);
 	let stage: Stage | null = null;
 	let layer: Layer | null = null;
 	let removeWindowKeyListeners: (() => void) | null = null;
@@ -199,11 +203,46 @@
 		return stageToWorldMm(clientX - r.left, clientY - r.top);
 	}
 
-	function resetView() {
-		viewPanX = 0;
-		viewPanY = 0;
-		viewZoom = 1;
+	/** Fit the full world (stageWidth × stageHeight mm) in the viewport with uniform zoom, centered. */
+	function applyFitView() {
+		const w = displayWidth;
+		const h = displayHeight;
+		if (w < 32 || h < 32) return;
+		const z = Math.min(w / stageWidth, h / stageHeight);
+		let nextZ = Math.max(minZoom, Math.min(maxZoom, z));
+		if (!Number.isFinite(nextZ) || nextZ <= 0) nextZ = 1;
+		viewZoom = nextZ;
+		viewPanX = (w - stageWidth * viewZoom) / 2;
+		viewPanY = (h - stageHeight * viewZoom) / 2;
 	}
+
+	function resetView() {
+		applyFitView();
+		redraw();
+	}
+
+	function measureStageWrap() {
+		if (!stageWrapEl) return;
+		const r = stageWrapEl.getBoundingClientRect();
+		const w = Math.floor(r.width);
+		const h = Math.floor(r.height);
+		if (w >= 32 && h >= 32) {
+			displayWidth = w;
+			displayHeight = h;
+		}
+	}
+
+	/** Resize Konva to the wrapper, then fit 100×100 mm world in view (zoom + pan). */
+	function syncStageSizeFromContainer() {
+		measureStageWrap();
+		if (!stage || displayWidth < 32 || displayHeight < 32) return;
+		stage.width(displayWidth);
+		stage.height(displayHeight);
+		applyFitView();
+		redraw();
+	}
+
+	let resizeObserver: ResizeObserver | null = null;
 
 	/** Native tooltips (replacing the old hint paragraph above the canvas). */
 	const editorTooltipSelect =
@@ -216,7 +255,7 @@
 	const editorTooltipText = `Text: click to place; enter text in the prompt. Default cap height ${DEFAULT_TEXT_HEIGHT_MM} mm. Backend uses a box outline for marking.`;
 	const editorTooltipUndo = 'Undo the last scene edit.';
 	const editorTooltipResetView =
-		'Reset pan and zoom. Mouse wheel: zoom toward cursor. Space+drag or middle mouse: pan.';
+		'Fit the full 100×100 mm scene in the view (centered). Mouse wheel: zoom toward cursor. Space+drag or middle mouse: pan.';
 
 	let editorAxis = $derived.by(() => {
 		const layout = fixedStageLayout(stageWidth, stageHeight);
@@ -1057,12 +1096,16 @@
 	onMount(() => {
 		if (!container) return;
 		void (async () => {
+			await tick();
+			measureStageWrap();
 			const K = (await import('konva')).default;
 			konvaLib = K;
+			const w0 = Math.max(displayWidth, 320);
+			const h0 = Math.max(displayHeight, 240);
 			stage = new K.Stage({
 				container,
-				width: stageWidth,
-				height: stageHeight
+				width: w0,
+				height: h0
 			});
 			layer = new K.Layer();
 			stage.add(layer);
@@ -1340,11 +1383,17 @@
 				}
 			});
 
-			redraw();
+			syncStageSizeFromContainer();
+			if (stageWrapEl) {
+				resizeObserver = new ResizeObserver(() => syncStageSizeFromContainer());
+				resizeObserver.observe(stageWrapEl);
+			}
 		})();
 	});
 
 	onDestroy(() => {
+		resizeObserver?.disconnect();
+		resizeObserver = null;
 		placementPointerCleanup?.();
 		placementPointerCleanup = null;
 		clearSweepPointer();
@@ -1492,10 +1541,10 @@
 		>
 	</div>
 	<div
+		bind:this={stageWrapEl}
 		class="ldk-scene-stage-wrap editor-stage-stack"
 		class:editor-space-pan={spaceDown}
 		data-testid="editor-stage-wrap"
-		style="width:{stageWidth}px;height:{stageHeight}px;"
 	>
 		<div bind:this={container} class="konva-host"></div>
 		<!--
@@ -1505,8 +1554,8 @@
 		<svg
 			class="editor-coords-svg"
 			data-testid="editor-coords-svg"
-			width={stageWidth}
-			height={stageHeight}
+			width={displayWidth}
+			height={displayHeight}
 			viewBox="{editorAxis.layout.minX} {editorAxis.layout.minY} {editorAxis.layout.w} {editorAxis.layout.h}"
 			preserveAspectRatio="xMinYMin meet"
 			overflow="visible"
@@ -1628,9 +1677,13 @@
 
 <style>
 	.scene-editor-root {
+		display: flex;
+		flex-direction: column;
+		flex: 1 1 auto;
+		min-width: 0;
+		min-height: 0;
 		width: 100%;
 		max-width: 100%;
-		min-width: 0;
 	}
 	.ldk-scene-tools {
 		display: flex;
@@ -1640,12 +1693,13 @@
 	.editor-stage-stack {
 		position: relative;
 		display: block;
-		width: fit-content;
-		max-width: 100%;
+		flex: 1 1 auto;
+		width: 100%;
+		min-height: min(70vh, 42rem);
 		margin-top: 0.3rem;
 		border: 1px solid #d8dee6;
 		border-radius: 6px;
-		overflow: auto;
+		overflow: hidden;
 		background: #fafbfc;
 	}
 	.konva-host {
@@ -1683,6 +1737,7 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.28rem;
+		flex-shrink: 0;
 	}
 	.editor-tool-icon {
 		display: inline-flex;

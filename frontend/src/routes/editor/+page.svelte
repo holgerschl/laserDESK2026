@@ -363,6 +363,11 @@
 	.ldk-editor-page {
 		max-width: none;
 		width: 100%;
+		display: flex;
+		flex-direction: column;
+		flex: 1 1 auto;
+		min-height: 0;
+		box-sizing: border-box;
 	}
 	.ldk-editor-page-title {
 		margin: 0;
@@ -387,10 +392,13 @@
 	.ldk-editor-layout {
 		display: grid;
 		grid-template-columns: minmax(18rem, 38rem) minmax(0, 1fr);
+		grid-template-rows: minmax(0, 1fr);
 		gap: 0.55rem;
-		align-items: start;
+		align-items: stretch;
 		margin-top: 0.35rem;
 		width: 100%;
+		flex: 1 1 auto;
+		min-height: 0;
 	}
 	@media (max-width: 52rem) {
 		.ldk-editor-layout {
@@ -410,9 +418,17 @@
 		}
 	}
 	.ldk-editor-canvas {
+		display: flex;
+		flex-direction: column;
+		flex: 1 1 auto;
 		min-width: 0;
+		min-height: 0;
 		max-width: 100%;
-		overflow-x: auto;
+		overflow: hidden;
+	}
+	.ldk-editor-canvas > :global(.scene-editor-root) {
+		flex: 1 1 auto;
+		min-height: 0;
 	}
 	.ldk-table {
 		width: 100%;
