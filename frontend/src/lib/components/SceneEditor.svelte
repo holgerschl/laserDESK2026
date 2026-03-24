@@ -297,63 +297,34 @@
 		});
 		layer.add(viewport);
 
-		/** World-mm background grid (behind entities; scales with pan/zoom). */
+		/** World-mm background grid: major tick spacing only (matches mm axis `niceMmStep` per axis). */
 		{
 			const layout = fixedStageLayout(stageWidth, stageHeight);
-			const majorStep = niceMmStep(Math.max(layout.w, layout.h) / 10);
-			let minorStep = majorStep / 5;
-			if (minorStep < 0.4) minorStep = majorStep;
-			if (minorStep < 0.25) minorStep = 0.25;
+			const stepX = niceMmStep(layout.w);
+			const stepY = niceMmStep(layout.h);
 			const yKTop = konvaY(layout.maxY);
 			const yKBot = konvaY(layout.minY);
 			const hair = Math.max(0.5 / viewZoom, 0.12);
 			const gridShape = new K.Shape({
 				listening: false,
 				sceneFunc(ctx) {
-					const onMajor = (v: number, step: number) =>
-						step > 1e-9 && Math.abs(v / step - Math.round(v / step)) < 1e-4;
 					ctx.lineCap = 'butt';
 					ctx.lineJoin = 'miter';
-					/* minor */
-					ctx.beginPath();
-					ctx.strokeStyle = 'rgba(148, 163, 184, 0.28)';
-					ctx.lineWidth = hair;
-					for (
-						let x = Math.ceil(layout.minX / minorStep - 1e-9) * minorStep;
-						x <= layout.maxX + 1e-9;
-						x += minorStep
-					) {
-						if (onMajor(x, majorStep)) continue;
-						ctx.moveTo(x, yKTop);
-						ctx.lineTo(x, yKBot);
-					}
-					for (
-						let yw = Math.ceil(layout.viewWorldMinY / minorStep - 1e-9) * minorStep;
-						yw <= layout.viewWorldMaxY + 1e-9;
-						yw += minorStep
-					) {
-						if (onMajor(yw, majorStep)) continue;
-						const ky = konvaY(yw);
-						ctx.moveTo(layout.minX, ky);
-						ctx.lineTo(layout.maxX, ky);
-					}
-					ctx.stroke();
-					/* major */
 					ctx.beginPath();
 					ctx.strokeStyle = 'rgba(100, 116, 139, 0.4)';
 					ctx.lineWidth = hair * 1.65;
 					for (
-						let x = Math.ceil(layout.minX / majorStep - 1e-9) * majorStep;
+						let x = Math.ceil(layout.minX / stepX - 1e-9) * stepX;
 						x <= layout.maxX + 1e-9;
-						x += majorStep
+						x += stepX
 					) {
 						ctx.moveTo(x, yKTop);
 						ctx.lineTo(x, yKBot);
 					}
 					for (
-						let yw = Math.ceil(layout.viewWorldMinY / majorStep - 1e-9) * majorStep;
+						let yw = Math.ceil(layout.viewWorldMinY / stepY - 1e-9) * stepY;
 						yw <= layout.viewWorldMaxY + 1e-9;
-						yw += majorStep
+						yw += stepY
 					) {
 						const ky = konvaY(yw);
 						ctx.moveTo(layout.minX, ky);
