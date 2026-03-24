@@ -232,17 +232,28 @@
 		}
 	}
 
-	/** Resize Konva to the wrapper, then fit 100×100 mm world in view (zoom + pan). */
+	/** Resize Konva to the wrapper; fit-to-view only the first time (Reset view re-fits). */
 	function syncStageSizeFromContainer() {
 		measureStageWrap();
 		if (!stage || displayWidth < 32 || displayHeight < 32) return;
-		stage.width(displayWidth);
-		stage.height(displayHeight);
-		applyFitView();
+		const dw = displayWidth;
+		const dh = displayHeight;
+		if (hasAppliedInitialFit && stage.width() === dw && stage.height() === dh) {
+			return;
+		}
+		stage.width(dw);
+		stage.height(dh);
+		if (!hasAppliedInitialFit) {
+			applyFitView();
+			hasAppliedInitialFit = true;
+		}
 		redraw();
 	}
 
 	let resizeObserver: ResizeObserver | null = null;
+	let resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	/** Only auto-fit once on first layout; later resizes only change stage pixel size (avoids jitter). */
+	let hasAppliedInitialFit = false;
 
 	/** Native tooltips (replacing the old hint paragraph above the canvas). */
 	const editorTooltipSelect =
@@ -322,6 +333,18 @@
 		return { x, y, width: w, height: h, rotation_deg: rotDeg };
 	}
 
+	/** Shapes live in a zoom-scaled Group; use world units ≈ target screen px / viewZoom for hairline look. */
+	function entityStrokeWorld(sel: boolean): number {
+		const targetPx = sel ? 1.65 : 1.1;
+		return Math.max(0.06, targetPx / viewZoom);
+	}
+	function hitStrokeWorld(): number {
+		return Math.max(6 / viewZoom, 0.55);
+	}
+	function rubberStrokeWorld(): number {
+		return Math.max(0.08, 1.05 / viewZoom);
+	}
+
 	function redraw() {
 		if (!layer || !konvaLib) return;
 		const K = konvaLib;
@@ -388,7 +411,7 @@
 						: ent.type === 'text'
 							? '#0f766e'
 							: '#059669';
-			const strokeW = sel ? 3.5 : 2;
+			const strokeW = entityStrokeWorld(sel);
 			/** In select mode, all shapes stay draggable (move). Selected items also use the Transformer for resize/rotate. */
 			const canDragWhole = tool === 'select';
 			const shapeListening = tool === 'select';
@@ -401,7 +424,7 @@
 					lineCap: 'round',
 					draggable: canDragWhole,
 					listening: shapeListening,
-					hitStrokeWidth: 12
+					hitStrokeWidth: hitStrokeWorld()
 				});
 				viewport.add(ln);
 				drawn[idx] = ln;
@@ -435,7 +458,7 @@
 					lineCap: 'round',
 					lineJoin: 'round',
 					listening: shapeListening,
-					hitStrokeWidth: 12
+					hitStrokeWidth: hitStrokeWorld()
 				});
 				/** Invisible disk so the transform bounding box is centered on the circle (partial arc polyline is not). */
 				const guide = new K.Circle({
@@ -466,7 +489,7 @@
 					fontFamily: 'system-ui, Segoe UI, sans-serif',
 					fill: sel ? 'rgba(180, 83, 9, 0.25)' : 'rgba(15, 118, 110, 0.35)',
 					stroke,
-					strokeWidth: strokeW * 0.5,
+					strokeWidth: entityStrokeWorld(sel) * 0.45,
 					align: 'center',
 					verticalAlign: 'middle',
 					rotation: -rot,
@@ -485,7 +508,7 @@
 			const rubber = new K.Line({
 				points: [start.x, konvaY(start.y), current.x, konvaY(current.y)],
 				stroke: '#64748b',
-				strokeWidth: 1.5,
+				strokeWidth: rubberStrokeWorld(),
 				dash: [6, 4],
 				lineCap: 'round',
 				listening: false
@@ -508,7 +531,7 @@
 				width: rw,
 				height: rh,
 				stroke: '#64748b',
-				strokeWidth: 1.5,
+				strokeWidth: rubberStrokeWorld(),
 				dash: [6, 4],
 				fill: 'rgba(100, 116, 139, 0.1)',
 				listening: false
@@ -533,7 +556,7 @@
 						konvaY
 					),
 					stroke: '#64748b',
-					strokeWidth: 1.5,
+					strokeWidth: rubberStrokeWorld(),
 					dash: [6, 4],
 					lineCap: 'round',
 					lineJoin: 'round',
@@ -993,7 +1016,7 @@
 					resizeEnabled: true,
 					keepRatio: singleArc,
 					borderStroke: '#246',
-					borderStrokeWidth: 1,
+					borderStrokeWidth: Math.max(0.45, 1 / viewZoom),
 					anchorFill: '#fff',
 					anchorStroke: '#246',
 					boundBoxFunc: (_old, nbox) => {
@@ -1385,13 +1408,24 @@
 
 			syncStageSizeFromContainer();
 			if (stageWrapEl) {
-				resizeObserver = new ResizeObserver(() => syncStageSizeFromContainer());
+				resizeObserver = new ResizeObserver(() => {
+					if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
+					resizeDebounceTimer = setTimeout(() => {
+						resizeDebounceTimer = null;
+						syncStageSizeFromContainer();
+					}, 120);
+				});
 				resizeObserver.observe(stageWrapEl);
 			}
 		})();
 	});
 
 	onDestroy(() => {
+		if (resizeDebounceTimer) {
+			clearTimeout(resizeDebounceTimer);
+			resizeDebounceTimer = null;
+		}
+		hasAppliedInitialFit = false;
 		resizeObserver?.disconnect();
 		resizeObserver = null;
 		placementPointerCleanup?.();

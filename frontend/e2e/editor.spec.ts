@@ -25,7 +25,10 @@ test.describe('Scene editor Phase H', () => {
 				r.request().method() === 'POST' &&
 				r.status() === 200
 		);
-		await page.getByTestId('editor-submit-scene').click();
+		const submit = page.getByTestId('editor-submit-scene');
+		await expect(submit).toBeEnabled();
+		// Canvas ResizeObserver can reflow the column; force avoids "element is not stable" in CI.
+		await submit.click({ force: true });
 		await sceneWait;
 
 		await expect(page.getByTestId('editor-entity-count')).toContainText('LINE entities');
