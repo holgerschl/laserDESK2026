@@ -224,6 +224,10 @@ int BackendSession::handle_post_rtc_correction_load(const httplib::Request& req,
     const std::string nt = req.get_param_value("number_of_tables");
     if (!nt.empty()) p.number_of_tables = parse_u32_param(req, "number_of_tables", 1u);
   }
+  if (req.has_param("finalize_arg3")) {
+    const std::string fa = req.get_param_value("finalize_arg3");
+    if (!fa.empty()) p.finalize_arg3 = parse_u32_param(req, "finalize_arg3", 0u);
+  }
 
   if (auto e = rtc_->load_correction_file(bytes, p)) {
     err_out = error_json(*e);

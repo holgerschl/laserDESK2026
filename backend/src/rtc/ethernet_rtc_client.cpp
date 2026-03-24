@@ -34,7 +34,9 @@ std::optional<RtcError> check_answer(rif::ParsedAnswer& a, std::uint32_t expecte
       msg += " — ERROR_HEADER_FORMAT (bit 4). If GET_STATUS already works with the same session, "
              "this is not only a RAW vs NONE mismatch: correction uses near-max UDP telegrams; "
              "some firmware reports length/sequence issues as HEADER_FORMAT. Try "
-             "number_of_tables (e.g. 1) before upload, a smaller .ct5, or BIOS-ETH/firmware update. "
+             "number_of_tables (e.g. 1) before upload, `dim` matching the .ct5 (2 vs 3), "
+             "query finalize_arg3=0 to force the finalize telegram third word to zero, a smaller .ct5, "
+             "or BIOS-ETH/firmware update. "
              "Otherwise align client tgm_format with eth_set_remote_tgm_format (NONE=0, RAW=1). "
              "Sent format was ";
       msg += std::to_string(telegram_format);
@@ -470,13 +472,26 @@ std::optional<RtcError> EthernetRtcClient::load_correction_file(const std::vecto
   constexpr std::uint32_t kFinalizeOffset = std::numeric_limits<std::uint32_t>::max();
   const std::uint32_t no_dim =
       (params.table_no & 0xFFFFu) | ((params.dim & 0xFFFFu) << 16u);
-  if (auto e = with_correction_stage(
-          "finalize", send_remote_control({rif::kRdcLoadCorrectionFile, kFinalizeOffset, no_dim}, ans))) {
-    return e;
-  }
-  if (auto e = with_correction_stage(
-          "finalize", check_answer(ans, rif::kRdcLoadCorrectionFile, 2u, format_))) {
-    return e;
+
+  auto finalize_send_and_check = [&](std::uint32_t third_word,
+                                     const char* step) -> std::optional<RtcError> {
+    if (auto e = with_correction_stage(
+            step, send_remote_control({rif::kRdcLoadCorrectionFile, kFinalizeOffset, third_word}, ans))) {
+      return e;
+    }
+    return with_correction_stage(step, check_answer(ans, rif::kRdcLoadCorrectionFile, 2u, format_));
+  };
+
+  if (params.finalize_arg3.has_value()) {
+    if (auto e = finalize_send_and_check(*params.finalize_arg3, "finalize(explicit arg3)")) return e;
+  } else {
+    if (auto e = finalize_send_and_check(no_dim, "finalize")) {
+      if (ans.ok && (ans.last_error & (1u << 4u)) != 0u) {
+        if (auto e2 = finalize_send_and_check(0u, "finalize(w3=0)")) return e2;
+      } else {
+        return e;
+      }
+    }
   }
 
   if (auto e = with_correction_stage(

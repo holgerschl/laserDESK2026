@@ -61,6 +61,11 @@ struct CorrectionFileLoadParams {
   /// If set, sends `R_DC_NUMBER_OF_COR_TABLES` before upload. If unset, Ethernet sends 1 (some firmware
   /// requires this before the first `R_DC_LOAD_CORRECTION_FILE` data chunk).
   std::optional<std::uint32_t> number_of_tables;
+  /// Third `uint32_t` in the `R_DC_LOAD_CORRECTION_FILE` **finalize** telegram (after offset `0xFFFFFFFF`).
+  /// Data chunks use `(table_no & 0xFFFF) | (dim << 16)` as the length word; some boards reject that for
+  /// finalize and expect `0`. If unset, Ethernet tries `no_dim` first, then `0` when `LastError` is
+  /// `ERROR_HEADER_FORMAT` (0x10).
+  std::optional<std::uint32_t> finalize_arg3;
 };
 
 /// Mirrors OpenAPI RtcStatusResponse / mock-rtc-specification.md

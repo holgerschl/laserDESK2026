@@ -130,7 +130,7 @@ export async function postRtcDisconnect(): Promise<void> {
 	if (!res.ok) throw new Error(await readError(res));
 }
 
-/** Multipart: `file` + optional fields table_no, dim, head_a, head_b, number_of_tables (strings). */
+/** Multipart: `file` + optional fields table_no, dim, head_a, head_b, number_of_tables, finalize_arg3 (strings). */
 export async function postRtcCorrectionLoad(form: FormData): Promise<void> {
 	const res = await apiFetch(`${getApiBase()}/rtc/correction/load`, {
 		method: 'POST',
