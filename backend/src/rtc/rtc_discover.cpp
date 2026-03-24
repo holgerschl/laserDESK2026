@@ -1,5 +1,6 @@
 #include "rtc_discover.hpp"
 
+#include "rtc_types.hpp"
 #include "rif/telegram_raw.hpp"
 #include "rif/udp_channel.hpp"
 
@@ -26,7 +27,7 @@ bool parse_ipv4(const std::string& s, std::uint32_t& out_host_order, std::string
 }
 
 bool probe_rtc_at(const std::string& ip, std::uint16_t port, std::uint32_t tgm_format, int timeout_ms,
-                  nlohmann::json& host_obj) {
+                  int max_extra_datagrams, nlohmann::json& host_obj) {
   rif::UdpRifChannel udp;
   if (!udp.open(ip, port).empty()) return false;
 
@@ -47,7 +48,8 @@ bool probe_rtc_at(const std::string& ip, std::uint16_t port, std::uint32_t tgm_f
   std::vector<std::uint8_t> pkt =
       rif::build_command_telegram(cmd_seq, tgm_format, {rif::kRdcGetStatus});
   std::vector<std::uint8_t> raw;
-  std::string io = udp.request_response(pkt, timeout_ms, raw);
+  std::string io =
+      udp.request_response_matching(pkt, timeout_ms, cmd_seq, tgm_format, max_extra_datagrams, raw, nullptr);
   if (!io.empty()) return false;
   rif::ParsedAnswer ans = rif::parse_answer_telegram(raw.data(), raw.size(), cmd_seq, tgm_format);
   if (!ans.ok || ans.pl_words.size() < 4u) return false;
@@ -99,6 +101,12 @@ int handle_rtc_discover_json(const nlohmann::json& body, nlohmann::json& out) {
   if (timeout_ms < 30) timeout_ms = 30;
   if (timeout_ms > 2000) timeout_ms = 2000;
 
+  int max_extra = body.contains("rif_udp_max_extra_datagrams") && body["rif_udp_max_extra_datagrams"].is_number_integer()
+                      ? body["rif_udp_max_extra_datagrams"].get<int>()
+                      : kDefaultRifUdpMaxExtraDatagrams;
+  if (max_extra < 0) max_extra = 0;
+  if (max_extra > 64) max_extra = 64;
+
   std::size_t max_hosts = body.contains("max_hosts") && body["max_hosts"].is_number_unsigned()
                               ? body["max_hosts"].get<std::size_t>()
                               : 512u;
@@ -125,7 +133,8 @@ int handle_rtc_discover_json(const nlohmann::json& body, nlohmann::json& out) {
   for (const std::string& ip : candidates) {
     if (scanned >= max_hosts) break;
     nlohmann::json one;
-    if (probe_rtc_at(ip, static_cast<std::uint16_t>(port), tgm_format, timeout_ms, one)) hosts.push_back(std::move(one));
+    if (probe_rtc_at(ip, static_cast<std::uint16_t>(port), tgm_format, timeout_ms, max_extra, one))
+      hosts.push_back(std::move(one));
     ++scanned;
   }
   const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();

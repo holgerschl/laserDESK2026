@@ -83,6 +83,9 @@ nlohmann::json BackendSession::handle_get_rtc_status() const {
   if (r.active_dxf_line_count) j["dxf_line_count"] = *r.active_dxf_line_count;
   if (r.active_dxf_source_name) j["dxf_source_name"] = *r.active_dxf_source_name;
   if (r.correction_file_hint) j["correction_file_hint"] = *r.correction_file_hint;
+  if (r.rif_udp_timeout_count) j["rif_udp_timeout_count"] = *r.rif_udp_timeout_count;
+  if (r.rif_udp_spurious_datagrams) j["rif_udp_spurious_datagrams"] = *r.rif_udp_spurious_datagrams;
+  if (r.rif_connect_status_retries_used) j["rif_connect_status_retries_used"] = *r.rif_connect_status_retries_used;
   return j;
 }
 
@@ -110,6 +113,14 @@ int BackendSession::handle_post_rtc_connect(const nlohmann::json& body, nlohmann
       cfg.tgm_format = body["tgm_format"].get<std::uint32_t>();
     if (body.contains("recv_timeout_ms") && body["recv_timeout_ms"].is_number_integer())
       cfg.recv_timeout_ms = body["recv_timeout_ms"].get<int>();
+    if (body.contains("udp_local_bind") && body["udp_local_bind"].is_string())
+      cfg.udp_local_bind = body["udp_local_bind"].get<std::string>();
+    if (body.contains("rif_connect_status_attempts") && body["rif_connect_status_attempts"].is_number_integer())
+      cfg.rif_connect_status_attempts = body["rif_connect_status_attempts"].get<int>();
+    if (body.contains("rif_udp_max_extra_datagrams") && body["rif_udp_max_extra_datagrams"].is_number_integer())
+      cfg.rif_udp_max_extra_datagrams = body["rif_udp_max_extra_datagrams"].get<int>();
+    if (body.contains("rif_retry_delay_ms") && body["rif_retry_delay_ms"].is_number_integer())
+      cfg.rif_retry_delay_ms = body["rif_retry_delay_ms"].get<int>();
     if (body.contains("expected_package_tag") && body["expected_package_tag"].is_string())
       cfg.expected_package_tag = body["expected_package_tag"].get<std::string>();
     if (body.contains("expected_bios_eth_tag") && body["expected_bios_eth_tag"].is_string())

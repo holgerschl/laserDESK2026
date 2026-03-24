@@ -5,8 +5,10 @@ Use with `laserdesk_backend` **ethernet** mode and the RTC6 manual **§16 Append
 ## Prerequisites
 
 - RTC6 **Ethernet** board configured for **Standalone Full State** and **Remote Interface Mode** (manual §16.10.3).
+- **Board mode (once per setup):** switch the card to **Remote Interface Mode** using SCANLAB tooling — typically **RTC6conf.exe** (or equivalent) from the **same RTC6 software package** as your host libraries and BIOS-ETH; exact path depends on package layout on disk.
 - **BIOS-ETH** and host-side expectations match the **same RTC6 software package** (manual §16.10, Notes on p. 1092).
 - `eth_set_remote_tgm_format` set in Boot Phase 1 as required for **RAW** telegrams (manual §16.8.2 / §16.10.1).
+- **Manual PDF in repo:** `docs/RTC6_Doc.Rev_.1.1.3_en-US.pdf` (primary reference for §16 / Remote Interface).
 
 ## Network
 
@@ -14,6 +16,7 @@ Use with `laserdesk_backend` **ethernet** mode and the RTC6 manual **§16 Append
 - [ ] Stable IP for the board (DHCP or static per site).
 - [ ] **UDP port** matches the board (same as conventional DLL path — confirm with SCANLAB tools / `eth_get_port_numbers` in your package). Default in this backend: **5020** if unspecified; **override** in `POST /api/v1/rtc/connect` with `"port"`.
 - [ ] Host firewall allows **UDP** to that port (outbound from PC; replies return to ephemeral local port).
+- [ ] Multi-NIC labs: optional `POST /api/v1/rtc/connect` field **`udp_local_bind`** (IPv4) to bind the local UDP socket to a specific interface.
 
 ## Software
 

@@ -49,6 +49,10 @@ export interface RtcStatusJson {
 	dxf_source_name?: string;
 	/** Mock: last upload hint; real RTC: usually omitted */
 	correction_file_hint?: string;
+	/** Ethernet RIF diagnostics since connect */
+	rif_udp_timeout_count?: number;
+	rif_udp_spurious_datagrams?: number;
+	rif_connect_status_retries_used?: number;
 }
 
 export interface ApiErrorBody {
@@ -100,18 +104,22 @@ export interface RtcDiscoverResponse {
 }
 
 /** UDP scan: R_DC_GET_STATUS on each host in the IPv4 subnet (backend; same handshake as ethernet connect). */
-export async function postRtcDiscover(body: {
-	base_ip: string;
-	netmask: string;
-	port?: number;
-	tgm_format?: number;
-	timeout_ms?: number;
-	max_hosts?: number;
-}): Promise<RtcDiscoverResponse> {
+export async function postRtcDiscover(
+	body: {
+		base_ip: string;
+		netmask: string;
+		port?: number;
+		tgm_format?: number;
+		timeout_ms?: number;
+		max_hosts?: number;
+	},
+	init?: { signal?: AbortSignal }
+): Promise<RtcDiscoverResponse> {
 	const res = await apiFetch(`${getApiBase()}/rtc/discover`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(body)
+		body: JSON.stringify(body),
+		signal: init?.signal
 	});
 	if (!res.ok) throw new Error(await readError(res));
 	return res.json() as Promise<RtcDiscoverResponse>;

@@ -44,7 +44,13 @@ class EthernetRtcClient final : public IRtcClient {
   /// Incremented on each UDP telegram (const get_status() may send).
   mutable std::uint32_t seq_{0};
   std::uint32_t format_{0};
-  int timeout_ms_{800};
+  int timeout_ms_{kDefaultRtcUdpRecvTimeoutMs};
+  int max_extra_datagrams_{kDefaultRifUdpMaxExtraDatagrams};
+  int connect_status_attempts_{kDefaultRifConnectStatusAttempts};
+  int rif_retry_delay_ms_{kDefaultRifRetryDelayMs};
+  mutable std::uint64_t rif_metric_udp_timeouts_{0};
+  mutable std::uint64_t rif_metric_spurious_datagrams_{0};
+  std::uint32_t rif_last_connect_status_retries_{0};
   std::string package_tag_;
   std::string bios_tag_;
   std::string last_job_label_;

@@ -50,6 +50,11 @@ std::vector<std::uint8_t> build_command_telegram(std::uint32_t seq, std::uint32_
 ParsedAnswer parse_answer_telegram(const std::uint8_t* data, std::size_t len,
                                    std::uint32_t expect_seq, std::uint32_t expect_format);
 
+/// True if `data` looks like a valid RAW Answer telegram for `expect_format` with header seq
+/// `expect_seq` (header + payload length sanity only; does not validate LastError/CmdID).
+bool answer_raw_matches_seq_and_format(const std::uint8_t* data, std::size_t len,
+                                       std::uint32_t expect_seq, std::uint32_t expect_format);
+
 /// Answer to seq sync: `rtc6_rif_wrapper.cpp` uses `answ.payload.buffer[0]` as last board seqnum
 /// (not a normal LastError/CmdID answer). `ParsedAnswer::last_error` mirrors word[0] and is not
 /// a TGM_ERROR here — do not use `describe_last_error` on sync replies.

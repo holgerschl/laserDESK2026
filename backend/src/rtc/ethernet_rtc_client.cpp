@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <thread>
 #include <vector>
 
 namespace laserdesk::rtc {
@@ -80,6 +81,9 @@ RtcStatus EthernetRtcClient::build_status(const rif::ParsedAnswer* g) const {
   }
   if (dxf_line_count_) s.active_dxf_line_count = dxf_line_count_;
   if (dxf_source_name_) s.active_dxf_source_name = dxf_source_name_;
+  s.rif_udp_timeout_count = rif_metric_udp_timeouts_;
+  s.rif_udp_spurious_datagrams = rif_metric_spurious_datagrams_;
+  s.rif_connect_status_retries_used = rif_last_connect_status_retries_;
   return s;
 }
 
@@ -88,8 +92,12 @@ std::optional<RtcError> EthernetRtcClient::send_remote_control(const std::vector
   const std::uint32_t seq = ++seq_;
   std::vector<std::uint8_t> pkt = rif::build_command_telegram(seq, format_, words);
   std::vector<std::uint8_t> raw;
-  std::string io_err = udp_.request_response(pkt, timeout_ms_, raw);
+  std::uint64_t spurious = 0;
+  std::string io_err = udp_.request_response_matching(pkt, timeout_ms_, seq, format_, max_extra_datagrams_, raw,
+                                                      &spurious);
+  rif_metric_spurious_datagrams_ += spurious;
   if (!io_err.empty()) {
+    if (io_err == "UDP receive timeout") ++rif_metric_udp_timeouts_;
     return err("RTC_TIMEOUT", io_err);
   }
   out = rif::parse_answer_telegram(raw.data(), raw.size(), seq, format_);
@@ -111,7 +119,10 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
     return err("RTC_INTERNAL", "invalid UDP port");
   }
   format_ = cfg.tgm_format;
-  timeout_ms_ = cfg.recv_timeout_ms > 0 ? cfg.recv_timeout_ms : 800;
+  timeout_ms_ = cfg.recv_timeout_ms > 0 ? cfg.recv_timeout_ms : kDefaultRtcUdpRecvTimeoutMs;
+  max_extra_datagrams_ = std::clamp(cfg.rif_udp_max_extra_datagrams, 0, 64);
+  connect_status_attempts_ = std::clamp(cfg.rif_connect_status_attempts, 1, 20);
+  rif_retry_delay_ms_ = std::clamp(cfg.rif_retry_delay_ms, 0, 30000);
   package_tag_ = cfg.expected_package_tag;
   bios_tag_ = cfg.expected_bios_eth_tag;
   dxf_rif_list_upload_ = cfg.dxf_rif_list_upload;
@@ -119,8 +130,11 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
   dxf_rif_bits_per_mm_ = connect_default_bits_per_mm_;
   rif_config_list_mem1_ = cfg.rif_config_list_mem1;
   rif_config_list_mem2_ = cfg.rif_config_list_mem2;
+  rif_metric_udp_timeouts_ = 0;
+  rif_metric_spurious_datagrams_ = 0;
+  rif_last_connect_status_retries_ = 0;
 
-  std::string oerr = udp_.open(cfg.host, static_cast<std::uint16_t>(cfg.port));
+  std::string oerr = udp_.open(cfg.host, static_cast<std::uint16_t>(cfg.port), cfg.udp_local_bind);
   if (!oerr.empty()) {
     return err("RTC_CONNECTION_REFUSED", oerr);
   }
@@ -142,13 +156,23 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
   }
 
   rif::ParsedAnswer ans;
-  if (auto e = send_remote_control({rif::kRdcGetStatus}, ans)) {
-    udp_.close();
-    return e;
-  }
-  if (auto e = check_answer(ans, rif::kRdcGetStatus, 4u)) {
-    udp_.close();
-    return e;
+  std::optional<RtcError> connect_err;
+  for (int attempt = 0; attempt < connect_status_attempts_; ++attempt) {
+    if (attempt > 0) {
+      ++rif_last_connect_status_retries_;
+      if (rif_retry_delay_ms_ > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(rif_retry_delay_ms_));
+      }
+    }
+    connect_err = send_remote_control({rif::kRdcGetStatus}, ans);
+    if (!connect_err) {
+      connect_err = check_answer(ans, rif::kRdcGetStatus, 4u);
+    }
+    if (!connect_err) break;
+    if (connect_err->code != "RTC_TIMEOUT" || attempt + 1 >= connect_status_attempts_) {
+      udp_.close();
+      return connect_err;
+    }
   }
 
   state_ = State::ConnectedIdle;
@@ -172,6 +196,9 @@ void EthernetRtcClient::disconnect() {
   dxf_rif_bits_per_mm_ = connect_default_bits_per_mm_;
   rif_config_list_mem1_ = 1u;
   rif_config_list_mem2_ = 2u;
+  rif_metric_udp_timeouts_ = 0;
+  rif_metric_spurious_datagrams_ = 0;
+  rif_last_connect_status_retries_ = 0;
 }
 
 std::variant<RtcStatus, RtcError> EthernetRtcClient::get_status() const {

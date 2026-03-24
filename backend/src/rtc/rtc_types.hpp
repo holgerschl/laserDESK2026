@@ -6,6 +6,15 @@
 
 namespace laserdesk::rtc {
 
+/// Default per-datagram UDP receive timeout for RTC6 Ethernet Remote Interface (ms).
+inline constexpr int kDefaultRtcUdpRecvTimeoutMs = 3000;
+/// Total attempts for idempotent `R_DC_GET_STATUS` during Ethernet connect (includes first try).
+inline constexpr int kDefaultRifConnectStatusAttempts = 3;
+/// Max additional UDP datagrams read while waiting for matching answer seq (reordering cap).
+inline constexpr int kDefaultRifUdpMaxExtraDatagrams = 8;
+/// Delay before retrying connect-time GET_STATUS after timeout (ms).
+inline constexpr int kDefaultRifRetryDelayMs = 50;
+
 struct RtcError {
   std::string code;
   std::string message;
@@ -20,7 +29,15 @@ struct RtcConnectConfig {
   int port{5020};
   /// TGM header `format`; must match `eth_set_remote_tgm_format` (SCANLAB `telegrams.h`: RAW = 1).
   std::uint32_t tgm_format{1u};
-  int recv_timeout_ms{800};
+  int recv_timeout_ms{kDefaultRtcUdpRecvTimeoutMs};
+  /// If non-empty, bind the local UDP socket to this host (IPv4); default ephemeral on any interface.
+  std::string udp_local_bind;
+  /// Total attempts for `R_DC_GET_STATUS` during connect after seq sync (idempotent; default 3).
+  int rif_connect_status_attempts{kDefaultRifConnectStatusAttempts};
+  /// Per-request cap on extra datagrams when matching answer seq (manual reordering note).
+  int rif_udp_max_extra_datagrams{kDefaultRifUdpMaxExtraDatagrams};
+  /// Pause between connect GET_STATUS retries after timeout (ms).
+  int rif_retry_delay_ms{kDefaultRifRetryDelayMs};
   /// Shown in GET /rtc/status when set (operator-supplied; board identity query is future work).
   std::string expected_package_tag;
   std::string expected_bios_eth_tag;
@@ -61,6 +78,12 @@ struct RtcStatus {
   std::optional<std::string> active_dxf_source_name;
   /// Mock: last loaded correction label; Ethernet: omitted (board holds table).
   std::optional<std::string> correction_file_hint;
+  /// Ethernet session: UDP receive timeouts observed (cumulative since connect).
+  std::optional<std::uint64_t> rif_udp_timeout_count;
+  /// Ethernet: datagrams from the board skipped while waiting for matching answer seq.
+  std::optional<std::uint64_t> rif_udp_spurious_datagrams;
+  /// Ethernet: extra `R_DC_GET_STATUS` attempts during last connect after the first try (retries only).
+  std::optional<std::uint32_t> rif_connect_status_retries_used;
 };
 
 inline const char* kHealthOk = "ok";

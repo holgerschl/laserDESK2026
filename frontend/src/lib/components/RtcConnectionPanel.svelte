@@ -42,6 +42,8 @@
 	let discoverErr = $state<string | null>(null);
 	let discoverResults = $state<DiscoveredRtcHost[]>([]);
 	let discoverMeta = $state<{ scanned: number; elapsed_ms: number } | null>(null);
+	/** Aborts in-flight `postRtcDiscover` (Cancel / modal close). */
+	let discoverAbort: AbortController | null = null;
 
 	let correctionOpen = $state(false);
 	let correctionBusy = $state(false);
@@ -114,31 +116,57 @@
 	}
 
 	function closeDiscover() {
+		discoverAbort?.abort();
+		discoverAbort = null;
 		discoverOpen = false;
+	}
+
+	function cancelDiscoverScan() {
+		discoverAbort?.abort();
+	}
+
+	function isAbortError(e: unknown): boolean {
+		return (
+			(typeof DOMException !== 'undefined' &&
+				e instanceof DOMException &&
+				e.name === 'AbortError') ||
+			(e instanceof Error && e.name === 'AbortError')
+		);
 	}
 
 	async function runDiscover() {
 		discoverErr = null;
 		discoverResults = [];
 		discoverMeta = null;
+		discoverAbort?.abort();
+		discoverAbort = new AbortController();
+		const ac = discoverAbort;
 		discoverBusy = true;
 		try {
-			const r = await api.postRtcDiscover({
-				base_ip: discoverBase.trim(),
-				netmask: discoverMask.trim(),
-				port: Number(discoverPort),
-				timeout_ms: Number(discoverTimeout),
-				max_hosts: Number(discoverMaxHosts),
-				tgm_format: Number(tgmFormat)
-			});
+			const r = await api.postRtcDiscover(
+				{
+					base_ip: discoverBase.trim(),
+					netmask: discoverMask.trim(),
+					port: Number(discoverPort),
+					timeout_ms: Number(discoverTimeout),
+					max_hosts: Number(discoverMaxHosts),
+					tgm_format: Number(tgmFormat)
+				},
+				{ signal: ac.signal }
+			);
 			discoverResults = r.hosts;
 			discoverMeta = { scanned: r.scanned, elapsed_ms: r.elapsed_ms };
 			if (r.hosts.length === 0) {
 				discoverErr = `No RTC answered R_DC_GET_STATUS on UDP port ${discoverPort} (${r.scanned} addresses, ${r.elapsed_ms} ms). Check subnet, firewall, and board Remote Interface mode.`;
 			}
 		} catch (e) {
-			discoverErr = e instanceof Error ? e.message : String(e);
+			if (isAbortError(e)) {
+				discoverErr = null;
+			} else {
+				discoverErr = e instanceof Error ? e.message : String(e);
+			}
 		} finally {
+			if (discoverAbort === ac) discoverAbort = null;
 			discoverBusy = false;
 		}
 	}
@@ -286,6 +314,11 @@
 				/>
 			</div>
 		</div>
+		<p class="ldk-muted ldk-rtc-rif-hint" style="font-size:0.85rem;margin:0.35rem 0 0">
+			The board must accept UDP command telegrams: enable <strong>Remote Interface mode</strong> on the RTC6
+			Ethernet card (e.g. with SCANLAB <strong>RTCConf</strong> / vendor tools per manual). If this mode is off,
+			connect and subnet discover will time out.
+		</p>
 		<div class="ldk-row" style="flex-wrap:wrap;gap:0.4rem;margin-bottom:0.45rem">
 			<button type="button" class="ldk-btn secondary" disabled={busy || connectDisabled} onclick={openDiscover}
 				>Discover RTC…</button
@@ -348,6 +381,8 @@
 			<p class="ldk-muted" style="margin-top:0;font-size:0.88rem">
 				Enter any IPv4 on the LAN segment and the netmask. The backend probes each host with
 				<code>R_DC_GET_STATUS</code> on the UDP port (default 5020). Large subnets are capped by “max hosts”.
+				Each responding board must have <strong>Remote Interface mode</strong> enabled (e.g. via SCANLAB
+				<strong>RTCConf</strong>).
 			</p>
 			<div class="ldk-field">
 				<label for="disc-base">Base IP (any address on the subnet)</label>
@@ -419,6 +454,13 @@
 			{/if}
 			<div class="ldk-modal-actions">
 				<button type="button" class="ldk-btn" disabled={discoverBusy} onclick={runDiscover}>Scan subnet</button>
+				<button
+					type="button"
+					class="ldk-btn secondary"
+					disabled={!discoverBusy}
+					data-testid="rtc-discover-cancel"
+					onclick={cancelDiscoverScan}>Cancel</button
+				>
 				<button type="button" class="ldk-btn secondary" disabled={discoverBusy} onclick={closeDiscover}
 					>Close</button
 				>

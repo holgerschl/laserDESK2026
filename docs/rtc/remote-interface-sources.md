@@ -17,6 +17,8 @@ Phase A grounding: where the **Ethernet Remote Interface** contract is defined. 
 
 Further chapters (scan/laser basics, command reference **§10**) apply when mapping telegrams and list semantics to concrete operations.
 
+**Handbuch „Remote Interface Mode Usage“ (ca. p. 1089, vier Schritte):** Abgleich Ist-Stand vs. geplanter Ausbau → [`handbuch-1089-remote-interface-plan.md`](handbuch-1089-remote-interface-plan.md).
+
 ### 1.1 Correction files (`.ct5`) and calibration **bit/mm**
 
 In **`docs/RTC6_Doc.Rev_.1.1.3_en-US.pdf`** (Doc. Rev. 1.1.3 en-US), Chapter **7** (*Basic Functions for Scan Head Control and Laser Control*) defines how correction tables relate to the Image Field:
@@ -52,7 +54,8 @@ The **RTC6 software package** ZIP from SCANLAB (e.g. linked from the Projektplan
 | Area | Location |
 |------|----------|
 | TGM_HEADER + RAW payload (little-endian `uint32_t`) | `backend/src/rtc/rif/telegram_raw.*` |
-| UDP send / receive (manual §16.10.8) | `backend/src/rtc/rif/udp_channel.*` (standalone **Asio**) |
+| UDP send / receive (manual §16.10.8) | `backend/src/rtc/rif/udp_channel.*` — **Asio** UDP IPv4 (Schritt „Socket“ im [1089-Plan](handbuch-1089-remote-interface-plan.md); kein Winsock im Quelltext). Optional lokale Bind-Adresse: `udp_local_bind` am Connect. |
+| Befehls-Abdeckung `R_DC_*` / `R_LC_*` | [`rif-command-coverage.md`](rif-command-coverage.md) |
 | Remote Control IDs used for MVP slice | `R_DC_GET_STATUS` (31), `R_DC_GET_INPUT_POINTER` (4), `R_DC_EXECUTE_LIST_POS` (15, list 1 pos 0), `R_DC_STOP_EXECUTION` (16) — see `telegram_raw.hpp` |
 | Correction load + **K xy** readback | `POST /api/v1/rtc/correction/load` → `R_DC_LOAD_CORRECTION_FILE` (154), `R_DC_SELECT_COR_TABLE` (130), then **`R_DC_GET_HEAD_PARA`** (38) ParaNo **1** — `backend/src/rtc/ethernet_rtc_client.cpp` |
 | `IRtcClient` over Ethernet | `backend/src/rtc/ethernet_rtc_client.*` (connect: seq sync per wrapper, then `R_DC_GET_STATUS`) |

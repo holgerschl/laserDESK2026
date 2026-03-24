@@ -74,6 +74,23 @@ ParsedAnswer parse_answer_telegram(const std::uint8_t* data, std::size_t len,
   return r;
 }
 
+bool answer_raw_matches_seq_and_format(const std::uint8_t* data, std::size_t len,
+                                       std::uint32_t expect_seq, std::uint32_t expect_format) {
+  if (len < kTgmHeaderBytes + 4) return false;
+  const std::uint32_t pl_len = read_u32_le(data + 0);
+  const std::uint32_t ver = read_u32_le(data + 4);
+  const std::uint32_t seq = read_u32_le(data + 8);
+  const std::uint32_t typ = read_u32_le(data + 12);
+  const std::uint32_t fmt = read_u32_le(data + 16);
+  if (ver != kTgmVersion01000000) return false;
+  if (typ != kTypeAnswer) return false;
+  if (fmt != expect_format) return false;
+  if (seq != expect_seq) return false;
+  if (pl_len + kTgmHeaderBytes > len) return false;
+  if (pl_len % 4 != 0) return false;
+  return true;
+}
+
 bool try_parse_seq_sync_answer(const ParsedAnswer& a, std::uint32_t& last_seq_out) {
   if (!a.ok || a.pl_words.empty()) return false;
   // rtc6_rif_wrapper.cpp (RTC ctor): seqnum = answ.payload.buffer[0] + 1;

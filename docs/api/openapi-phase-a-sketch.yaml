@@ -166,6 +166,19 @@ components:
           description: TGM_HEADER format field; must match eth_set_remote_tgm_format (RAW often 0)
         recv_timeout_ms:
           type: integer
+          description: Per-datagram UDP receive timeout (ms); backend default 3000 if omitted
+        udp_local_bind:
+          type: string
+          description: Optional IPv4 to bind local UDP socket (multi-NIC); empty = any interface
+        rif_connect_status_attempts:
+          type: integer
+          description: Total attempts for idempotent R_DC_GET_STATUS during connect (default 3, clamped 1–20)
+        rif_udp_max_extra_datagrams:
+          type: integer
+          description: Extra UDP datagrams to read while matching answer seq (reordering cap; default 8, 0–64)
+        rif_retry_delay_ms:
+          type: integer
+          description: Delay between connect GET_STATUS retries after timeout (default 50, max 30000)
         expected_package_tag:
           type: string
         expected_bios_eth_tag:
@@ -196,6 +209,17 @@ components:
           description: Optional; last R_DC_GET_STATUS Pos (ethernet)
         last_error:
           $ref: '#/components/schemas/ApiError'
+        rif_udp_timeout_count:
+          type: integer
+          format: int64
+          description: Ethernet session; UDP receive timeouts observed since connect
+        rif_udp_spurious_datagrams:
+          type: integer
+          format: int64
+          description: Ethernet; datagrams skipped while waiting for matching answer seq
+        rif_connect_status_retries_used:
+          type: integer
+          description: Ethernet; extra GET_STATUS attempts after the first try during last connect
 
     MinimalJobRequest:
       type: object

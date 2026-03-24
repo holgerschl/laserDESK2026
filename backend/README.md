@@ -90,7 +90,11 @@ What actually helps:
   "host": "192.168.1.50",
   "port": 5020,
   "tgm_format": 1,
-  "recv_timeout_ms": 800,
+  "recv_timeout_ms": 3000,
+  "udp_local_bind": "",
+  "rif_connect_status_attempts": 3,
+  "rif_udp_max_extra_datagrams": 8,
+  "rif_retry_delay_ms": 50,
   "expected_package_tag": "1.22.0",
   "expected_bios_eth_tag": "from-lab-notes",
   "dxf_rif_list_upload": false,
@@ -106,6 +110,9 @@ What actually helps:
 
 - **`port`**: defaults to **5020** if omitted — **confirm** with your RTC6 package / `eth_get_port_numbers` (see `docs/rtc/bring-up-checklist-phase-c.md`).
 - **`tgm_format`**: must match `eth_set_remote_tgm_format` on the board. Default **`1`** = `TGM_FORMAT::RAW` in SCANLAB `telegrams.h` (same as `rtc6_rif_wrapper.cpp`). Use **`0`** only if the board is configured for `NONE`.
+- **`udp_local_bind`**: optional IPv4; bind the local UDP socket to that address (multi-NIC). Omit or empty = any interface.
+- **`rif_connect_status_attempts`**, **`rif_retry_delay_ms`**: retry idempotent **`R_DC_GET_STATUS`** during connect after UDP timeout (defaults **3** / **50 ms**).
+- **`rif_udp_max_extra_datagrams`**: cap on extra inbound datagrams while waiting for the matching answer **seq** (UDP reordering; default **8**). Same key is accepted on **subnet discover** JSON.
 
 On connect, the client sends the **seq sync** payload **`0x12345678`** (header `seqnum` **0**, as in the SCANLAB wrapper), then **`R_DC_GET_STATUS` (31)** with the next strictly increasing `seqnum`.  
 **Load / run / stop** use **`R_DC_GET_INPUT_POINTER` (4)**, **`R_DC_EXECUTE_LIST_POS` (15)** with list `1` pos `0`, and **`R_DC_STOP_EXECUTION` (16)** — minimal vertical slice. Optional **DXF list build** (`dxf_rif_list_upload`) adds **`R_DC_CONFIG_LIST` (1)** and **`R_LC_*`** jump/mark telegrams per package `telegrams.h`.

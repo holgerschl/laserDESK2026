@@ -14,6 +14,7 @@ using laserdesk::rtc::rif::kTgmVersion01000000;
 using laserdesk::rtc::rif::kTypeAnswer;
 using laserdesk::rtc::rif::kTypeCommand;
 using laserdesk::rtc::rif::ParsedAnswer;
+using laserdesk::rtc::rif::answer_raw_matches_seq_and_format;
 using laserdesk::rtc::rif::parse_answer_telegram;
 using laserdesk::rtc::rif::try_parse_seq_sync_answer;
 using laserdesk::rtc::rif::read_u32_le;
@@ -58,6 +59,18 @@ TEST(TelegramRaw, ParseSyntheticAnswerGetHeadParaDouble) {
   std::uint32_t parts[2] = {a.pl_words[2], a.pl_words[3]};
   std::memcpy(&d, parts, sizeof(d));
   EXPECT_DOUBLE_EQ(d, 128.0);
+}
+
+TEST(TelegramRaw, AnswerRawMatchesSeqAndFormat) {
+  std::vector<std::uint8_t> pkt(36);
+  write_u32_le(pkt.data() + 0, 16u);
+  write_u32_le(pkt.data() + 4, kTgmVersion01000000);
+  write_u32_le(pkt.data() + 8, 7u);
+  write_u32_le(pkt.data() + 12, kTypeAnswer);
+  write_u32_le(pkt.data() + 16, 0u);
+  EXPECT_TRUE(answer_raw_matches_seq_and_format(pkt.data(), pkt.size(), 7u, 0u));
+  EXPECT_FALSE(answer_raw_matches_seq_and_format(pkt.data(), pkt.size(), 8u, 0u));
+  EXPECT_FALSE(answer_raw_matches_seq_and_format(pkt.data(), pkt.size(), 7u, 1u));
 }
 
 TEST(TelegramRaw, ParseSyntheticAnswerGetStatus) {
