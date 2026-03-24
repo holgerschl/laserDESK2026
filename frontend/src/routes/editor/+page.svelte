@@ -23,20 +23,20 @@
 	const initialEntities: SceneEntity[] = [
 		{
 			type: 'line',
-			x0: 20,
-			y0: 30,
+			x0: 10,
+			y0: 78,
 			z0: 0,
-			x1: 120,
-			y1: 30,
+			x1: 90,
+			y1: 78,
 			z1: 0,
 			entity_label: 'Line 1',
 			laser_group_id: DEFAULT_LASER_GROUP_ID
 		},
 		{
 			type: 'rect',
-			x: 200,
-			y: 50,
-			width: 80,
+			x: 30,
+			y: 22,
+			width: 40,
 			height: 40,
 			z: 0,
 			rotation_deg: 0,

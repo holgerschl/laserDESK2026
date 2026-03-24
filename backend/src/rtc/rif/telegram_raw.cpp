@@ -3,6 +3,7 @@
 #include "byte_order.hpp"
 
 #include <sstream>
+#include <string>
 
 namespace laserdesk::rtc::rif {
 
@@ -47,7 +48,11 @@ ParsedAnswer parse_answer_telegram(const std::uint8_t* data, std::size_t len,
     return r;
   }
   if (fmt != expect_format) {
-    r.parse_error = "Answer format mismatch";
+    r.parse_error =
+        "Answer format mismatch: answer header TGM_FORMAT is " + std::to_string(fmt) +
+        " (session expects " + std::to_string(expect_format) +
+        "). Real RTC boards configured for RAW answer with format 1; use tgm_format 1 on connect. "
+        "tgm_format 0 only works if eth_set_remote_tgm_format on the card is NONE (0).";
     return r;
   }
   if (r.seqnum != expect_seq) {

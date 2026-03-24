@@ -29,7 +29,7 @@ constexpr std::uint32_t kRdcSelectCorTable = 130u;
 constexpr std::uint32_t kRdcLoadCorrectionFile = 154u;
 constexpr std::uint32_t kRdcNumberOfCorTables = 155u;
 
-/// SCANLAB `telegrams.h` TGM_MAX_SIZE — max UDP telegram body (header excluded from this constant).
+/// SCANLAB `telegrams.h` `TGM_MAX_SIZE` (1400): max **total** Command/Answer telegram size in bytes (header + payload).
 constexpr std::uint32_t kTgmMaxTelegramBytes = 1400u;
 
 /// Manual §16.10.11 / `rtc6_rif_wrapper.cpp` RTC ctor — sole payload word for seq counter query.
