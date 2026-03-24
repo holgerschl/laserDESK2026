@@ -1,5 +1,6 @@
 #include "ethernet_rtc_client.hpp"
 
+#include "rif/get_status_bits.hpp"
 #include "job/dxf_rif_list_mapper.hpp"
 #include "job/rtc_job_plan.hpp"
 #include "job_id.hpp"
@@ -238,7 +239,7 @@ void EthernetRtcClient::disconnect() {
   rif_last_connect_status_retries_ = 0;
 }
 
-std::variant<RtcStatus, RtcError> EthernetRtcClient::get_status() const {
+std::variant<RtcStatus, RtcError> EthernetRtcClient::get_status() {
   std::lock_guard<std::mutex> lock(mutex_);
   if (state_ == State::Disconnected) {
     return err("RTC_NOT_CONNECTED", "RTC session not established");
@@ -255,6 +256,14 @@ std::variant<RtcStatus, RtcError> EthernetRtcClient::get_status() const {
     RtcStatus s = build_status(nullptr);
     s.last_error = *e;
     return s;
+  }
+  // RTC6 manual Ch. 10 `get_status`: when list execution status bits are all clear, marking/list
+  // output is idle — align session FSM so UI can offer Start again without requiring Stop.
+  if (state_ == State::Running && ans.pl_words.size() >= 3u) {
+    const std::uint32_t st = ans.pl_words[2];
+    if ((st & rif::kRdcGetStatusListExecutionBusyMask) == 0u) {
+      state_ = State::Loaded;
+    }
   }
   return build_status(&ans);
 }

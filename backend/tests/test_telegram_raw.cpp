@@ -1,4 +1,5 @@
 #include "rtc/rif/byte_order.hpp"
+#include "rtc/rif/get_status_bits.hpp"
 #include "rtc/rif/telegram_raw.hpp"
 
 #include <cstring>
@@ -19,6 +20,11 @@ using laserdesk::rtc::rif::parse_answer_telegram;
 using laserdesk::rtc::rif::try_parse_seq_sync_answer;
 using laserdesk::rtc::rif::read_u32_le;
 using laserdesk::rtc::rif::write_u32_le;
+using laserdesk::rtc::rif::kRdcGetStatusBusyListExecution;
+using laserdesk::rtc::rif::kRdcGetStatusHeadBusy;
+using laserdesk::rtc::rif::kRdcGetStatusInternalBusy;
+using laserdesk::rtc::rif::kRdcGetStatusListExecutionBusyMask;
+using laserdesk::rtc::rif::kRdcGetStatusPaused;
 
 TEST(TelegramRaw, BuildGetHeadPara) {
   auto pkt = build_command_telegram(3u, 1u, {kRdcGetHeadPara, 1u, 1u});
@@ -92,6 +98,20 @@ TEST(TelegramRaw, ParseSyntheticAnswerGetStatus) {
   EXPECT_EQ(a.pl_words[1], kRdcGetStatus);
   EXPECT_EQ(a.pl_words[2], 42u);
   EXPECT_EQ(a.pl_words[3], 99u);
+}
+
+TEST(TelegramRaw, GetStatusBitsMatchRtc6ManualCh10) {
+  // RTC6 Manual Doc. Rev. 1.1.3 en-US, Ch. 10 Ctrl Command get_status (PDF ~p. 497).
+  EXPECT_EQ(kRdcGetStatusBusyListExecution, 1u << 0u);
+  EXPECT_EQ(kRdcGetStatusInternalBusy, 1u << 7u);
+  EXPECT_EQ(kRdcGetStatusPaused, 1u << 15u);
+  EXPECT_EQ(kRdcGetStatusHeadBusy, 1u << 23u);
+  EXPECT_EQ(kRdcGetStatusListExecutionBusyMask,
+            kRdcGetStatusBusyListExecution | kRdcGetStatusInternalBusy | kRdcGetStatusPaused |
+                kRdcGetStatusHeadBusy);
+  std::uint32_t busy = kRdcGetStatusBusyListExecution;
+  EXPECT_NE(busy & kRdcGetStatusListExecutionBusyMask, 0u);
+  EXPECT_EQ(0u & kRdcGetStatusListExecutionBusyMask, 0u);
 }
 
 TEST(TelegramRaw, ParseSeqSyncAnswerMatchesWrapper) {

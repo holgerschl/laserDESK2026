@@ -13,7 +13,7 @@ class MockRtcClient final : public IRtcClient {
 
   std::optional<RtcError> connect(const RtcConnectConfig& cfg) override;
   void disconnect() override;
-  std::variant<RtcStatus, RtcError> get_status() const override;
+  std::variant<RtcStatus, RtcError> get_status() override;
   std::variant<std::string, RtcError> load_minimal_job(const std::string& label) override;
   std::optional<RtcError> load_dxf_job(const nlohmann::json& job_document) override;
   std::optional<RtcError> start_execution(std::uint32_t repeat_count = 1u) override;

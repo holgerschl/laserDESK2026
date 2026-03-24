@@ -71,7 +71,7 @@ void MockRtcClient::disconnect() {
   correction_hint_.reset();
 }
 
-std::variant<RtcStatus, RtcError> MockRtcClient::get_status() const {
+std::variant<RtcStatus, RtcError> MockRtcClient::get_status() {
   std::lock_guard<std::mutex> lock(mutex_);
   if (state_ == State::Disconnected) {
     return err("RTC_NOT_CONNECTED", "RTC session not established");

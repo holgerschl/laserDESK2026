@@ -20,8 +20,8 @@ class IRtcClient {
   virtual std::optional<RtcError> connect(const RtcConnectConfig& cfg) = 0;
   virtual void disconnect() = 0;
 
-  /// RTC_NOT_CONNECTED if not connected
-  virtual std::variant<RtcStatus, RtcError> get_status() const = 0;
+  /// RTC_NOT_CONNECTED if not connected. May advance Ethernet session state (Running→Loaded) when idle.
+  virtual std::variant<RtcStatus, RtcError> get_status() = 0;
 
   virtual std::variant<std::string, RtcError> load_minimal_job(const std::string& label) = 0;
   /// Load parsed DXF job document (same shape as GET /jobs/dxf/{id}) into the RTC session.
