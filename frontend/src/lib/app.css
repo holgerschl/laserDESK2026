@@ -169,6 +169,15 @@ button:focus-visible {
 	word-break: break-word;
 }
 
+/** Taller scrollable panel for RIF command dumps on /rtc */
+.ldk-pre.ldk-rif-log {
+	max-height: min(70vh, 32rem);
+	min-height: 10rem;
+	white-space: pre;
+	overflow-x: auto;
+	word-break: normal;
+}
+
 .ldk-error {
 	color: #a30f0f;
 	font-size: 0.9rem;

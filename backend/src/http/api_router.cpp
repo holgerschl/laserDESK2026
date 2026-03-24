@@ -110,6 +110,24 @@ nlohmann::json BackendSession::handle_get_rtc_status() const {
   return j;
 }
 
+nlohmann::json BackendSession::handle_get_rtc_rif_log() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!rtc_) {
+    return nlohmann::json{{"lines", nlohmann::json::array()},
+                          {"rtc_mode", nullptr},
+                          {"hint", "no RTC session — connect first"}};
+  }
+  const std::string mode = rtc_->rif_session_mode_label();
+  auto lines = rtc_->snapshot_rif_command_log();
+  nlohmann::json arr = nlohmann::json::array();
+  for (const auto& ln : lines) arr.push_back(ln);
+  return nlohmann::json{
+      {"lines", std::move(arr)},
+      {"rtc_mode", mode},
+      {"line_count", lines.size()},
+  };
+}
+
 int BackendSession::handle_post_rtc_connect(const nlohmann::json& body, nlohmann::json& err_out) {
   std::lock_guard<std::mutex> lock(mutex_);
   std::string mode_s = body.value("mode", "");
@@ -467,6 +485,10 @@ void register_api_routes(httplib::Server& svr, BackendSession& session) {
 
   svr.Get("/api/v1/rtc/status", [&](const httplib::Request&, httplib::Response& res) {
     res.set_content(session.handle_get_rtc_status().dump(), "application/json");
+  });
+
+  svr.Get("/api/v1/rtc/rif_log", [&](const httplib::Request&, httplib::Response& res) {
+    res.set_content(session.handle_get_rtc_rif_log().dump(), "application/json");
   });
 
   svr.Post("/api/v1/rtc/connect", [&](const httplib::Request& req, httplib::Response& res) {

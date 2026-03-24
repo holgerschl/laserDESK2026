@@ -10,6 +10,7 @@
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 	let statusText = $state('—');
 	let healthText = $state('—');
+	let rifLogText = $state('—');
 	/** Same tab’s origin + base path; workflow/dxf must match exactly (incl. localhost vs 127.0.0.1). */
 	let thisSiteLabel = $state('');
 
@@ -82,7 +83,9 @@
 </svelte:head>
 
 <p class="ldk-muted" style="margin-top:0">
-	Separate monitor window: RTC/health polling here. The <strong>activity log</strong> only shows short text lines from
+	Separate monitor window: RTC/health polling here. <strong>RIF command log</strong> (below) lists outbound Remote
+	Interface payloads the backend sent (seq, mnemonic, <code>u32</code> words; <code>f=</code> for IEEE doubles on speed
+	telegrams). The <strong>activity log</strong> only shows short text lines from
 	other tabs on this <strong>same origin</strong> (workflow or DXF) via <code>BroadcastChannel</code>
 	<code>{LASERDESK_RTC_CHANNEL}</code> — not raw UDP telegrams from the board. Keep this tab on <strong>/rtc</strong> and open
 	<code>/workflow</code> or <code>/dxf</code> in a <strong>second tab</strong> (two <code>/rtc</code> tabs only listen — nothing
@@ -124,6 +127,14 @@
 <div class="ldk-card">
 	<h2 style="margin:0 0 0.5rem;font-size:1rem">RTC status</h2>
 	<pre class="ldk-pre" data-testid="rtc-page-status">{statusText}</pre>
+</div>
+
+<div class="ldk-card">
+	<h2 style="margin:0 0 0.35rem;font-size:0.95rem">RIF command log</h2>
+	<p class="ldk-muted" style="margin:0 0 0.4rem;font-size:0.82rem">
+		Polled with status every 2.5s. Ethernet only accumulates lines; mock stays empty. New connect clears the log.
+	</p>
+	<pre class="ldk-pre ldk-rif-log" data-testid="rtc-rif-log">{rifLogText}</pre>
 </div>
 
 <div class="ldk-card">

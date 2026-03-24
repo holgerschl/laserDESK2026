@@ -1,5 +1,6 @@
 #include "ethernet_rtc_client.hpp"
 
+#include "rif/command_log_format.hpp"
 #include "rif/get_status_bits.hpp"
 #include "job/dxf_rif_list_mapper.hpp"
 #include "job/rtc_job_plan.hpp"
@@ -114,9 +115,26 @@ RtcStatus EthernetRtcClient::build_status(const rif::ParsedAnswer* g) const {
   return s;
 }
 
+void EthernetRtcClient::rif_log_push_line(std::uint32_t seq, const std::vector<std::uint32_t>& words) const {
+  std::lock_guard<std::mutex> lk(rif_log_mutex_);
+  rif_log_.push_back(rif::format_rif_command_log_line(seq, words));
+  while (rif_log_.size() > kRifLogMaxLines) rif_log_.pop_front();
+}
+
+void EthernetRtcClient::rif_log_clear() const {
+  std::lock_guard<std::mutex> lk(rif_log_mutex_);
+  rif_log_.clear();
+}
+
+std::vector<std::string> EthernetRtcClient::snapshot_rif_command_log() const {
+  std::lock_guard<std::mutex> lk(rif_log_mutex_);
+  return std::vector<std::string>(rif_log_.begin(), rif_log_.end());
+}
+
 std::optional<RtcError> EthernetRtcClient::send_remote_control(const std::vector<std::uint32_t>& words,
                                                                 rif::ParsedAnswer& out) const {
   const std::uint32_t seq = ++seq_;
+  rif_log_push_line(seq, words);
   std::vector<std::uint8_t> pkt = rif::build_command_telegram(seq, format_, words);
   std::vector<std::uint8_t> raw;
   std::uint64_t spurious = 0;
@@ -170,10 +188,12 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
   }
 
   seq_ = 0;
+  rif_log_clear();
   // rtc6_rif_wrapper.cpp RTC(): send_recv({0x12345678}) with header seqnum 0, then
   // seqnum = answ.payload.buffer[0] + 1. Must succeed before any other command (do not guess seq=1).
   {
     constexpr std::uint32_t kSyncHdrSeq = 0u;
+    rif_log_push_line(kSyncHdrSeq, {rif::kRifSeqSyncPayload});
     std::vector<std::uint8_t> sync_pkt =
         rif::build_command_telegram(kSyncHdrSeq, format_, {rif::kRifSeqSyncPayload});
     std::vector<std::uint8_t> raw_sync;

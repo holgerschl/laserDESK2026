@@ -1,4 +1,5 @@
 #include "rtc/rif/byte_order.hpp"
+#include "rtc/rif/command_log_format.hpp"
 #include "rtc/rif/get_status_bits.hpp"
 #include "rtc/rif/telegram_raw.hpp"
 
@@ -123,4 +124,10 @@ TEST(TelegramRaw, ParseSeqSyncAnswerMatchesWrapper) {
   std::uint32_t last = 0;
   ASSERT_TRUE(try_parse_seq_sync_answer(a, last));
   EXPECT_EQ(last, 5000u);
+}
+
+TEST(TelegramRaw, FormatRifCommandLogLine) {
+  const std::string s = laserdesk::rtc::rif::format_rif_command_log_line(7u, {31u});
+  EXPECT_NE(s.find("seq=7"), std::string::npos);
+  EXPECT_NE(s.find("R_DC_GET_STATUS"), std::string::npos);
 }

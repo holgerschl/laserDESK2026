@@ -44,6 +44,7 @@ add_library(laserdesk_rtc_core STATIC
   src/rtc/mock_rtc_client.cpp
   src/rtc/ethernet_rtc_client.cpp
   src/rtc/rtc_discover.cpp
+  src/rtc/rif/command_log_format.cpp
   src/rtc/rif/telegram_raw.cpp
   src/rtc/rif/udp_channel.cpp
   src/http/api_router.cpp

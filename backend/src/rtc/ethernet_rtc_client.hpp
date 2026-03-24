@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -29,6 +30,9 @@ class EthernetRtcClient final : public IRtcClient {
   std::optional<RtcError> load_correction_file(const std::vector<std::uint8_t>& file_bytes,
                                                const CorrectionFileLoadParams& params) override;
 
+  std::vector<std::string> snapshot_rif_command_log() const override;
+  std::string rif_session_mode_label() const override { return "ethernet"; }
+
  private:
   enum class State { Disconnected, ConnectedIdle, Loaded, Running, Error };
 
@@ -37,6 +41,9 @@ class EthernetRtcClient final : public IRtcClient {
 
   std::optional<RtcError> send_remote_control(const std::vector<std::uint32_t>& words,
                                               rif::ParsedAnswer& out) const;
+
+  void rif_log_push_line(std::uint32_t seq, const std::vector<std::uint32_t>& words) const;
+  void rif_log_clear() const;
 
   mutable std::mutex mutex_;
   rif::UdpRifChannel udp_;
@@ -79,6 +86,10 @@ class EthernetRtcClient final : public IRtcClient {
   bool execution_saw_busy_{false};
   double rif_jump_speed_mm_s_{2000.0};
   double rif_mark_speed_mm_s_{250.0};
+
+  static constexpr std::size_t kRifLogMaxLines{500};
+  mutable std::mutex rif_log_mutex_;
+  mutable std::deque<std::string> rif_log_;
 };
 
 }  // namespace laserdesk::rtc

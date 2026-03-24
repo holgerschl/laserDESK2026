@@ -18,6 +18,8 @@ class BackendSession {
 
   nlohmann::json handle_get_health() const;
   nlohmann::json handle_get_rtc_status() const;
+  /// Outbound RIF command log (Ethernet only; mock returns empty `lines`).
+  nlohmann::json handle_get_rtc_rif_log() const;
 
   /// 204 on success; error body + status on failure
   int handle_post_rtc_connect(const nlohmann::json& body, nlohmann::json& err_out);

@@ -34,6 +34,11 @@ class IRtcClient {
   /// Upload `.ct5` / correction blob via Remote Interface (Ethernet); no-op success on mock.
   virtual std::optional<RtcError> load_correction_file(const std::vector<std::uint8_t>& file_bytes,
                                                       const CorrectionFileLoadParams& params) = 0;
+
+  /// Ethernet: recent outbound RIF command lines (mock: empty). Used by `GET /api/v1/rtc/rif_log`.
+  virtual std::vector<std::string> snapshot_rif_command_log() const { return {}; }
+  /// `mock` | `ethernet` — for API metadata without calling `get_status()` (no extra RIF traffic).
+  virtual std::string rif_session_mode_label() const { return "unknown"; }
 };
 
 std::unique_ptr<IRtcClient> make_mock_rtc_client();

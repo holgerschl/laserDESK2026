@@ -60,3 +60,18 @@ TEST(BackendSession, RtcStopIdempotentWhenNotRunning) {
   ASSERT_EQ(s.handle_post_rtc_connect(nlohmann::json{{"mode", "mock"}}, err), 204);
   EXPECT_EQ(s.handle_post_rtc_stop(err), 204);
 }
+
+TEST(BackendSession, RifLogShape) {
+  BackendSession s;
+  nlohmann::json j = s.handle_get_rtc_rif_log();
+  ASSERT_TRUE(j.contains("lines"));
+  EXPECT_TRUE(j["lines"].is_array());
+  EXPECT_TRUE(j.contains("hint"));
+
+  nlohmann::json err;
+  ASSERT_EQ(s.handle_post_rtc_connect(nlohmann::json{{"mode", "mock"}}, err), 204);
+  nlohmann::json j2 = s.handle_get_rtc_rif_log();
+  EXPECT_TRUE(j2.contains("lines"));
+  EXPECT_TRUE(j2.contains("rtc_mode"));
+  EXPECT_EQ(j2["rtc_mode"].get<std::string>(), "mock");
+}

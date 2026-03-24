@@ -20,6 +20,7 @@ class MockRtcClient final : public IRtcClient {
   std::optional<RtcError> stop_execution() override;
   std::optional<RtcError> load_correction_file(const std::vector<std::uint8_t>& file_bytes,
                                                const CorrectionFileLoadParams& params) override;
+  std::string rif_session_mode_label() const override { return "mock"; }
 
  private:
   enum class State {

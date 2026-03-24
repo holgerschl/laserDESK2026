@@ -84,6 +84,20 @@ export async function getRtcStatus(): Promise<RtcStatusJson> {
 	return res.json() as Promise<RtcStatusJson>;
 }
 
+export interface RtcRifLogResponse {
+	lines: string[];
+	rtc_mode?: string | null;
+	line_count?: number;
+	hint?: string;
+}
+
+/** Outbound Remote Interface command log (Ethernet sessions; mock returns empty lines). */
+export async function getRtcRifLog(): Promise<RtcRifLogResponse> {
+	const res = await apiFetch(`${getApiBase()}/rtc/rif_log`);
+	if (!res.ok) throw new Error(await readError(res));
+	return res.json() as Promise<RtcRifLogResponse>;
+}
+
 export async function postRtcConnect(body: Record<string, unknown>): Promise<void> {
 	const res = await apiFetch(`${getApiBase()}/rtc/connect`, {
 		method: 'POST',
