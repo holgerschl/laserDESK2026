@@ -62,8 +62,12 @@ endif()
 add_executable(laserdesk_backend src/main.cpp)
 target_link_libraries(laserdesk_backend PRIVATE laserdesk_rtc_core)
 if(WIN32)
-  # VERSIONINFO + asInvoker manifest: clearer identity for users and some AV heuristics (not a substitute for code signing).
+  # VERSIONINFO on all Windows compilers. RT_MANIFEST only on MinGW: MSVC already embeds a manifest;
+  # embedding the same via .rc causes CVT1100 duplicate MANIFEST at link time.
   target_sources(laserdesk_backend PRIVATE win/laserdesk_backend.rc)
+  if(MINGW)
+    target_sources(laserdesk_backend PRIVATE win/laserdesk_manifest_only.rc)
+  endif()
 endif()
 
 # --- tests ---

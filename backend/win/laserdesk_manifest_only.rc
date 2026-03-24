@@ -1,0 +1,4 @@
+#include <windows.h>
+
+/* MinGW only: MSVC links its own manifest; embedding RT_MANIFEST there causes CVT1100 duplicate. */
+1 RT_MANIFEST "laserdesk_backend.manifest"

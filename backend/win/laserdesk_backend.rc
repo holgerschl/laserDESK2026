@@ -1,7 +1,7 @@
 #include <windows.h>
 
-/* Embedded UAC manifest: run as normal user (asInvoker). */
-1 RT_MANIFEST "laserdesk_backend.manifest"
+/* VERSIONINFO for all Windows toolchains. UAC manifest: MSVC = default linker manifest;
+   MinGW: see laserdesk_manifest_only.rc (avoids duplicate MANIFEST with MSVC). */
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION 0, 1, 0, 0
