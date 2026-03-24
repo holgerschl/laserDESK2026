@@ -19,6 +19,11 @@ docs/telegrams.h
 docs/rtc6_rif_wrapper.cpp
 docs/rtc6_rif_wrapper.h
 
+# Repo root: same local copies / correction tables (keep out of git)
+/telegrams.h
+/rtc6_rif_wrapper.cpp
+/*.ct5
+
 # OS / editor
 .DS_Store
 Thumbs.db
