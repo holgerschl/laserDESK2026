@@ -48,6 +48,33 @@ bool build_dxf_rif_list_upload_sequence(const RtcJobPlan& plan, const DxfRifList
     return false;
   }
 
+  if (params.list_jump_speed_bits_per_ms.has_value() != params.list_mark_speed_bits_per_ms.has_value()) {
+    error = "list_jump_speed_bits_per_ms and list_mark_speed_bits_per_ms must both be set or both unset";
+    return false;
+  }
+  if (params.list_jump_speed_bits_per_ms.has_value()) {
+    const double jb = *params.list_jump_speed_bits_per_ms;
+    const double mb = *params.list_mark_speed_bits_per_ms;
+    if (jb <= 0.0 || mb <= 0.0 || !std::isfinite(jb) || !std::isfinite(mb)) {
+      error = "list speed bits/ms values must be finite and > 0";
+      return false;
+    }
+    {
+      std::vector<std::uint32_t> js;
+      js.reserve(3u);
+      js.push_back(rif::kLcSetJumpSpeed);
+      append_double_le(js, jb);
+      out.push_back(std::move(js));
+    }
+    {
+      std::vector<std::uint32_t> ms;
+      ms.reserve(3u);
+      ms.push_back(rif::kLcSetMarkSpeed);
+      append_double_le(ms, mb);
+      out.push_back(std::move(ms));
+    }
+  }
+
   // Some firmware treats 0 as a degenerate mark; use a small positive dwell (seconds, SCANLAB list semantics).
   constexpr double kMarkTime = 1.0e-4;
 

@@ -425,6 +425,14 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
   }
   job::DxfRifListMapParams mp;
   mp.bits_per_mm = dxf_rif_bits_per_mm_;
+  double k_xy = dxf_rif_bits_per_mm_;
+  if (!(k_xy > 0.0) || !std::isfinite(k_xy)) k_xy = connect_default_bits_per_mm_;
+  const double jump_mm = pending_job_jump_mm.value_or(rif_jump_speed_mm_s_);
+  const double mark_mm = pending_job_mark_mm.value_or(rif_mark_speed_mm_s_);
+  if (jump_mm > 0.0 && mark_mm > 0.0 && std::isfinite(jump_mm) && std::isfinite(mark_mm) && k_xy > 0.0) {
+    mp.list_jump_speed_bits_per_ms = (jump_mm / 1000.0) * k_xy;
+    mp.list_mark_speed_bits_per_ms = (mark_mm / 1000.0) * k_xy;
+  }
   std::vector<std::vector<std::uint32_t>> seq;
   if (!job::build_dxf_rif_list_upload_sequence(plan, mp, seq, perr)) {
     return err("RTC_INTERNAL", perr);

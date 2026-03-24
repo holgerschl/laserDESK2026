@@ -13,6 +13,8 @@ using laserdesk::rtc::job::parse_rtc_job_plan_from_dxf_json;
 using laserdesk::rtc::rif::kLcEndOfList;
 using laserdesk::rtc::rif::kLcJumpXyAbs;
 using laserdesk::rtc::rif::kLcMarkXyztAbs;
+using laserdesk::rtc::rif::kLcSetJumpSpeed;
+using laserdesk::rtc::rif::kLcSetMarkSpeed;
 
 TEST(DxfRifListMapper, ParsePlanFromJson) {
   const nlohmann::json job = nlohmann::json::parse(R"json({
@@ -72,6 +74,25 @@ TEST(DxfRifListMapper, MarkZScaledWhenNonFlat) {
   ASSERT_EQ(seq[1].size(), 6u);
   EXPECT_EQ(seq[1][0], kLcMarkXyztAbs);
   EXPECT_EQ(static_cast<std::int32_t>(seq[1][3]), 200);
+}
+
+TEST(DxfRifListMapper, PrependsListSpeedWhenBitsPerMsSet) {
+  RtcJobPlan plan;
+  plan.lines.push_back(RtcLineSegment{0, 0, 0, 1, 0, 0, 0, "0"});
+  DxfRifListMapParams p;
+  p.bits_per_mm = 128.0;
+  p.list_jump_speed_bits_per_ms = 256.0;
+  p.list_mark_speed_bits_per_ms = 32.0;
+  p.append_end_of_list = true;
+  std::vector<std::vector<std::uint32_t>> seq;
+  std::string err;
+  ASSERT_TRUE(build_dxf_rif_list_upload_sequence(plan, p, seq, err)) << err;
+  ASSERT_EQ(seq.size(), 5u);
+  EXPECT_EQ(seq[0][0], kLcSetJumpSpeed);
+  EXPECT_EQ(seq[1][0], kLcSetMarkSpeed);
+  EXPECT_EQ(seq[2][0], kLcJumpXyAbs);
+  EXPECT_EQ(seq[3][0], kLcMarkXyztAbs);
+  EXPECT_EQ(seq[4][0], kLcEndOfList);
 }
 
 TEST(DxfRifListMapper, CoordinatesScaledInJump) {
