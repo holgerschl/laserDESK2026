@@ -45,13 +45,9 @@ test.describe('Scene editor Phase H', () => {
 		await page.getByTestId('editor-start').click();
 		await runWait;
 
-		await expect(page.getByTestId('editor-rtc-state')).toContainText('running');
-
-		const stopWait = page.waitForResponse(
-			(r) => r.url().includes('/api/v1/jobs/dxf/') && r.url().endsWith('/stop') && r.status() === 204
-		);
-		await page.getByTestId('editor-stop').click();
-		await stopWait;
+		// Mock RTC simulates immediate end-of-list: back to loaded (Start on, Stop off).
 		await expect(page.getByTestId('editor-rtc-state')).toContainText('loaded');
+		await expect(page.getByTestId('editor-start')).toBeEnabled();
+		await expect(page.getByTestId('editor-stop')).toBeDisabled();
 	});
 });

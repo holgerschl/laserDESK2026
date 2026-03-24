@@ -12,7 +12,7 @@ This document plans the **next engineering step** after the Phase G **scope + de
 
 - Load DXF (upload + bundled demo path), parse to a **stable internal job model** (ordered segments / polylines + metadata).
 - **Display** geometry in the browser (2D canvas or SVG) and show an **entity / job item** list tied to the same model.
-- **Mock RTC** accepts the job, transitions **loaded → running → idle** with deterministic behaviour; **Ethernet** path receives the same logical commands when list download is implemented.
+- **Mock RTC** accepts the job; **start** returns to **loaded** immediately (simulated end-of-list). **Ethernet** uses **loaded → running** until stop or board idle; same logical load/start/stop API.
 - **Tests:** unit tests on parser + mapper; Playwright slice for “load demo → list visible → run”.
 
 **Non-goals (remain out of scope)**
@@ -63,7 +63,7 @@ Start minimal: **N lines** → **N mark segments** in user units; document scale
 ### G.3 – Mock RTC integration (**B-09** first slice)
 
 - Extend **`IRtcClient`** (or session layer): **load** parsed job → state **loaded**; **start** iterates segments (or simulates duration); **stop** unchanged.
-- Unit tests: parse demo → load → start → status **running** then **loaded**/idle per mock rules.
+- Unit tests: parse demo → load → start → mock status returns to **loaded** immediately (simulated end-of-list); **Stop** is only for Ethernet / future timed mock runs.
 
 ### G.4 – RTC mapper (**B-08**) — **implemented (repo)**
 

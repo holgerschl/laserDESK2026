@@ -47,6 +47,16 @@ ctest -C Release --test-dir backend/build --output-on-failure
 
 Environment: `LASERDESK_PORT` if `--port` omitted.
 
+### Windows Defender / SmartScreen (false “Trojan” warnings)
+
+Unsigned executables that open **TCP** (HTTP) and **UDP** (RTC) are often flagged heuristically. **Renaming or “changing the signature” of the binary is not a reliable or appropriate fix** and does not replace proper trust.
+
+What actually helps:
+
+1. **Authenticode code signing** — sign `laserdesk_backend.exe` with a valid code-signing certificate (commercial or OSS CI options). This is what Microsoft expects for distributed binaries.
+2. **False-positive report** — submit the file to Microsoft as a false positive (Defender / “Submit a file”) so the cloud rules can be updated for this build hash.
+3. **Embedded metadata** — the Windows build includes a **VERSIONINFO** resource and an **application manifest** (`asInvoker`) under `backend/win/` so the file identifies itself as the laserDESK backend (may reduce some generic detections; not guaranteed).
+
 **CORS (hosted UI on GitHub Pages):** if the browser loads the app from another origin (e.g. `https://holgerschl.github.io`) and the API runs on `localhost`, set:
 
 `LASERDESK_CORS_ORIGIN=https://holgerschl.github.io`

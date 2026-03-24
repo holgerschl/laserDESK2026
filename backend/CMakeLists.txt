@@ -61,6 +61,10 @@ endif()
 
 add_executable(laserdesk_backend src/main.cpp)
 target_link_libraries(laserdesk_backend PRIVATE laserdesk_rtc_core)
+if(WIN32)
+  # VERSIONINFO + asInvoker manifest: clearer identity for users and some AV heuristics (not a substitute for code signing).
+  target_sources(laserdesk_backend PRIVATE win/laserdesk_backend.rc)
+endif()
 
 # --- tests ---
 enable_testing()

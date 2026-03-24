@@ -135,7 +135,9 @@ std::optional<RtcError> MockRtcClient::start_execution() {
   if (state_ != State::Loaded) {
     return err("RTC_NOT_READY", "Load a job before start");
   }
-  state_ = State::Running;
+  // Real hardware runs the list asynchronously; when execution finishes, status is
+  // again "loaded" with the job still in memory. Mock simulates immediate end-of-list.
+  state_ = State::Loaded;
   return std::nullopt;
 }
 

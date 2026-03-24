@@ -1,0 +1,33 @@
+#include <windows.h>
+
+/* Embedded UAC manifest: run as normal user (asInvoker). */
+1 RT_MANIFEST "laserdesk_backend.manifest"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION 0, 1, 0, 0
+PRODUCTVERSION 0, 1, 0, 0
+FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+FILEFLAGS 0x0L
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "040904B0"
+		BEGIN
+			VALUE "CompanyName", "laserDESK 2026 (open-source project)"
+			VALUE "FileDescription", "laserDESK 2026 backend - REST API and RTC6 Ethernet bridge"
+			VALUE "FileVersion", "0.1.0.0"
+			VALUE "InternalName", "laserdesk_backend"
+			VALUE "LegalCopyright", "See LICENSE in repository"
+			VALUE "OriginalFilename", "laserdesk_backend.exe"
+			VALUE "ProductName", "laserDESK 2026 Backend"
+			VALUE "ProductVersion", "0.1.0.0"
+		END
+	END
+	BLOCK "VarFileInfo"
+	BEGIN
+		VALUE "Translation", 0x409, 1200
+	END
+END

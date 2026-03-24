@@ -59,15 +59,9 @@ test.describe('DXF Phase G demo', () => {
 		await page.getByTestId('dxf-start').click();
 		await runWait;
 
-		await expect(page.getByTestId('dxf-rtc-state')).toContainText('running');
-
-		await expect(page.getByTestId('dxf-stop')).toBeEnabled({ timeout: 15_000 });
-
-		const stopWait = page.waitForResponse(
-			(r) => r.url().includes('/api/v1/jobs/dxf/') && r.url().endsWith('/stop') && r.status() === 204
-		);
-		await page.getByTestId('dxf-stop').click();
-		await stopWait;
+		// Mock RTC: list finishes immediately → loaded (Start enabled, Stop disabled).
 		await expect(page.getByTestId('dxf-rtc-state')).toContainText('loaded');
+		await expect(page.getByTestId('dxf-start')).toBeEnabled();
+		await expect(page.getByTestId('dxf-stop')).toBeDisabled();
 	});
 });
