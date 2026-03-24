@@ -55,6 +55,14 @@ bool try_decode_double_return(const rif::ParsedAnswer& a, double& out) {
   return true;
 }
 
+/// Wrapper `DOUBLE_PARA` / little-endian `memcpy` of IEEE-754 double into two payload words after the command ID.
+void push_double_words(std::vector<std::uint32_t>& words, double v) {
+  std::uint32_t pair[2];
+  std::memcpy(pair, &v, sizeof(v));
+  words.push_back(pair[0]);
+  words.push_back(pair[1]);
+}
+
 std::optional<RtcError> with_correction_stage(const std::string& step, std::optional<RtcError> e) {
   if (!e) return std::nullopt;
   return RtcError{e->code, std::string("[correction ") + step + "] " + e->message};
@@ -150,6 +158,8 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
   rif_config_list_mem1_ = cfg.rif_config_list_mem1;
   rif_config_list_mem2_ = cfg.rif_config_list_mem2;
   rif_execute_list_no_ = cfg.rif_execute_list_no.has_value() ? *cfg.rif_execute_list_no : cfg.rif_config_list_mem1;
+  rif_jump_speed_m_s_ = std::isfinite(cfg.rif_jump_speed_m_s) ? cfg.rif_jump_speed_m_s : 10.0;
+  rif_mark_speed_m_s_ = std::isfinite(cfg.rif_mark_speed_m_s) ? cfg.rif_mark_speed_m_s : 5.0;
   rif_metric_udp_timeouts_ = 0;
   rif_metric_spurious_datagrams_ = 0;
   rif_last_connect_status_retries_ = 0;
@@ -231,6 +241,7 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
   dxf_source_name_.reset();
   dxf_list_execute_start_pos_.reset();
   execution_repeat_count_ = 1u;
+  execution_saw_busy_ = false;
   return std::nullopt;
 }
 
@@ -252,6 +263,8 @@ void EthernetRtcClient::disconnect() {
   rif_metric_udp_timeouts_ = 0;
   rif_metric_spurious_datagrams_ = 0;
   rif_last_connect_status_retries_ = 0;
+  execution_repeat_count_ = 1u;
+  execution_saw_busy_ = false;
 }
 
 std::variant<RtcStatus, RtcError> EthernetRtcClient::get_status() {
@@ -272,15 +285,17 @@ std::variant<RtcStatus, RtcError> EthernetRtcClient::get_status() {
     s.last_error = *e;
     return s;
   }
-  // RTC6 manual Ch. 10 `get_status`: when list execution status bits are all clear, marking/list
-  // output is idle. Only auto-clear `Running` for single-shot starts (`repeat_count` 1). For higher
-  // API repeat values we cannot infer “all repeats done” from idle samples alone (`R_DC_SET_MAX_COUNT`
-  // is External Starts per Ch.10, not confirmed as list body repeats) — user must Stop or we’d flip
-  // to Loaded between repeats / when the list never actually ran.
-  if (state_ == State::Running && execution_repeat_count_ == 1u && ans.pl_words.size() >= 3u) {
+  // Ch.10 `get_status`: list-execution **busy** bits show the card is driving the list. Idle (mask clear)
+  // alone is insufficient right after `execute` — we often poll before BUSY is set → instant `loaded`.
+  // Require **saw busy** for this start, then idle, for any `repeat_count` (multi-repeat may still show
+  // idle between passes; Stop remains available if the UI flips early).
+  if (state_ == State::Running && ans.pl_words.size() >= 3u) {
     const std::uint32_t st = ans.pl_words[2];
-    if ((st & rif::kRdcGetStatusListExecutionBusyMask) == 0u) {
+    if ((st & rif::kRdcGetStatusListExecutionBusyMask) != 0u) execution_saw_busy_ = true;
+    if (execution_saw_busy_ && (st & rif::kRdcGetStatusListExecutionBusyMask) == 0u) {
       state_ = State::Loaded;
+      execution_repeat_count_ = 1u;
+      execution_saw_busy_ = false;
     }
   }
   return build_status(&ans);
@@ -311,6 +326,7 @@ std::variant<std::string, RtcError> EthernetRtcClient::load_minimal_job(const st
   dxf_line_count_.reset();
   dxf_source_name_.reset();
   dxf_list_execute_start_pos_.reset();
+  execution_saw_busy_ = false;
   state_ = State::Loaded;
   return last_job_id_;
 }
@@ -409,6 +425,7 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
   last_job_id_.clear();
   dxf_list_execute_start_pos_ = list_exec_pos;
   execution_repeat_count_ = 1u;
+  execution_saw_busy_ = false;
   state_ = State::Loaded;
   return std::nullopt;
 }
@@ -427,7 +444,19 @@ std::optional<RtcError> EthernetRtcClient::start_execution(std::uint32_t repeat_
   std::uint32_t counts = repeat_count == 0u ? 1u : repeat_count;
   if (counts > 1'000'000u) counts = 1'000'000u;
 
+  execution_saw_busy_ = false;
+
   rif::ParsedAnswer ans;
+  auto send_speed_if_positive = [&](std::uint32_t cmd, double m_s) -> std::optional<RtcError> {
+    if (!(m_s > 0.0) || !std::isfinite(m_s)) return std::nullopt;
+    std::vector<std::uint32_t> words = {cmd};
+    push_double_words(words, m_s);
+    if (auto e = send_remote_control(words, ans)) return e;
+    return check_answer(ans, cmd, 2u, format_);
+  };
+  if (auto e = send_speed_if_positive(rif::kRdcSetJumpSpeed, rif_jump_speed_m_s_)) return e;
+  if (auto e = send_speed_if_positive(rif::kRdcSetMarkSpeed, rif_mark_speed_m_s_)) return e;
+
   if (auto e = send_remote_control({rif::kRdcSetMaxCount, counts}, ans)) {
     return e;
   }
@@ -464,6 +493,7 @@ std::optional<RtcError> EthernetRtcClient::stop_execution() {
     return e;
   }
   execution_repeat_count_ = 1u;
+  execution_saw_busy_ = false;
   state_ = State::Loaded;
   return std::nullopt;
 }

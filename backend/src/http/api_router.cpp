@@ -160,6 +160,10 @@ int BackendSession::handle_post_rtc_connect(const nlohmann::json& body, nlohmann
       cfg.rif_config_list_mem2 = body["rif_config_list_mem2"].get<std::uint32_t>();
     if (body.contains("rif_execute_list_no") && body["rif_execute_list_no"].is_number_unsigned())
       cfg.rif_execute_list_no = body["rif_execute_list_no"].get<std::uint32_t>();
+    if (body.contains("rif_jump_speed_m_s") && body["rif_jump_speed_m_s"].is_number())
+      cfg.rif_jump_speed_m_s = body["rif_jump_speed_m_s"].get<double>();
+    if (body.contains("rif_mark_speed_m_s") && body["rif_mark_speed_m_s"].is_number())
+      cfg.rif_mark_speed_m_s = body["rif_mark_speed_m_s"].get<double>();
     if (auto e = rtc_->connect(cfg)) {
       err_out = error_json(*e);
       rtc_.reset();
