@@ -296,17 +296,23 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
   }
   const auto n = job_document["line_count"].get<std::size_t>();
   if (n == 0) return err("DXF_PARSE_ERROR", "DXF job line_count is zero");
+  if (!dxf_rif_list_upload_) {
+    return err(
+        "RTC_INTERNAL",
+        "Ethernet DXF load requires dxf_rif_list_upload so R_DC_CONFIG_LIST + R_LC_JUMP_XY_ABS / "
+        "R_LC_MARK_XYZT_ABS / R_LC_END_OF_LIST are sent (list memory is otherwise empty; "
+        "R_DC_EXECUTE_LIST_POS would run nothing). Reconnect with POST /rtc/connect default or "
+        "explicit \"dxf_rif_list_upload\": true.");
+  }
 
   rif::ParsedAnswer ans;
 
-  if (dxf_rif_list_upload_) {
-    if (auto e = send_remote_control(
-            {rif::kRdcConfigList, rif_config_list_mem1_, rif_config_list_mem2_}, ans)) {
-      return e;
-    }
-    if (auto e = check_answer(ans, rif::kRdcConfigList, 2u, format_)) {
-      return e;
-    }
+  if (auto e = send_remote_control(
+          {rif::kRdcConfigList, rif_config_list_mem1_, rif_config_list_mem2_}, ans)) {
+    return e;
+  }
+  if (auto e = check_answer(ans, rif::kRdcConfigList, 2u, format_)) {
+    return e;
   }
 
   if (auto e = send_remote_control({rif::kRdcGetInputPointer}, ans)) {
@@ -316,28 +322,26 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
     return e;
   }
 
-  if (dxf_rif_list_upload_) {
-    job::RtcJobPlan plan;
-    std::string perr;
-    if (!job::parse_rtc_job_plan_from_dxf_json(job_document, plan, perr)) {
-      return err("DXF_PARSE_ERROR", perr);
+  job::RtcJobPlan plan;
+  std::string perr;
+  if (!job::parse_rtc_job_plan_from_dxf_json(job_document, plan, perr)) {
+    return err("DXF_PARSE_ERROR", perr);
+  }
+  job::DxfRifListMapParams mp;
+  mp.bits_per_mm = dxf_rif_bits_per_mm_;
+  std::vector<std::vector<std::uint32_t>> seq;
+  if (!job::build_dxf_rif_list_upload_sequence(plan, mp, seq, perr)) {
+    return err("RTC_INTERNAL", perr);
+  }
+  for (const auto& words : seq) {
+    if (words.empty()) {
+      return err("RTC_INTERNAL", "empty RIF list command");
     }
-    job::DxfRifListMapParams mp;
-    mp.bits_per_mm = dxf_rif_bits_per_mm_;
-    std::vector<std::vector<std::uint32_t>> seq;
-    if (!job::build_dxf_rif_list_upload_sequence(plan, mp, seq, perr)) {
-      return err("RTC_INTERNAL", perr);
+    if (auto e = send_remote_control(words, ans)) {
+      return e;
     }
-    for (const auto& words : seq) {
-      if (words.empty()) {
-        return err("RTC_INTERNAL", "empty RIF list command");
-      }
-      if (auto e = send_remote_control(words, ans)) {
-        return e;
-      }
-      if (auto e = check_answer(ans, words[0], 2u, format_)) {
-        return e;
-      }
+    if (auto e = check_answer(ans, words[0], 2u, format_)) {
+      return e;
     }
   }
 

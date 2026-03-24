@@ -97,14 +97,14 @@ What actually helps:
   "rif_retry_delay_ms": 50,
   "expected_package_tag": "1.22.0",
   "expected_bios_eth_tag": "from-lab-notes",
-  "dxf_rif_list_upload": false,
+  "dxf_rif_list_upload": true,
   "dxf_rif_bits_per_mm": 128,
   "rif_config_list_mem1": 1,
   "rif_config_list_mem2": 2
 }
 ```
 
-- **`dxf_rif_list_upload`**: optional, default **false**. If **true**, load sends **`R_DC_CONFIG_LIST`** (1), **`R_DC_GET_INPUT_POINTER`** (4), then one UDP telegram per list command: **`R_LC_JUMP_XY_ABS`** / **`R_LC_MARK_XYZT_ABS`** per DXF LINE and **`R_LC_END_OF_LIST`** (IDs from SCANLAB package `telegrams.h`, mirrored in `src/rtc/rif/remote_list_commands.hpp`).
+- **`dxf_rif_list_upload`**: optional on **`POST /rtc/connect`** with **`mode: ethernet`**. Default **`true`** so DXF / scene jobs stream **`R_DC_CONFIG_LIST`** (1), **`R_DC_GET_INPUT_POINTER`** (4), then one UDP telegram per list command: **`R_LC_JUMP_XY_ABS`** / **`R_LC_MARK_XYZT_ABS`** per segment and **`R_LC_END_OF_LIST`**. Set **`false`** only for debugging ( **`load_dxf_job`** then fails fast on Ethernet with an empty list).
 - **`dxf_rif_bits_per_mm`**: default scale **mm → scanner bits** for G.4 list upload (`src/rtc/job/dxf_rif_list_mapper.cpp`). On **Ethernet**, after a successful **`POST /api/v1/rtc/correction/load`**, the backend reads **K xy [bit/mm]** from the assigned correction table via **`R_DC_GET_HEAD_PARA`** (ParaNo **1**, manual Ch. 10 p. 465) and **replaces** this internal scale until disconnect. If **K ≤ 0** (e.g. **Cor_1to1.ct5**), the query fails, or **Mock** RTC is used, the connect-time value (default **128**) remains in effect.
 - **`rif_config_list_mem1` / `rif_config_list_mem2`**: passed to **`R_DC_CONFIG_LIST`** (same as SCANLAB RIF `config_list`).
 

@@ -43,7 +43,8 @@ struct RtcConnectConfig {
   std::string expected_bios_eth_tag;
 
   /// Phase G.4: after `R_DC_CONFIG_LIST` + `R_DC_GET_INPUT_POINTER`, stream `R_LC_*` list commands
-  /// (see package `telegrams.h` / `rif/remote_list_commands.hpp`). **Off by default** for safe defaults.
+  /// (see package `telegrams.h` / `rif/remote_list_commands.hpp`). REST `POST /rtc/connect` with
+  /// `mode: ethernet` sets this **true** unless the body sets `dxf_rif_list_upload: false`.
   bool dxf_rif_list_upload{false};
   /// Scales DXF coordinates to scanner units (see `dxf_rif_list_mapper.cpp`).
   double dxf_rif_bits_per_mm{128.0};

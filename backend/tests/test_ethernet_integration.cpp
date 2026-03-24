@@ -25,6 +25,7 @@ TEST(EthernetRtcIntegration, ConnectAndGetStatus) {
   cfg.port = port;
   cfg.tgm_format = 1;
   cfg.recv_timeout_ms = 2000;
+  cfg.dxf_rif_list_upload = true;
   ASSERT_FALSE(rtc.connect(cfg).has_value());
 
   auto st = rtc.get_status();

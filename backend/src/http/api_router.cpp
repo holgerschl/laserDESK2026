@@ -129,6 +129,9 @@ int BackendSession::handle_post_rtc_connect(const nlohmann::json& body, nlohmann
     cfg.mode = rtc::RtcConnectConfig::Mode::Ethernet;
     cfg.host = std::move(host);
     cfg.port = port;
+    // Real boards need R_LC_* telegrams in list memory before R_DC_EXECUTE_LIST_POS; was easy to miss
+    // when this defaulted false and only GET_INPUT_POINTER ran (empty list).
+    cfg.dxf_rif_list_upload = true;
     if (body.contains("tgm_format") && body["tgm_format"].is_number_unsigned())
       cfg.tgm_format = body["tgm_format"].get<std::uint32_t>();
     if (body.contains("recv_timeout_ms") && body["recv_timeout_ms"].is_number_integer())
@@ -145,8 +148,9 @@ int BackendSession::handle_post_rtc_connect(const nlohmann::json& body, nlohmann
       cfg.expected_package_tag = body["expected_package_tag"].get<std::string>();
     if (body.contains("expected_bios_eth_tag") && body["expected_bios_eth_tag"].is_string())
       cfg.expected_bios_eth_tag = body["expected_bios_eth_tag"].get<std::string>();
-    if (body.contains("dxf_rif_list_upload") && body["dxf_rif_list_upload"].is_boolean())
+    if (body.contains("dxf_rif_list_upload") && body["dxf_rif_list_upload"].is_boolean()) {
       cfg.dxf_rif_list_upload = body["dxf_rif_list_upload"].get<bool>();
+    }
     if (body.contains("dxf_rif_bits_per_mm") && body["dxf_rif_bits_per_mm"].is_number())
       cfg.dxf_rif_bits_per_mm = body["dxf_rif_bits_per_mm"].get<double>();
     if (body.contains("rif_config_list_mem1") && body["rif_config_list_mem1"].is_number_unsigned())
