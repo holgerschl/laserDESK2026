@@ -51,8 +51,27 @@ TEST(DxfRifListMapper, OneLineJumpMarkEndOfList) {
   EXPECT_EQ(seq[0][0], kLcJumpXyAbs);
   ASSERT_EQ(seq[1].size(), 6u);
   EXPECT_EQ(seq[1][0], kLcMarkXyztAbs);
+  // 2D job (z0=z1=0): Z must be NO_Z_MOVE (0x7FFFFFFF), not 0 — see SCANLAB rtc6_rif_wrapper.cpp
+  EXPECT_EQ(static_cast<std::int32_t>(seq[1][3]), static_cast<std::int32_t>(0x7FFFFFFF));
   ASSERT_EQ(seq[2].size(), 1u);
   EXPECT_EQ(seq[2][0], kLcEndOfList);
+}
+
+TEST(DxfRifListMapper, MarkZScaledWhenNonFlat) {
+  RtcJobPlan plan;
+  plan.lines.push_back(RtcLineSegment{0, 0, 1.0, 0, 0, 2.0, 0, "0"});
+
+  DxfRifListMapParams p;
+  p.bits_per_mm = 100.0;
+  p.append_end_of_list = false;
+
+  std::vector<std::vector<std::uint32_t>> seq;
+  std::string err;
+  ASSERT_TRUE(build_dxf_rif_list_upload_sequence(plan, p, seq, err)) << err;
+  ASSERT_GE(seq.size(), 2u);
+  ASSERT_EQ(seq[1].size(), 6u);
+  EXPECT_EQ(seq[1][0], kLcMarkXyztAbs);
+  EXPECT_EQ(static_cast<std::int32_t>(seq[1][3]), 200);
 }
 
 TEST(DxfRifListMapper, CoordinatesScaledInJump) {

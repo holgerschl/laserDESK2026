@@ -9,6 +9,9 @@ namespace laserdesk::rtc::job {
 
 namespace {
 
+/// SCANLAB `rtc6_rif_wrapper.cpp`: `NO_Z_MOVE` for `R_LC_MARK_XYZT_ABS` when Z is unused (2D).
+constexpr std::int32_t kScanZNoMove = static_cast<std::int32_t>(0x7FFFFFFF);
+
 bool to_scan_bits(double mm, double bits_per_mm, std::int32_t& out, std::string& error) {
   const long long q = llround(mm * bits_per_mm);
   if (q < -524288LL || q > 524287LL) {
@@ -54,7 +57,11 @@ bool build_dxf_rif_list_upload_sequence(const RtcJobPlan& plan, const DxfRifList
     if (!to_scan_bits(ln.y0, params.bits_per_mm, y0, error)) return false;
     if (!to_scan_bits(ln.x1, params.bits_per_mm, x1, error)) return false;
     if (!to_scan_bits(ln.y1, params.bits_per_mm, y1, error)) return false;
-    if (!to_scan_bits(ln.z1, params.bits_per_mm, z1, error)) return false;
+    if (ln.z0 == 0.0 && ln.z1 == 0.0) {
+      z1 = kScanZNoMove;
+    } else {
+      if (!to_scan_bits(ln.z1, params.bits_per_mm, z1, error)) return false;
+    }
 
     {
       std::vector<std::uint32_t> jump;
