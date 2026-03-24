@@ -68,13 +68,17 @@ class EthernetRtcClient final : public IRtcClient {
   std::uint32_t rif_config_list_mem2_{2u};
   /// First argument to `R_DC_EXECUTE_LIST_POS` (see `RtcConnectConfig::rif_execute_list_no`).
   std::uint32_t rif_execute_list_no_{1u};
+  /// From last `load_dxf_job` `"laser"` speeds (**mm/s**); with connect defaults converted to RIF **bits/ms**
+  /// via K (bits/mm) at `start_execution`. Clear on disconnect / minimal load.
+  std::optional<double> loaded_job_jump_speed_mm_s_;
+  std::optional<double> loaded_job_mark_speed_mm_s_;
   /// Last `repeat_count` passed to `start_execution` (API / `R_DC_SET_MAX_COUNT`). See `get_status` idle FSM.
   std::uint32_t execution_repeat_count_{1u};
   /// Set while **Running** when `R_DC_GET_STATUS` lists list-execution **busy** at least once for this start.
   /// Auto-`Loaded` only after `saw_busy` then idle so we never flip on “idle before execution”.
   bool execution_saw_busy_{false};
-  double rif_jump_speed_m_s_{10.0};
-  double rif_mark_speed_m_s_{5.0};
+  double rif_jump_speed_mm_s_{2000.0};
+  double rif_mark_speed_mm_s_{250.0};
 };
 
 }  // namespace laserdesk::rtc

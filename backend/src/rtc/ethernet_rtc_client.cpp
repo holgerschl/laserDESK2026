@@ -158,8 +158,8 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
   rif_config_list_mem1_ = cfg.rif_config_list_mem1;
   rif_config_list_mem2_ = cfg.rif_config_list_mem2;
   rif_execute_list_no_ = cfg.rif_execute_list_no.has_value() ? *cfg.rif_execute_list_no : cfg.rif_config_list_mem1;
-  rif_jump_speed_m_s_ = std::isfinite(cfg.rif_jump_speed_m_s) ? cfg.rif_jump_speed_m_s : 10.0;
-  rif_mark_speed_m_s_ = std::isfinite(cfg.rif_mark_speed_m_s) ? cfg.rif_mark_speed_m_s : 5.0;
+  rif_jump_speed_mm_s_ = std::isfinite(cfg.rif_jump_speed_mm_s) ? cfg.rif_jump_speed_mm_s : 2000.0;
+  rif_mark_speed_mm_s_ = std::isfinite(cfg.rif_mark_speed_mm_s) ? cfg.rif_mark_speed_mm_s : 250.0;
   rif_metric_udp_timeouts_ = 0;
   rif_metric_spurious_datagrams_ = 0;
   rif_last_connect_status_retries_ = 0;
@@ -242,6 +242,8 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
   dxf_list_execute_start_pos_.reset();
   execution_repeat_count_ = 1u;
   execution_saw_busy_ = false;
+  loaded_job_jump_speed_mm_s_.reset();
+  loaded_job_mark_speed_mm_s_.reset();
   return std::nullopt;
 }
 
@@ -265,6 +267,8 @@ void EthernetRtcClient::disconnect() {
   rif_last_connect_status_retries_ = 0;
   execution_repeat_count_ = 1u;
   execution_saw_busy_ = false;
+  loaded_job_jump_speed_mm_s_.reset();
+  loaded_job_mark_speed_mm_s_.reset();
 }
 
 std::variant<RtcStatus, RtcError> EthernetRtcClient::get_status() {
@@ -327,6 +331,8 @@ std::variant<std::string, RtcError> EthernetRtcClient::load_minimal_job(const st
   dxf_source_name_.reset();
   dxf_list_execute_start_pos_.reset();
   execution_saw_busy_ = false;
+  loaded_job_jump_speed_mm_s_.reset();
+  loaded_job_mark_speed_mm_s_.reset();
   state_ = State::Loaded;
   return last_job_id_;
 }
@@ -358,6 +364,22 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
         "R_LC_MARK_XYZT_ABS / R_LC_END_OF_LIST are sent (list memory is otherwise empty; "
         "R_DC_EXECUTE_LIST_POS would run nothing). Reconnect with POST /rtc/connect default or "
         "explicit \"dxf_rif_list_upload\": true.");
+  }
+
+  loaded_job_jump_speed_mm_s_.reset();
+  loaded_job_mark_speed_mm_s_.reset();
+  std::optional<double> pending_job_jump_mm;
+  std::optional<double> pending_job_mark_mm;
+  if (job_document.contains("laser") && job_document["laser"].is_object()) {
+    const auto& L = job_document["laser"];
+    if (L.contains("jump_speed_mm_s") && L["jump_speed_mm_s"].is_number()) {
+      const double v = L["jump_speed_mm_s"].get<double>();
+      if (std::isfinite(v) && v > 0.0) pending_job_jump_mm = v;
+    }
+    if (L.contains("mark_speed_mm_s") && L["mark_speed_mm_s"].is_number()) {
+      const double v = L["mark_speed_mm_s"].get<double>();
+      if (std::isfinite(v) && v > 0.0) pending_job_mark_mm = v;
+    }
   }
 
   dxf_list_execute_start_pos_.reset();
@@ -426,6 +448,8 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
   dxf_list_execute_start_pos_ = list_exec_pos;
   execution_repeat_count_ = 1u;
   execution_saw_busy_ = false;
+  loaded_job_jump_speed_mm_s_ = std::move(pending_job_jump_mm);
+  loaded_job_mark_speed_mm_s_ = std::move(pending_job_mark_mm);
   state_ = State::Loaded;
   return std::nullopt;
 }
@@ -447,15 +471,24 @@ std::optional<RtcError> EthernetRtcClient::start_execution(std::uint32_t repeat_
   execution_saw_busy_ = false;
 
   rif::ParsedAnswer ans;
-  auto send_speed_if_positive = [&](std::uint32_t cmd, double m_s) -> std::optional<RtcError> {
-    if (!(m_s > 0.0) || !std::isfinite(m_s)) return std::nullopt;
+  auto send_speed_bits_ms = [&](std::uint32_t cmd, double bits_per_ms) -> std::optional<RtcError> {
+    if (!(bits_per_ms > 0.0) || !std::isfinite(bits_per_ms)) return std::nullopt;
     std::vector<std::uint32_t> words = {cmd};
-    push_double_words(words, m_s);
+    push_double_words(words, bits_per_ms);
     if (auto e = send_remote_control(words, ans)) return e;
     return check_answer(ans, cmd, 2u, format_);
   };
-  if (auto e = send_speed_if_positive(rif::kRdcSetJumpSpeed, rif_jump_speed_m_s_)) return e;
-  if (auto e = send_speed_if_positive(rif::kRdcSetMarkSpeed, rif_mark_speed_m_s_)) return e;
+  double jump_mm_s = rif_jump_speed_mm_s_;
+  double mark_mm_s = rif_mark_speed_mm_s_;
+  if (loaded_job_jump_speed_mm_s_) jump_mm_s = *loaded_job_jump_speed_mm_s_;
+  if (loaded_job_mark_speed_mm_s_) mark_mm_s = *loaded_job_mark_speed_mm_s_;
+  // Manual: v [m/s] = Speed [bits/ms] / K [bits/mm] ⇒ Speed = (v_mm_s / 1000) × K
+  double k_xy = dxf_rif_bits_per_mm_;
+  if (!(k_xy > 0.0) || !std::isfinite(k_xy)) k_xy = connect_default_bits_per_mm_;
+  const double jump_bits_ms = (jump_mm_s / 1000.0) * k_xy;
+  const double mark_bits_ms = (mark_mm_s / 1000.0) * k_xy;
+  if (auto e = send_speed_bits_ms(rif::kRdcSetJumpSpeed, jump_bits_ms)) return e;
+  if (auto e = send_speed_bits_ms(rif::kRdcSetMarkSpeed, mark_bits_ms)) return e;
 
   if (auto e = send_remote_control({rif::kRdcSetMaxCount, counts}, ans)) {
     return e;

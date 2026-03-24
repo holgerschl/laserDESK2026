@@ -214,6 +214,10 @@ nlohmann::json job_to_json(const std::string& job_id, const ParseResult& pr) {
                                   {"length", len}});
   }
   j["entities"] = std::move(ents);
+  if (pr.job_jump_speed_mm_s.has_value() && pr.job_mark_speed_mm_s.has_value()) {
+    j["laser"] = nlohmann::json{{"jump_speed_mm_s", *pr.job_jump_speed_mm_s},
+                                {"mark_speed_mm_s", *pr.job_mark_speed_mm_s}};
+  }
   return j;
 }
 

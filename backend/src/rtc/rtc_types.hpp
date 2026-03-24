@@ -54,10 +54,11 @@ struct RtcConnectConfig {
   /// First word of `R_DC_EXECUTE_LIST_POS` (15) — which list to run. If unset at REST connect, defaults to
   /// `rif_config_list_mem1` (same list targeted by `config_list` on many setups).
   std::optional<std::uint32_t> rif_execute_list_no;
-  /// Before `R_DC_EXECUTE_LIST_POS`, send `R_DC_SET_JUMP_SPEED` / `R_DC_SET_MARK_SPEED` (double payload,
-  /// wrapper `DOUBLE_PARA`). Use **≤ 0** or non-finite to skip (board defaults). Typical galvo values are a few m/s.
-  double rif_jump_speed_m_s{10.0};
-  double rif_mark_speed_m_s{5.0};
+  /// Desired **image-plane** jump/mark speeds in **mm/s** (scene/job/UI); before execute we convert to the
+  /// RIF ctrl payload **bits/ms** using RTC6 manual v(m/s)=Speed/K ⇒ Speed=v×K with K=**bits/mm** from
+  /// correction (`get_head_para` / `dxf_rif_bits_per_mm`). Defaults match `laserProperties.ts`. **≤ 0** skips.
+  double rif_jump_speed_mm_s{2000.0};
+  double rif_mark_speed_mm_s{250.0};
 };
 
 /// `R_DC_LOAD_CORRECTION_FILE` + `R_DC_SELECT_COR_TABLE` (see `rtc6_rif_wrapper.cpp` / `telegrams.h`).

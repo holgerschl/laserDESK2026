@@ -25,7 +25,7 @@ constexpr std::uint32_t kRdcLoadListPos = 6u;
 /// Remote control ID 11 — maps to DLL `set_max_counts`. RTC6 manual Ch.10 defines this for **External Starts**
 /// (and `get_counts`), not proven here as “repeat this list N times”; see `EthernetRtcClient::start_execution`.
 constexpr std::uint32_t kRdcSetMaxCount = 11u;
-/// Ch.10 control — same IDs as SCANLAB `telegrams.h` / `rtc6_rif_wrapper::set_jump_speed_ctrl`.
+/// Ch.10 control — `set_*_speed_ctrl`; double **Speed** is **bits/ms** (manual: v_jump [m/s] = Speed / K, K [bits/mm]).
 constexpr std::uint32_t kRdcSetJumpSpeed = 71u;
 constexpr std::uint32_t kRdcSetMarkSpeed = 72u;
 constexpr std::uint32_t kRdcExecuteListPos = 15u;

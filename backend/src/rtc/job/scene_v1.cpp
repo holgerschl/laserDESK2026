@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <sstream>
+#include <unordered_map>
 
 namespace laserdesk::rtc::job {
 namespace {
@@ -14,6 +16,59 @@ bool need_num(const nlohmann::json& o, const char* key, std::string& err) {
   }
   return true;
 }
+
+struct LaserSpeeds {
+  double jump_mm_s{};
+  double mark_mm_s{};
+};
+
+LaserSpeeds merge_laser_obj(const nlohmann::json* laser_obj, LaserSpeeds base) {
+  if (!laser_obj || !laser_obj->is_object()) return base;
+  const auto& o = *laser_obj;
+  if (o.contains("jump_speed_mm_s") && o["jump_speed_mm_s"].is_number()) {
+    base.jump_mm_s = o["jump_speed_mm_s"].get<double>();
+  }
+  if (o.contains("mark_speed_mm_s") && o["mark_speed_mm_s"].is_number()) {
+    base.mark_mm_s = o["mark_speed_mm_s"].get<double>();
+  }
+  return base;
+}
+
+struct LaserContext {
+  LaserSpeeds fallback;
+  std::unordered_map<std::string, LaserSpeeds> groups;
+  std::string default_gid;
+
+  LaserSpeeds base_for_entity(const nlohmann::json& ent) const {
+    std::string gid = default_gid;
+    if (ent.contains("laser_group_id") && ent["laser_group_id"].is_string()) {
+      gid = ent["laser_group_id"].get<std::string>();
+    }
+    auto it = groups.find(gid);
+    if (it != groups.end()) return it->second;
+    return fallback;
+  }
+
+  LaserSpeeds effective(const nlohmann::json& ent) const {
+    LaserSpeeds base = base_for_entity(ent);
+    if (ent.contains("laser") && ent["laser"].is_object()) return merge_laser_obj(&ent["laser"], base);
+    return base;
+  }
+};
+
+struct SpeedAcc {
+  bool any{false};
+  double max_jump{0.0};
+  double min_mark{std::numeric_limits<double>::infinity()};
+
+  void add(const LaserSpeeds& s) {
+    const double j = std::clamp(std::max(0.1, s.jump_mm_s), 0.1, 1e6);
+    const double m = std::clamp(std::max(0.1, s.mark_mm_s), 0.1, 1e6);
+    any = true;
+    max_jump = std::max(max_jump, j);
+    min_mark = std::min(min_mark, m);
+  }
+};
 
 }  // namespace
 
@@ -36,6 +91,27 @@ bool scene_v1_to_parse_result(const nlohmann::json& scene, dxf::ParseResult& out
   if (scene.contains("source_name") && scene["source_name"].is_string())
     source = scene["source_name"].get<std::string>();
   out.source_name = source;
+
+  LaserSpeeds root_fallback{2000.0, 250.0};
+  if (scene.contains("laser") && scene["laser"].is_object()) {
+    root_fallback = merge_laser_obj(&scene["laser"], root_fallback);
+  }
+  std::string def_gid = "g0";
+  if (scene.contains("default_laser_group_id") && scene["default_laser_group_id"].is_string()) {
+    def_gid = scene["default_laser_group_id"].get<std::string>();
+  }
+  std::unordered_map<std::string, LaserSpeeds> group_map;
+  if (scene.contains("laser_groups") && scene["laser_groups"].is_array()) {
+    for (const auto& g : scene["laser_groups"]) {
+      if (!g.is_object() || !g.contains("id") || !g["id"].is_string()) continue;
+      const std::string id = g["id"].get<std::string>();
+      LaserSpeeds gs = root_fallback;
+      if (g.contains("laser") && g["laser"].is_object()) gs = merge_laser_obj(&g["laser"], gs);
+      group_map.emplace(id, gs);
+    }
+  }
+  LaserContext laser_ctx{root_fallback, std::move(group_map), def_gid};
+  SpeedAcc speed_acc;
 
   if (!scene.contains("layers") || !scene["layers"].is_array() || scene["layers"].empty()) {
     error = "layers must be a non-empty array";
@@ -67,6 +143,7 @@ bool scene_v1_to_parse_result(const nlohmann::json& scene, dxf::ParseResult& out
         return false;
       }
       const std::string t = ent["type"].get<std::string>();
+      speed_acc.add(laser_ctx.effective(ent));
       if (t == "line") {
         for (const char* k : {"x0", "y0", "z0", "x1", "y1", "z1"}) {
           if (!need_num(ent, k, error)) return false;
@@ -239,6 +316,10 @@ bool scene_v1_to_parse_result(const nlohmann::json& scene, dxf::ParseResult& out
   if (out.lines.empty()) {
     error = "no line segments produced (empty scene or invalid entities)";
     return false;
+  }
+  if (speed_acc.any) {
+    out.job_jump_speed_mm_s = speed_acc.max_jump;
+    out.job_mark_speed_mm_s = speed_acc.min_mark;
   }
   return true;
 }

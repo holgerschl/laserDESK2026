@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "dxf/ascii_dxf_lines.hpp"
 #include "rtc/job/scene_v1.hpp"
 
 #include <nlohmann/json.hpp>
@@ -24,6 +25,9 @@ TEST(SceneV1, Line) {
   ASSERT_EQ(pr.lines.size(), 1u);
   EXPECT_EQ(pr.lines[0].layer, "L1");
   EXPECT_DOUBLE_EQ(pr.lines[0].x1, 10.0);
+  ASSERT_TRUE(pr.job_jump_speed_mm_s.has_value() && pr.job_mark_speed_mm_s.has_value());
+  EXPECT_DOUBLE_EQ(*pr.job_jump_speed_mm_s, 2000.0);
+  EXPECT_DOUBLE_EQ(*pr.job_mark_speed_mm_s, 250.0);
 }
 
 TEST(SceneV1, RectFourLines) {
@@ -120,4 +124,33 @@ TEST(SceneV1, TextProducesFiveSegments) {
   std::string err;
   ASSERT_TRUE(laserdesk::rtc::job::scene_v1_to_parse_result(j, pr, err)) << err;
   EXPECT_EQ(pr.lines.size(), 5u);
+}
+
+TEST(SceneV1, JobJsonCarriesLaserFromEntityGroups) {
+  auto j = nlohmann::json::parse(R"({
+    "schemaVersion": 1,
+    "kind": "scene_v1",
+    "laser_groups": [
+      { "id": "slow", "name": "S", "laser": { "jump_speed_mm_s": 1000, "mark_speed_mm_s": 100 } },
+      { "id": "fast", "name": "F", "laser": { "jump_speed_mm_s": 3000, "mark_speed_mm_s": 400 } }
+    ],
+    "default_laser_group_id": "slow",
+    "layers": [
+      {
+        "entities": [
+          { "type": "line", "laser_group_id": "slow", "x0": 0, "y0": 0, "z0": 0, "x1": 1, "y1": 0, "z1": 0 },
+          { "type": "line", "laser_group_id": "fast", "x0": 0, "y0": 1, "z0": 0, "x1": 1, "y1": 1, "z1": 0 }
+        ]
+      }
+    ]
+  })");
+  laserdesk::dxf::ParseResult pr;
+  std::string err;
+  ASSERT_TRUE(laserdesk::rtc::job::scene_v1_to_parse_result(j, pr, err)) << err;
+  EXPECT_DOUBLE_EQ(*pr.job_jump_speed_mm_s, 3000.0);
+  EXPECT_DOUBLE_EQ(*pr.job_mark_speed_mm_s, 100.0);
+  auto job = laserdesk::dxf::job_to_json("job-x", pr);
+  ASSERT_TRUE(job.contains("laser"));
+  EXPECT_DOUBLE_EQ(job["laser"]["jump_speed_mm_s"], 3000.0);
+  EXPECT_DOUBLE_EQ(job["laser"]["mark_speed_mm_s"], 100.0);
 }

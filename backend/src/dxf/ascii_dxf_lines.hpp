@@ -22,6 +22,9 @@ struct LineEntity {
 struct ParseResult {
   std::string source_name;
   std::vector<LineEntity> lines;
+  /// From `scene_v1` (`laser_groups` / entity `laser`) for `POST /jobs/scene` → GET job JSON → Ethernet execute.
+  std::optional<double> job_jump_speed_mm_s;
+  std::optional<double> job_mark_speed_mm_s;
   /// Set on failure
   std::optional<std::string> error_code;
   std::optional<std::string> error_message;
