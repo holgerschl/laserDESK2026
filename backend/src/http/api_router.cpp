@@ -187,6 +187,8 @@ int BackendSession::handle_post_minimal_demo_stop(nlohmann::json& err_out) {
     return 409;
   }
   if (auto e = rtc_->stop_execution()) {
+    // Mock RTC finishes lists synchronously (never leaves "running"); treat stop as idempotent.
+    if (e->code == "RTC_NOT_RUNNING") return 204;
     err_out = error_json(*e);
     return 409;
   }
@@ -320,6 +322,7 @@ int BackendSession::handle_post_jobs_dxf_stop(nlohmann::json& err_out) {
     return 409;
   }
   if (auto e = rtc_->stop_execution()) {
+    if (e->code == "RTC_NOT_RUNNING") return 204;
     err_out = error_json(*e);
     return 409;
   }
