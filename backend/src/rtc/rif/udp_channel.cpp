@@ -8,14 +8,25 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
+#include <optional>
+#include <utility>
 
 namespace laserdesk::rtc::rif {
+
+namespace detail {
+
+struct UdpRifChannelImpl {
+  asio::io_context io;
+  std::optional<asio::ip::udp::socket> sock;
+  asio::ip::udp::endpoint remote{};
+};
+
+}  // namespace detail
 
 namespace {
 
 using clock = std::chrono::steady_clock;
 
-/// One `async_receive_from` with timer; returns empty on success and fills `n_out` / `response_out` slice.
 std::string receive_one(asio::io_context& io, asio::ip::udp::socket& socket,
                         const asio::ip::udp::endpoint& remote, std::array<std::uint8_t, 2048>& buf,
                         asio::ip::udp::endpoint& sender, int timeout_ms_slice, std::size_t& n_out) {
@@ -52,58 +63,67 @@ std::string receive_one(asio::io_context& io, asio::ip::udp::socket& socket,
   return err;
 }
 
+bool sender_matches_remote(const asio::ip::udp::endpoint& sender, const asio::ip::udp::endpoint& remote) {
+  // Match board IPv4 only; some firmware paths may use a different source UDP port than the service port.
+  return sender.address() == remote.address();
+}
+
 }  // namespace
+
+UdpRifChannel::UdpRifChannel() = default;
+UdpRifChannel::~UdpRifChannel() = default;
+UdpRifChannel::UdpRifChannel(UdpRifChannel&&) noexcept = default;
+UdpRifChannel& UdpRifChannel::operator=(UdpRifChannel&&) noexcept = default;
+
+bool UdpRifChannel::is_open() const noexcept {
+  return open_ && impl_ && impl_->sock.has_value();
+}
 
 std::string UdpRifChannel::open(const std::string& remote_host, std::uint16_t remote_port,
                                 const std::string& local_bind_host) {
   close();
   try {
-    asio::io_context io;
-    asio::ip::udp::resolver resolver(io);
+    auto impl = std::make_unique<detail::UdpRifChannelImpl>();
+    asio::ip::udp::resolver resolver(impl->io);
     asio::ip::udp::resolver::results_type results =
         resolver.resolve(asio::ip::udp::v4(), remote_host, std::to_string(remote_port));
     if (results.empty()) return "UDP resolve failed: no endpoints";
+    impl->remote = *results.begin();
+
+    impl->sock.emplace(impl->io);
+    impl->sock->open(asio::ip::udp::v4());
+    if (local_bind_host.empty()) {
+      impl->sock->bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), 0));
+    } else {
+      asio::error_code bec;
+      auto addr = asio::ip::make_address(local_bind_host, bec);
+      if (bec) return std::string("UDP local bind: invalid address: ") + bec.message();
+      impl->sock->bind(asio::ip::udp::endpoint(addr, 0));
+    }
+
+    impl_ = std::move(impl);
+    open_ = true;
+    return {};
   } catch (const std::exception& e) {
-    return std::string("UDP resolve error: ") + e.what();
+    return std::string("UDP open error: ") + e.what();
   }
-  remote_host_ = remote_host;
-  remote_port_ = remote_port;
-  local_bind_host_ = local_bind_host;
-  open_ = true;
-  return {};
 }
 
 void UdpRifChannel::close() noexcept {
+  impl_.reset();
   open_ = false;
-  remote_host_.clear();
-  remote_port_ = 0;
-  local_bind_host_.clear();
 }
 
 std::string UdpRifChannel::request_response(const std::vector<std::uint8_t>& packet, int timeout_ms,
                                             std::vector<std::uint8_t>& response_out) const {
   response_out.clear();
-  if (!open_) return "UDP channel not open";
+  if (!is_open()) return "UDP channel not open";
   if (timeout_ms <= 0) timeout_ms = 500;
 
   try {
-    asio::io_context io;
-    asio::ip::udp::socket socket(io);
-    socket.open(asio::ip::udp::v4());
-    if (local_bind_host_.empty()) {
-      socket.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), 0));
-    } else {
-      asio::error_code bec;
-      auto addr = asio::ip::make_address(local_bind_host_, bec);
-      if (bec) return std::string("UDP local bind: invalid address: ") + bec.message();
-      socket.bind(asio::ip::udp::endpoint(addr, 0));
-    }
-
-    asio::ip::udp::resolver resolver(io);
-    asio::ip::udp::resolver::results_type endpoints =
-        resolver.resolve(asio::ip::udp::v4(), remote_host_, std::to_string(remote_port_));
-    if (endpoints.empty()) return "UDP resolve failed";
-    asio::ip::udp::endpoint remote = *endpoints.begin();
+    auto& io = impl_->io;
+    auto& socket = *impl_->sock;
+    const auto& remote = impl_->remote;
 
     socket.send_to(asio::buffer(packet), remote);
 
@@ -112,7 +132,7 @@ std::string UdpRifChannel::request_response(const std::vector<std::uint8_t>& pac
     std::size_t n = 0;
     std::string err = receive_one(io, socket, remote, buf, sender, timeout_ms, n);
     if (!err.empty()) return err;
-    if (sender != remote) return "UDP reply from unexpected endpoint";
+    if (!sender_matches_remote(sender, remote)) return "UDP reply from unexpected endpoint";
     if (n == 0) return "Empty UDP response";
     response_out.assign(buf.begin(), buf.begin() + static_cast<std::ptrdiff_t>(n));
     return {};
@@ -127,28 +147,14 @@ std::string UdpRifChannel::request_response_matching(const std::vector<std::uint
                                                      std::vector<std::uint8_t>& response_out,
                                                      std::uint64_t* spurious_skipped_out) const {
   response_out.clear();
-  if (!open_) return "UDP channel not open";
+  if (!is_open()) return "UDP channel not open";
   if (timeout_ms <= 0) timeout_ms = 500;
   if (max_extra_datagrams < 0) max_extra_datagrams = 0;
 
   try {
-    asio::io_context io;
-    asio::ip::udp::socket socket(io);
-    socket.open(asio::ip::udp::v4());
-    if (local_bind_host_.empty()) {
-      socket.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), 0));
-    } else {
-      asio::error_code bec;
-      auto addr = asio::ip::make_address(local_bind_host_, bec);
-      if (bec) return std::string("UDP local bind: invalid address: ") + bec.message();
-      socket.bind(asio::ip::udp::endpoint(addr, 0));
-    }
-
-    asio::ip::udp::resolver resolver(io);
-    asio::ip::udp::resolver::results_type endpoints =
-        resolver.resolve(asio::ip::udp::v4(), remote_host_, std::to_string(remote_port_));
-    if (endpoints.empty()) return "UDP resolve failed";
-    asio::ip::udp::endpoint remote = *endpoints.begin();
+    auto& io = impl_->io;
+    auto& socket = *impl_->sock;
+    const auto& remote = impl_->remote;
 
     socket.send_to(asio::buffer(packet), remote);
 
@@ -167,7 +173,7 @@ std::string UdpRifChannel::request_response_matching(const std::vector<std::uint
       std::size_t n = 0;
       std::string err = receive_one(io, socket, remote, buf, sender, std::max(1, slice), n);
       if (!err.empty()) return err;
-      if (sender != remote) return "UDP reply from unexpected endpoint";
+      if (!sender_matches_remote(sender, remote)) return "UDP reply from unexpected endpoint";
       if (n == 0) return "Empty UDP response";
 
       if (answer_raw_matches_seq_and_format(buf.data(), n, expect_seq, expect_format)) {

@@ -18,6 +18,8 @@ constexpr std::uint32_t kTgmFormatRaw = 1u;
 /// Remote Control Command IDs (manual §16.10.9; numeric values match SCANLAB package `telegrams.h`).
 constexpr std::uint32_t kRdcConfigList = 1u;
 constexpr std::uint32_t kRdcGetInputPointer = 4u;
+/// List execution repeat / max count (`set_max_counts` in `rtc6_rif_wrapper.cpp`).
+constexpr std::uint32_t kRdcSetMaxCount = 11u;
 constexpr std::uint32_t kRdcExecuteListPos = 15u;
 constexpr std::uint32_t kRdcStopExecution = 16u;
 constexpr std::uint32_t kRdcGetStatus = 31u;

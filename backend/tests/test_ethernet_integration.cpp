@@ -7,13 +7,13 @@
 using laserdesk::rtc::EthernetRtcClient;
 using laserdesk::rtc::RtcConnectConfig;
 
-/// Set LASERDESK_RTC6_HOST and optional LASERDESK_RTC6_PORT (default 5020) for hardware validation.
+/// Set LASERDESK_RTC6_HOST and optional LASERDESK_RTC6_PORT (default 63750) for hardware validation.
 TEST(EthernetRtcIntegration, ConnectAndGetStatus) {
   const char* host = std::getenv("LASERDESK_RTC6_HOST");
   if (!host || !*host) {
     GTEST_SKIP() << "Set LASERDESK_RTC6_HOST to run integration test";
   }
-  int port = 5020;
+  int port = 63750;
   if (const char* ps = std::getenv("LASERDESK_RTC6_PORT")) {
     port = std::atoi(ps);
   }

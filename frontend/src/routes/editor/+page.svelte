@@ -110,6 +110,7 @@
 	let job = $state<DxfJobResponse | null>(null);
 	let rtcState = $state<string>('—');
 	let dxfLineCount = $state<number | null>(null);
+	let runRepeatCount = $state(1);
 
 	function clearHints() {
 		err = null;
@@ -175,10 +176,10 @@
 		const id = jobId;
 		if (!id) return;
 		await withBusy(async () => {
-			await api.postJobsDxfRun(id);
+			await api.postJobsDxfRun(id, runRepeatCount);
 			await refreshRtc();
 			hint = 'Execution started.';
-			rtcLog('Scene editor: POST /jobs/dxf/…/run');
+			rtcLog(`Scene editor: POST /jobs/dxf/…/run (repeat_count=${runRepeatCount})`);
 		});
 	}
 
@@ -320,6 +321,18 @@
 		</div>
 
 		<h2 class="ldk-editor-rtc-h">RTC</h2>
+		<div class="ldk-field" style="max-width:11rem;margin-bottom:0.45rem">
+			<label for="editor-run-repeats">Repeats</label>
+			<input
+				id="editor-run-repeats"
+				type="number"
+				class="ldk-input"
+				min="1"
+				max="1000000"
+				bind:value={runRepeatCount}
+				disabled={busy || running}
+			/>
+		</div>
 		<div class="ldk-row" style="flex-wrap:wrap">
 			<button
 				type="button"

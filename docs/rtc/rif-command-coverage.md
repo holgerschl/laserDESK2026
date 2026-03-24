@@ -8,6 +8,7 @@ Maps **Remote Control** (`R_DC_*`) and **list** (`R_LC_*`) IDs used in this repo
 |----|------------------------------|------------|
 | 1 | `kRdcConfigList` | `EthernetRtcClient::load_dxf_job` (optional, with `dxf_rif_list_upload`) |
 | 4 | `kRdcGetInputPointer` | `load_dxf_job`, `get_status` flow |
+| 11 | `kRdcSetMaxCount` | `start_execution` (before `kRdcExecuteListPos`; repeat count from API `repeat_count`) |
 | 15 | `kRdcExecuteListPos` | `start_execution` |
 | 16 | `kRdcStopExecution` | `stop_execution` |
 | 31 | `kRdcGetStatus` | `connect`, `get_status`, `rtc_discover` probe |

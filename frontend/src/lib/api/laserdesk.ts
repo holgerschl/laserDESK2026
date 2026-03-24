@@ -149,8 +149,11 @@ export async function postMinimalDemoJob(label?: string): Promise<{ job_id: stri
 	return res.json() as Promise<{ job_id: string }>;
 }
 
-export async function postMinimalDemoRun(): Promise<void> {
-	const res = await apiFetch(`${getApiBase()}/jobs/minimal-demo/run`, { method: 'POST' });
+/** Optional `repeatCount` → query `repeat_count` (1..1e6); default 1. Omits query when 1. */
+export async function postMinimalDemoRun(repeatCount: number = 1): Promise<void> {
+	const n = Math.min(1_000_000, Math.max(1, Math.floor(Number(repeatCount)) || 1));
+	const q = n <= 1 ? '' : `?repeat_count=${encodeURIComponent(String(n))}`;
+	const res = await apiFetch(`${getApiBase()}/jobs/minimal-demo/run${q}`, { method: 'POST' });
 	if (!res.ok) throw new Error(await readError(res));
 }
 
@@ -224,8 +227,11 @@ export async function postJobsDxfLoad(jobId: string): Promise<void> {
 	if (!res.ok) throw new Error(await readError(res));
 }
 
-export async function postJobsDxfRun(jobId: string): Promise<void> {
-	const res = await apiFetch(`${getApiBase()}/jobs/dxf/${encodeURIComponent(jobId)}/run`, {
+/** Optional `repeatCount` → query `repeat_count` (1..1e6); default 1. */
+export async function postJobsDxfRun(jobId: string, repeatCount: number = 1): Promise<void> {
+	const n = Math.min(1_000_000, Math.max(1, Math.floor(Number(repeatCount)) || 1));
+	const q = n <= 1 ? '' : `?repeat_count=${encodeURIComponent(String(n))}`;
+	const res = await apiFetch(`${getApiBase()}/jobs/dxf/${encodeURIComponent(jobId)}/run${q}`, {
 		method: 'POST'
 	});
 	if (!res.ok) throw new Error(await readError(res));

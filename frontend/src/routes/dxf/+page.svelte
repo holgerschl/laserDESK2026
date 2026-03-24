@@ -37,6 +37,7 @@
 	let selectedIndex = $state<number | null>(null);
 	let rtcState = $state<string>('—');
 	let dxfLineCount = $state<number | null>(null);
+	let runRepeatCount = $state(1);
 
 	function toggleEntitySelection(i: number) {
 		selectedIndex = selectedIndex === i ? null : i;
@@ -160,11 +161,11 @@
 		const id = jobId;
 		if (!id) return;
 		await withBusy(async () => {
-			await api.postJobsDxfRun(id);
+			await api.postJobsDxfRun(id, runRepeatCount);
 			await refreshRtc();
 			hint = 'Execution started.';
 			rtcLog(
-				'DXF demo: POST /jobs/dxf/…/run — ethernet: R_DC_EXECUTE_LIST_POS (list 1, pos 0); mock: state → running'
+				`DXF demo: POST /jobs/dxf/…/run?repeat_count=${runRepeatCount} — ethernet: R_DC_SET_MAX_COUNT + R_DC_EXECUTE_LIST_POS; mock: unchanged`
 			);
 		});
 	}
@@ -453,6 +454,18 @@
 		</div>
 
 		<h2 style="font-size:0.98rem;margin-top:0.85rem">RTC</h2>
+		<div class="ldk-field" style="max-width:11rem;margin-bottom:0.45rem">
+			<label for="dxf-run-repeats">Repeats</label>
+			<input
+				id="dxf-run-repeats"
+				type="number"
+				class="ldk-input"
+				min="1"
+				max="1000000"
+				bind:value={runRepeatCount}
+				disabled={busy || running}
+			/>
+		</div>
 		<div class="ldk-row" style="flex-wrap:wrap">
 			<button
 				type="button"

@@ -37,6 +37,7 @@ TEST(BackendSessionDxf, ParseLoadRunStopFlow) {
   EXPECT_GE(job_body["line_count"].get<std::size_t>(), 10u);
 
   EXPECT_EQ(s.handle_post_jobs_dxf_load(job_id, err), 204) << err.dump();
-  EXPECT_EQ(s.handle_post_jobs_dxf_run(err), 204) << err.dump();
+  httplib::Request run_req;
+  EXPECT_EQ(s.handle_post_jobs_dxf_run(run_req, err), 204) << err.dump();
   EXPECT_EQ(s.handle_post_jobs_dxf_stop(err), 204) << err.dump();
 }

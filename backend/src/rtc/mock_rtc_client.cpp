@@ -126,8 +126,9 @@ std::optional<RtcError> MockRtcClient::load_dxf_job(const nlohmann::json& job_do
   return std::nullopt;
 }
 
-std::optional<RtcError> MockRtcClient::start_execution() {
+std::optional<RtcError> MockRtcClient::start_execution(std::uint32_t repeat_count) {
   std::lock_guard<std::mutex> lock(mutex_);
+  (void)repeat_count;
   if (state_ == State::Disconnected) {
     return err("RTC_NOT_CONNECTED", "RTC session not established");
   }

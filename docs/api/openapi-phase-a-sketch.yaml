@@ -112,9 +112,25 @@ paths:
       tags: [jobs]
       summary: Start execution of minimal demo job
       operationId: postMinimalDemoRun
+      parameters:
+        - name: repeat_count
+          in: query
+          required: false
+          description: How many times the list runs (ethernet sends R_DC_SET_MAX_COUNT then R_DC_EXECUTE_LIST_POS)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000000
+            default: 1
       responses:
         '204':
           description: Started
+        '400':
+          description: Invalid repeat_count
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '409':
           content:
             application/json:
@@ -160,10 +176,10 @@ components:
           description: Board IP or hostname (ethernet / UDP Remote Interface)
         port:
           type: integer
-          description: UDP port (same as conventional DLL path; default 5020 in backend — confirm with eth_get_port_numbers)
+          description: UDP exclusive RIF port (default 63750 in backend; confirm with eth_get_port_numbers / RTC6conf)
         tgm_format:
           type: integer
-          description: TGM_HEADER format field; must match eth_set_remote_tgm_format (RAW often 0)
+          description: TGM_HEADER format; must match eth_set_remote_tgm_format on board (telegrams.h NONE=0, RAW=1; SCANLAB RIF wrapper uses RAW=1)
         recv_timeout_ms:
           type: integer
           description: Per-datagram UDP receive timeout (ms); backend default 3000 if omitted

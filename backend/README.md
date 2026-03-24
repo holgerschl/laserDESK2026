@@ -87,8 +87,8 @@ What actually helps:
 ```json
 {
   "mode": "ethernet",
-  "host": "192.168.1.50",
-  "port": 5020,
+  "host": "192.168.10.2",
+  "port": 63750,
   "tgm_format": 1,
   "recv_timeout_ms": 3000,
   "udp_local_bind": "",
@@ -108,14 +108,14 @@ What actually helps:
 - **`dxf_rif_bits_per_mm`**: default scale **mm → scanner bits** for G.4 list upload (`src/rtc/job/dxf_rif_list_mapper.cpp`). On **Ethernet**, after a successful **`POST /api/v1/rtc/correction/load`**, the backend reads **K xy [bit/mm]** from the assigned correction table via **`R_DC_GET_HEAD_PARA`** (ParaNo **1**, manual Ch. 10 p. 465) and **replaces** this internal scale until disconnect. If **K ≤ 0** (e.g. **Cor_1to1.ct5**), the query fails, or **Mock** RTC is used, the connect-time value (default **128**) remains in effect.
 - **`rif_config_list_mem1` / `rif_config_list_mem2`**: passed to **`R_DC_CONFIG_LIST`** (same as SCANLAB RIF `config_list`).
 
-- **`port`**: defaults to **5020** if omitted — **confirm** with your RTC6 package / `eth_get_port_numbers` (see `docs/rtc/bring-up-checklist-phase-c.md`).
+- **`port`**: defaults to **63750** if omitted (typical **UDP exclusive** port from RTC6conf; **confirm** with your RTC6 package / `eth_get_port_numbers` — see `docs/rtc/bring-up-checklist-phase-c.md`).
 - **`tgm_format`**: must match `eth_set_remote_tgm_format` on the board. Default **`1`** = `TGM_FORMAT::RAW` in SCANLAB `telegrams.h` (same as `rtc6_rif_wrapper.cpp`). Use **`0`** only if the board is configured for `NONE`.
 - **`udp_local_bind`**: optional IPv4; bind the local UDP socket to that address (multi-NIC). Omit or empty = any interface.
 - **`rif_connect_status_attempts`**, **`rif_retry_delay_ms`**: retry idempotent **`R_DC_GET_STATUS`** during connect after UDP timeout (defaults **3** / **50 ms**).
 - **`rif_udp_max_extra_datagrams`**: cap on extra inbound datagrams while waiting for the matching answer **seq** (UDP reordering; default **8**). Same key is accepted on **subnet discover** JSON.
 
 On connect, the client sends the **seq sync** payload **`0x12345678`** (header `seqnum` **0**, as in the SCANLAB wrapper), then **`R_DC_GET_STATUS` (31)** with the next strictly increasing `seqnum`.  
-**Load / run / stop** use **`R_DC_GET_INPUT_POINTER` (4)**, **`R_DC_EXECUTE_LIST_POS` (15)** with list `1` pos `0`, and **`R_DC_STOP_EXECUTION` (16)** — minimal vertical slice. Optional **DXF list build** (`dxf_rif_list_upload`) adds **`R_DC_CONFIG_LIST` (1)** and **`R_LC_*`** jump/mark telegrams per package `telegrams.h`.
+**Load / run / stop** use **`R_DC_GET_INPUT_POINTER` (4)**, **`R_DC_SET_MAX_COUNT` (11)** (query `repeat_count` on `POST …/run`, default 1), **`R_DC_EXECUTE_LIST_POS` (15)** with list `1` pos `0`, and **`R_DC_STOP_EXECUTION` (16)** — minimal vertical slice. Optional **DXF list build** (`dxf_rif_list_upload`) adds **`R_DC_CONFIG_LIST` (1)** and **`R_LC_*`** jump/mark telegrams per package `telegrams.h`.
 
 ## Layout
 

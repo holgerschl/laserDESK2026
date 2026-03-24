@@ -23,6 +23,26 @@ nlohmann::json error_json(const rtc::RtcError& e) {
 constexpr std::size_t kMaxDxfUploadBytes = 20u * 1024u * 1024u;
 constexpr std::size_t kMaxCorrectionFileBytes = 16u * 1024u * 1024u;
 
+/// Optional query `repeat_count` for job run endpoints (1..1'000'000, default 1).
+bool parse_job_run_repeat_count(const httplib::Request& req, std::uint32_t& out, std::string& bad_message) {
+  out = 1u;
+  if (!req.has_param("repeat_count")) return true;
+  const std::string s = req.get_param_value("repeat_count");
+  if (s.empty()) return true;
+  char* end = nullptr;
+  unsigned long v = std::strtoul(s.c_str(), &end, 10);
+  if (end != s.c_str() + s.size()) {
+    bad_message = "repeat_count must be a decimal integer";
+    return false;
+  }
+  if (v == 0ul || v > 1'000'000ul) {
+    bad_message = "repeat_count must be between 1 and 1000000";
+    return false;
+  }
+  out = static_cast<std::uint32_t>(v);
+  return true;
+}
+
 std::optional<std::string> read_file_all(const std::string& path) {
   std::ifstream in(path, std::ios::binary);
   if (!in) return std::nullopt;
@@ -99,7 +119,7 @@ int BackendSession::handle_post_rtc_connect(const nlohmann::json& body, nlohmann
           rtc::RtcError{"RTC_INTERNAL", "ethernet mode requires non-empty \"host\" (board IP or DNS)"});
       return 400;
     }
-    int port = body.contains("port") && body["port"].is_number_integer() ? body["port"].get<int>() : 5020;
+    int port = body.contains("port") && body["port"].is_number_integer() ? body["port"].get<int>() : 63750;
     if (port <= 0 || port > 65535) {
       err_out = error_json(rtc::RtcError{"RTC_INTERNAL", "invalid \"port\""});
       return 400;
@@ -230,13 +250,19 @@ int BackendSession::handle_post_minimal_demo_job(const nlohmann::json& body, nlo
   return 200;
 }
 
-int BackendSession::handle_post_minimal_demo_run(nlohmann::json& err_out) {
+int BackendSession::handle_post_minimal_demo_run(const httplib::Request& req, nlohmann::json& err_out) {
+  std::uint32_t repeats = 1u;
+  std::string perr;
+  if (!parse_job_run_repeat_count(req, repeats, perr)) {
+    err_out = nlohmann::json{{"code", "RTC_INTERNAL"}, {"message", perr}};
+    return 400;
+  }
   std::lock_guard<std::mutex> lock(mutex_);
   if (!rtc_) {
     err_out = error_json(rtc::RtcError{"RTC_NOT_CONNECTED", "RTC session not established"});
     return 409;
   }
-  if (auto e = rtc_->start_execution()) {
+  if (auto e = rtc_->start_execution(repeats)) {
     err_out = error_json(*e);
     return 409;
   }
@@ -365,13 +391,19 @@ int BackendSession::handle_post_jobs_dxf_load(const std::string& job_id, nlohman
   return 204;
 }
 
-int BackendSession::handle_post_jobs_dxf_run(nlohmann::json& err_out) {
+int BackendSession::handle_post_jobs_dxf_run(const httplib::Request& req, nlohmann::json& err_out) {
+  std::uint32_t repeats = 1u;
+  std::string perr;
+  if (!parse_job_run_repeat_count(req, repeats, perr)) {
+    err_out = nlohmann::json{{"code", "RTC_INTERNAL"}, {"message", perr}};
+    return 400;
+  }
   std::lock_guard<std::mutex> lock(mutex_);
   if (!rtc_) {
     err_out = error_json(rtc::RtcError{"RTC_NOT_CONNECTED", "RTC session not established"});
     return 409;
   }
-  if (auto e = rtc_->start_execution()) {
+  if (auto e = rtc_->start_execution(repeats)) {
     err_out = error_json(*e);
     return 409;
   }
@@ -468,9 +500,9 @@ void register_api_routes(httplib::Server& svr, BackendSession& session) {
     res.set_content((code == 200 ? out : err).dump(), "application/json");
   });
 
-  svr.Post("/api/v1/jobs/minimal-demo/run", [&](const httplib::Request&, httplib::Response& res) {
+  svr.Post("/api/v1/jobs/minimal-demo/run", [&](const httplib::Request& req, httplib::Response& res) {
     nlohmann::json err;
-    int code = session.handle_post_minimal_demo_run(err);
+    int code = session.handle_post_minimal_demo_run(req, err);
     res.status = code;
     if (code != 204) res.set_content(err.dump(), "application/json");
   });
@@ -521,7 +553,7 @@ void register_api_routes(httplib::Server& svr, BackendSession& session) {
 
   svr.Post(R"(/api/v1/jobs/dxf/([^/]+)/run)", [&](const httplib::Request& req, httplib::Response& res) {
     nlohmann::json err;
-    int code = session.handle_post_jobs_dxf_run(err);
+    int code = session.handle_post_jobs_dxf_run(req, err);
     res.status = code;
     if (code != 204) res.set_content(err.dump(), "application/json");
   });

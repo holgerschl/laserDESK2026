@@ -25,17 +25,17 @@
 	}: Props = $props();
 
 	let mode = $state<PanelMode>('mock');
-	let ethHost = $state('192.168.1.50');
-	let ethPort = $state(5020);
+	let ethHost = $state('192.168.10.2');
+	let ethPort = $state(63750);
 	let tgmFormat = $state(1);
 	let busy = $state(false);
 	let err = $state<string | null>(null);
 	let hint = $state<string | null>(null);
 
 	let discoverOpen = $state(false);
-	let discoverBase = $state('192.168.1.0');
+	let discoverBase = $state('192.168.10.0');
 	let discoverMask = $state('255.255.255.0');
-	let discoverPort = $state(5020);
+	let discoverPort = $state(63750);
 	let discoverTimeout = $state(120);
 	let discoverMaxHosts = $state(512);
 	let discoverBusy = $state(false);
@@ -302,7 +302,7 @@
 				/>
 			</div>
 			<div class="ldk-field ldk-field-grow">
-				<label for="rtc-tgm-format">TGM format (RAW)</label>
+				<label for="rtc-tgm-format">TGM format (0 = NONE, 1 = RAW)</label>
 				<input
 					id="rtc-tgm-format"
 					type="number"
@@ -314,6 +314,12 @@
 				/>
 			</div>
 		</div>
+		<p class="ldk-muted ldk-rtc-rif-hint" style="font-size:0.85rem;margin:0.35rem 0 0">
+			<code>tgm_format</code> must match <strong>eth_set_remote_tgm_format</strong> on the card (RTC6conf). SCANLAB
+			<code>rtc6_rif_wrapper</code> always sends <strong>RAW (1)</strong>. If correction upload returns
+			<code>ERROR_HEADER_FORMAT</code> / LastError <code>0x10</code>, switch this to <strong>1</strong> or align the
+			board setting, then reconnect.
+		</p>
 		<p class="ldk-muted ldk-rtc-rif-hint" style="font-size:0.85rem;margin:0.35rem 0 0">
 			The board must accept UDP command telegrams: enable <strong>Remote Interface mode</strong> on the RTC6
 			Ethernet card (e.g. with SCANLAB <strong>RTCConf</strong> / vendor tools per manual). If this mode is off,
@@ -380,7 +386,7 @@
 			<h2 id="rtc-discover-title" class="ldk-modal-title">Discover RTC on subnet</h2>
 			<p class="ldk-muted" style="margin-top:0;font-size:0.88rem">
 				Enter any IPv4 on the LAN segment and the netmask. The backend probes each host with
-				<code>R_DC_GET_STATUS</code> on the UDP port (default 5020). Large subnets are capped by “max hosts”.
+				<code>R_DC_GET_STATUS</code> on the UDP port (default 63750). Large subnets are capped by “max hosts”.
 				Each responding board must have <strong>Remote Interface mode</strong> enabled (e.g. via SCANLAB
 				<strong>RTCConf</strong>).
 			</p>
@@ -492,6 +498,11 @@
 				<code>R_DC_LOAD_CORRECTION_FILE</code> in Blöcken übertragen, danach
 				<code>R_DC_SELECT_COR_TABLE</code> (wie SCANLAB-Wrapper). Optional zuerst
 				<code>R_DC_NUMBER_OF_COR_TABLES</code>.
+			</p>
+			<p class="ldk-muted" style="margin-top:0.35rem;font-size:0.88rem">
+				<strong>Echte RTC:</strong> dieselbe <code>tgm_format</code>-Einstellung wie beim Connect (meist
+				<strong>1</strong> = RAW, passend zu <code>eth_set_remote_tgm_format</code>). Bei LastError
+				<code>0x10</code> (ERROR_HEADER_FORMAT) zuerst dort prüfen und neu verbinden.
 			</p>
 			<div class="ldk-field">
 				<label for="cor-file">Datei</label>

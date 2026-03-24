@@ -16,7 +16,7 @@ class MockRtcClient final : public IRtcClient {
   std::variant<RtcStatus, RtcError> get_status() const override;
   std::variant<std::string, RtcError> load_minimal_job(const std::string& label) override;
   std::optional<RtcError> load_dxf_job(const nlohmann::json& job_document) override;
-  std::optional<RtcError> start_execution() override;
+  std::optional<RtcError> start_execution(std::uint32_t repeat_count = 1u) override;
   std::optional<RtcError> stop_execution() override;
   std::optional<RtcError> load_correction_file(const std::vector<std::uint8_t>& file_bytes,
                                                const CorrectionFileLoadParams& params) override;

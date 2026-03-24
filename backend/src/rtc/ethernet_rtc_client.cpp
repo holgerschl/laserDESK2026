@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -17,7 +18,7 @@ namespace laserdesk::rtc {
 namespace {
 
 std::optional<RtcError> check_answer(rif::ParsedAnswer& a, std::uint32_t expected_cmd_id,
-                                     std::size_t min_words) {
+                                     std::size_t min_words, std::uint32_t telegram_format) {
   if (rif::last_error_invalid_telegram(a.last_error)) {
     return RtcError{"RTC_INTERNAL", rif::describe_last_error(a.last_error)};
   }
@@ -28,7 +29,14 @@ std::optional<RtcError> check_answer(rif::ParsedAnswer& a, std::uint32_t expecte
     return RtcError{"RTC_INTERNAL", "Answer command ID mismatch"};
   }
   if (a.last_error != 0u) {
-    return RtcError{"RTC_INTERNAL", rif::describe_last_error(a.last_error)};
+    std::string msg = rif::describe_last_error(a.last_error);
+    if ((a.last_error & (1u << 4u)) != 0u) {
+      msg += " — TGM format mismatch: connect with `tgm_format` equal to `eth_set_remote_tgm_format` "
+             "on the board (RTC6conf / boot; telegrams.h: NONE=0, RAW=1). Sent format was ";
+      msg += std::to_string(telegram_format);
+      msg += ". SCANLAB `rtc6_rif_wrapper` always uses RAW (1); most RIF setups need `tgm_format`: 1.";
+    }
+    return RtcError{"RTC_INTERNAL", msg};
   }
   return std::nullopt;
 }
@@ -141,18 +149,33 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
 
   seq_ = 0;
   // rtc6_rif_wrapper.cpp RTC(): send_recv({0x12345678}) with header seqnum 0, then
-  // seqnum = answ.payload.buffer[0] + 1. Align before GET_STATUS so we follow the board counter.
+  // seqnum = answ.payload.buffer[0] + 1. Must succeed before any other command (do not guess seq=1).
   {
     constexpr std::uint32_t kSyncHdrSeq = 0u;
     std::vector<std::uint8_t> sync_pkt =
         rif::build_command_telegram(kSyncHdrSeq, format_, {rif::kRifSeqSyncPayload});
     std::vector<std::uint8_t> raw_sync;
-    if (udp_.request_response(sync_pkt, timeout_ms_, raw_sync).empty()) {
-      rif::ParsedAnswer sync_ans =
-          rif::parse_answer_telegram(raw_sync.data(), raw_sync.size(), kSyncHdrSeq, format_);
-      std::uint32_t last_board = 0;
-      if (rif::try_parse_seq_sync_answer(sync_ans, last_board)) seq_ = last_board;
+    std::string sync_err = udp_.request_response(sync_pkt, timeout_ms_, raw_sync);
+    if (!sync_err.empty()) {
+      udp_.close();
+      return err("RTC_TIMEOUT",
+                 std::string("RIF seq sync: ") + sync_err +
+                     " — verify board IP/UDP port, Windows firewall (inbound UDP to this app), "
+                     "Remote Interface mode, and try tgm_format 1 (RAW) or 0 (NONE) to match "
+                     "eth_set_remote_tgm_format on the card.");
     }
+    rif::ParsedAnswer sync_ans =
+        rif::parse_answer_telegram(raw_sync.data(), raw_sync.size(), kSyncHdrSeq, format_);
+    if (!sync_ans.ok) {
+      udp_.close();
+      return err("RTC_INTERNAL", std::string("RIF seq sync answer: ") + sync_ans.parse_error);
+    }
+    std::uint32_t last_board = 0;
+    if (!rif::try_parse_seq_sync_answer(sync_ans, last_board)) {
+      udp_.close();
+      return err("RTC_INTERNAL", "RIF seq sync: unexpected answer payload from board");
+    }
+    seq_ = last_board;
   }
 
   rif::ParsedAnswer ans;
@@ -166,7 +189,7 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
     }
     connect_err = send_remote_control({rif::kRdcGetStatus}, ans);
     if (!connect_err) {
-      connect_err = check_answer(ans, rif::kRdcGetStatus, 4u);
+      connect_err = check_answer(ans, rif::kRdcGetStatus, 4u, format_);
     }
     if (!connect_err) break;
     if (connect_err->code != "RTC_TIMEOUT" || attempt + 1 >= connect_status_attempts_) {
@@ -210,7 +233,7 @@ std::variant<RtcStatus, RtcError> EthernetRtcClient::get_status() const {
   if (auto e = send_remote_control({rif::kRdcGetStatus}, ans)) {
     return *e;
   }
-  if (auto e = check_answer(ans, rif::kRdcGetStatus, 4u)) {
+  if (auto e = check_answer(ans, rif::kRdcGetStatus, 4u, format_)) {
     return *e;
   }
   return build_status(&ans);
@@ -232,7 +255,7 @@ std::variant<std::string, RtcError> EthernetRtcClient::load_minimal_job(const st
   if (auto e = send_remote_control({rif::kRdcGetInputPointer}, ans)) {
     return *e;
   }
-  if (auto e = check_answer(ans, rif::kRdcGetInputPointer, 3u)) {
+  if (auto e = check_answer(ans, rif::kRdcGetInputPointer, 3u, format_)) {
     return *e;
   }
 
@@ -272,7 +295,7 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
             {rif::kRdcConfigList, rif_config_list_mem1_, rif_config_list_mem2_}, ans)) {
       return e;
     }
-    if (auto e = check_answer(ans, rif::kRdcConfigList, 2u)) {
+    if (auto e = check_answer(ans, rif::kRdcConfigList, 2u, format_)) {
       return e;
     }
   }
@@ -280,7 +303,7 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
   if (auto e = send_remote_control({rif::kRdcGetInputPointer}, ans)) {
     return e;
   }
-  if (auto e = check_answer(ans, rif::kRdcGetInputPointer, 3u)) {
+  if (auto e = check_answer(ans, rif::kRdcGetInputPointer, 3u, format_)) {
     return e;
   }
 
@@ -303,7 +326,7 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
       if (auto e = send_remote_control(words, ans)) {
         return e;
       }
-      if (auto e = check_answer(ans, words[0], 2u)) {
+      if (auto e = check_answer(ans, words[0], 2u, format_)) {
         return e;
       }
     }
@@ -317,7 +340,7 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
   return std::nullopt;
 }
 
-std::optional<RtcError> EthernetRtcClient::start_execution() {
+std::optional<RtcError> EthernetRtcClient::start_execution(std::uint32_t repeat_count) {
   std::lock_guard<std::mutex> lock(mutex_);
   if (state_ == State::Disconnected) {
     return err("RTC_NOT_CONNECTED", "RTC session not established");
@@ -328,11 +351,20 @@ std::optional<RtcError> EthernetRtcClient::start_execution() {
   if (state_ != State::Loaded) {
     return err("RTC_NOT_READY", "Load a job before start");
   }
+  std::uint32_t counts = repeat_count == 0u ? 1u : repeat_count;
+  if (counts > 1'000'000u) counts = 1'000'000u;
+
   rif::ParsedAnswer ans;
+  if (auto e = send_remote_control({rif::kRdcSetMaxCount, counts}, ans)) {
+    return e;
+  }
+  if (auto e = check_answer(ans, rif::kRdcSetMaxCount, 2u, format_)) {
+    return e;
+  }
   if (auto e = send_remote_control({rif::kRdcExecuteListPos, 1u, 0u}, ans)) {
     return e;
   }
-  if (auto e = check_answer(ans, rif::kRdcExecuteListPos, 2u)) {
+  if (auto e = check_answer(ans, rif::kRdcExecuteListPos, 2u, format_)) {
     return e;
   }
   state_ = State::Running;
@@ -351,7 +383,7 @@ std::optional<RtcError> EthernetRtcClient::stop_execution() {
   if (auto e = send_remote_control({rif::kRdcStopExecution}, ans)) {
     return e;
   }
-  if (auto e = check_answer(ans, rif::kRdcStopExecution, 2u)) {
+  if (auto e = check_answer(ans, rif::kRdcStopExecution, 2u, format_)) {
     return e;
   }
   state_ = State::Loaded;
@@ -377,7 +409,7 @@ std::optional<RtcError> EthernetRtcClient::load_correction_file(const std::vecto
     if (auto e = send_remote_control({rif::kRdcNumberOfCorTables, *params.number_of_tables}, ans)) {
       return e;
     }
-    if (auto e = check_answer(ans, rif::kRdcNumberOfCorTables, 2u)) return e;
+    if (auto e = check_answer(ans, rif::kRdcNumberOfCorTables, 2u, format_)) return e;
   }
 
   // rtc6_rif_wrapper.cpp load_correction_file — chunk size matches TGM payload minus 3 header words.
@@ -398,7 +430,7 @@ std::optional<RtcError> EthernetRtcClient::load_correction_file(const std::vecto
     std::memcpy(words.data() + 3, file_bytes.data() + offset, chunk);
 
     if (auto e = send_remote_control(words, ans)) return e;
-    if (auto e = check_answer(ans, rif::kRdcLoadCorrectionFile, 2u)) return e;
+    if (auto e = check_answer(ans, rif::kRdcLoadCorrectionFile, 2u, format_)) return e;
     offset += chunk;
   }
 
@@ -408,12 +440,12 @@ std::optional<RtcError> EthernetRtcClient::load_correction_file(const std::vecto
   if (auto e = send_remote_control({rif::kRdcLoadCorrectionFile, kFinalizeOffset, no_dim}, ans)) {
     return e;
   }
-  if (auto e = check_answer(ans, rif::kRdcLoadCorrectionFile, 2u)) return e;
+  if (auto e = check_answer(ans, rif::kRdcLoadCorrectionFile, 2u, format_)) return e;
 
   if (auto e = send_remote_control({rif::kRdcSelectCorTable, params.head_a, params.head_b}, ans)) {
     return e;
   }
-  if (auto e = check_answer(ans, rif::kRdcSelectCorTable, 2u)) return e;
+  if (auto e = check_answer(ans, rif::kRdcSelectCorTable, 2u, format_)) return e;
 
   // Manual Ch. 10 p. 465: `get_head_para(HeadNo, ParaNo)` — ParaNo 1 = K xy [bit/mm] (ct5 header, p. 191).
   std::vector<std::uint32_t> head_nos;
@@ -429,7 +461,7 @@ std::optional<RtcError> EthernetRtcClient::load_correction_file(const std::vecto
       (void)e;
       continue;
     }
-    if (check_answer(ans, rif::kRdcGetHeadPara, 4u)) continue;
+    if (check_answer(ans, rif::kRdcGetHeadPara, 4u, format_)) continue;
     double k = 0.0;
     if (!try_decode_double_return(ans, k)) continue;
     if (k > 0.0 && std::isfinite(k)) {

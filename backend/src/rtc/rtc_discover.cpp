@@ -87,7 +87,7 @@ int handle_rtc_discover_json(const nlohmann::json& body, nlohmann::json& out) {
     return 400;
   }
 
-  const int port = body.contains("port") && body["port"].is_number_integer() ? body["port"].get<int>() : 5020;
+  const int port = body.contains("port") && body["port"].is_number_integer() ? body["port"].get<int>() : 63750;
   if (port <= 0 || port > 65535) {
     out = nlohmann::json{{"code", "RTC_INTERNAL"}, {"message", "invalid port"}};
     return 400;

@@ -1,6 +1,7 @@
 #include "http/api_router.hpp"
 
 #include <gtest/gtest.h>
+#include <httplib.h>
 #include <nlohmann/json.hpp>
 
 using laserdesk::http_api::BackendSession;
@@ -32,8 +33,18 @@ TEST(BackendSession, JobFlowAfterConnect) {
   ASSERT_TRUE(out.contains("job_id"));
   EXPECT_FALSE(out["job_id"].get<std::string>().empty());
 
-  EXPECT_EQ(s.handle_post_minimal_demo_run(err), 204);
+  httplib::Request run_req;
+  EXPECT_EQ(s.handle_post_minimal_demo_run(run_req, err), 204);
   EXPECT_EQ(s.handle_post_minimal_demo_stop(err), 204);
+}
+
+TEST(BackendSession, JobRunInvalidRepeatCount400) {
+  BackendSession s;
+  nlohmann::json err;
+  ASSERT_EQ(s.handle_post_rtc_connect(nlohmann::json{{"mode", "mock"}}, err), 204);
+  httplib::Request run_req;
+  run_req.params.emplace("repeat_count", "0");
+  EXPECT_EQ(s.handle_post_minimal_demo_run(run_req, err), 400);
 }
 
 TEST(BackendSession, JobWithoutConnect409) {

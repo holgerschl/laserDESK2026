@@ -14,7 +14,7 @@ Use with `laserdesk_backend` **ethernet** mode and the RTC6 manual **§16 Append
 
 - [ ] Board and PC on the same L2 segment or routed path; **Cat 5e** or better (manual §16.2.7).
 - [ ] Stable IP for the board (DHCP or static per site).
-- [ ] **UDP port** matches the board (same as conventional DLL path — confirm with SCANLAB tools / `eth_get_port_numbers` in your package). Default in this backend: **5020** if unspecified; **override** in `POST /api/v1/rtc/connect` with `"port"`.
+- [ ] **UDP port** matches the board (**UDP exclusive** from RTC6conf / `eth_get_port_numbers`; often not 5020). Default in this backend: **63750** if unspecified; **override** in `POST /api/v1/rtc/connect` with `"port"`.
 - [ ] Host firewall allows **UDP** to that port (outbound from PC; replies return to ephemeral local port).
 - [ ] Multi-NIC labs: optional `POST /api/v1/rtc/connect` field **`udp_local_bind`** (IPv4) to bind the local UDP socket to a specific interface.
 
@@ -28,6 +28,18 @@ Use with `laserdesk_backend` **ethernet** mode and the RTC6 manual **§16 Append
 1. Start backend: `laserdesk_backend --port 8080`.
 2. `POST /api/v1/rtc/connect` with `{"mode":"ethernet","host":"<board-ip>","port":<udp>}`.
 3. On success: `GET /api/v1/rtc/status` should show `rtc_mode: ethernet` and, after a successful `R_DC_GET_STATUS`, `remote_status` / `remote_pos` if present.
+
+### If correction load returns `ERROR_HEADER_FORMAT` / LastError `0x10`
+
+- The board rejects the **TGM header `format` field**. `POST /rtc/connect` **`tgm_format`** must equal **`eth_set_remote_tgm_format`** on the card (RTC6conf / boot). In SCANLAB `telegrams.h`: **NONE = 0**, **RAW = 1**; the vendor **`rtc6_rif_wrapper` always sends RAW (1)** in command headers.
+- Typical fix: set **`"tgm_format": 1`** and ensure the board is configured for **RAW** remote telegrams, then **disconnect and connect again** before uploading `.ct5`.
+
+### If connect fails with `UDP receive timeout` / `RIF seq sync`
+
+- Confirm **UDP exclusive** port (must match `eth_get_port_numbers` / RTC6conf; backend default **63750**).
+- **`tgm_format`**: must match **`eth_set_remote_tgm_format`** on the board — try **`1`** (RAW, default in backend) **or** **`0`** (NONE) in the connect JSON.
+- **Windows:** allow **inbound UDP** for `laserdesk_backend.exe` (replies use the **ephemeral** local port chosen at connect).
+- Same L2/L3 path: ping the board IP from the PC; no guest-isolated Wi‑Fi, etc.
 
 ## Tests
 

@@ -25,8 +25,8 @@ struct RtcConnectConfig {
   Mode mode{Mode::Mock};
   /// RTC6 Ethernet board hostname or IP (Remote Interface / UDP).
   std::string host;
-  /// UDP port (same as conventional DLL transmission; default 5020 — confirm with eth_get_port_numbers).
-  int port{5020};
+  /// UDP port (exclusive RIF port on board — confirm with eth_get_port_numbers / RTC6conf; default 63750).
+  int port{63750};
   /// TGM header `format`; must match `eth_set_remote_tgm_format` (SCANLAB `telegrams.h`: RAW = 1).
   std::uint32_t tgm_format{1u};
   int recv_timeout_ms{kDefaultRtcUdpRecvTimeoutMs};

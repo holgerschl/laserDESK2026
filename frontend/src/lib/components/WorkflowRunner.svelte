@@ -25,6 +25,8 @@
 	let healthJson = $state<string>('');
 
 	let apiBaseDisplay = $state('');
+	/** Passed to `POST …/run?repeat_count=` (ethernet: `R_DC_SET_MAX_COUNT` before execute). */
+	let runRepeatCount = $state(1);
 
 	let connectionState = $derived.by(() => {
 		if (!rtcJson) return '—';
@@ -338,6 +340,19 @@
 						Execution: <strong data-testid="run-step-state">{jobRunning ? 'running' : 'stopped'}</strong>
 						<span class="ldk-muted"> · RTC: {connectionState}</span>
 					</p>
+					<div class="ldk-field" style="max-width:12rem;margin-bottom:0.5rem">
+						<label for="wf-run-repeats">Repeats (list runs)</label>
+						<input
+							id="wf-run-repeats"
+							type="number"
+							class="ldk-input"
+							data-testid="run-repeat-count"
+							min="1"
+							max="1000000"
+							bind:value={runRepeatCount}
+							disabled={busy || jobRunning}
+						/>
+					</div>
 					<div class="ldk-row">
 						<button
 							type="button"

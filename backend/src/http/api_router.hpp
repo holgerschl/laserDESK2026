@@ -28,14 +28,14 @@ class BackendSession {
 
   int handle_post_minimal_demo_job(const nlohmann::json& body, nlohmann::json& out,
                                    nlohmann::json& err_out);
-  int handle_post_minimal_demo_run(nlohmann::json& err_out);
+  int handle_post_minimal_demo_run(const httplib::Request& req, nlohmann::json& err_out);
   int handle_post_minimal_demo_stop(nlohmann::json& err_out);
 
   int handle_post_jobs_dxf(const httplib::Request& req, nlohmann::json& out, nlohmann::json& err_out);
   int handle_post_jobs_scene(const nlohmann::json& body, nlohmann::json& out, nlohmann::json& err_out);
   int handle_get_jobs_dxf(const std::string& job_id, nlohmann::json& out, nlohmann::json& err_out);
   int handle_post_jobs_dxf_load(const std::string& job_id, nlohmann::json& err_out);
-  int handle_post_jobs_dxf_run(nlohmann::json& err_out);
+  int handle_post_jobs_dxf_run(const httplib::Request& req, nlohmann::json& err_out);
   int handle_post_jobs_dxf_stop(nlohmann::json& err_out);
 
   /// Pre-connect mock for --rtc-demo
