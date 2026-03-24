@@ -28,7 +28,7 @@ In **`docs/RTC6_Doc.Rev_.1.1.3_en-US.pdf`** (Doc. Rev. 1.1.3 en-US), Chapter **7
 - After tables are **loaded on the board**, the same header values can be read via **`get_table_para`** (loaded tables) or **`get_head_para`** (assigned tables), per the notes in that section.
 - **1:1 demo file `Cor_1to1.ct5`**: the manual states it carries a **calibration factor of value 0**; for a “real” factor, **CorrectionFileConverter.exe** → *Show File Header* → field **Field Calibration [Bit/mm]** (see **§** *1to1 Correction Tables*, manual PDF page **190**).
 
-**laserDESK note:** `POST /api/v1/rtc/correction/load` currently streams the file with `R_DC_LOAD_CORRECTION_FILE` and does **not** yet parse the `.ct5` header for **K xy**; DXF/scene → list scaling still uses configurable **`dxf_rif_bits_per_mm`** on connect until a parser or `get_table_para` path is wired in.
+**laserDESK note:** After `R_DC_LOAD_CORRECTION_FILE` + `R_DC_SELECT_COR_TABLE`, `EthernetRtcClient` calls **`R_DC_GET_HEAD_PARA`** (`get_head_para`, manual p. 465) with **ParaNo = 1** to read **K xy [bit/mm]** and stores it as the active scale for **all** G.4 DXF → list mapping (`DxfRifListMapParams::bits_per_mm` in `load_dxf_job`). If **K ≤ 0**, the telegram fails, or only **Mock** RTC is used, the scale stays at connect **`dxf_rif_bits_per_mm`** (default **128**). **`POST /api/v1/rtc/disconnect`** restores the connect default for the next session.
 
 ## 2. SCANLAB software package (not in repo)
 
@@ -54,6 +54,7 @@ The **RTC6 software package** ZIP from SCANLAB (e.g. linked from the Projektplan
 | TGM_HEADER + RAW payload (little-endian `uint32_t`) | `backend/src/rtc/rif/telegram_raw.*` |
 | UDP send / receive (manual §16.10.8) | `backend/src/rtc/rif/udp_channel.*` (standalone **Asio**) |
 | Remote Control IDs used for MVP slice | `R_DC_GET_STATUS` (31), `R_DC_GET_INPUT_POINTER` (4), `R_DC_EXECUTE_LIST_POS` (15, list 1 pos 0), `R_DC_STOP_EXECUTION` (16) — see `telegram_raw.hpp` |
+| Correction load + **K xy** readback | `POST /api/v1/rtc/correction/load` → `R_DC_LOAD_CORRECTION_FILE` (154), `R_DC_SELECT_COR_TABLE` (130), then **`R_DC_GET_HEAD_PARA`** (38) ParaNo **1** — `backend/src/rtc/ethernet_rtc_client.cpp` |
 | `IRtcClient` over Ethernet | `backend/src/rtc/ethernet_rtc_client.*` (connect: seq sync per wrapper, then `R_DC_GET_STATUS`) |
 | Subnet discover | `backend/src/rtc/rtc_discover.cpp` (same seq sync + `GET_STATUS` per host) |
 

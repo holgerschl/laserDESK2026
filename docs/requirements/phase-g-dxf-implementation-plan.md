@@ -69,7 +69,7 @@ Start minimal: **N lines** → **N mark segments** in user units; document scale
 
 - **`RtcJobPlan`** + parse from DXF job JSON: `backend/src/rtc/job/rtc_job_plan.*`
 - **List command sequence:** `backend/src/rtc/job/dxf_rif_list_mapper.*` — per LINE: **`R_LC_JUMP_XY_ABS`** + **`R_LC_MARK_XYZT_ABS`** (then **`R_LC_END_OF_LIST`**); numeric IDs mirrored in `backend/src/rtc/rif/remote_list_commands.hpp` (keep in sync with SCANLAB package **`telegrams.h`**). Same pattern as RIF **`jump_xy_abs` / `mark_xyzt_abs` / `set_end_of_list`** in the vendor wrapper.
-- **`EthernetRtcClient::load_dxf_job`:** when **`dxf_rif_list_upload: true`**, sends **`R_DC_CONFIG_LIST`**, **`R_DC_GET_INPUT_POINTER`**, then one UDP telegram per list command (default **false** on connect).
+- **`EthernetRtcClient::load_dxf_job`:** when **`dxf_rif_list_upload: true`**, sends **`R_DC_CONFIG_LIST`**, **`R_DC_GET_INPUT_POINTER`**, then one UDP telegram per list command (default **false** on connect). **Scaling:** list coordinates use **`dxf_rif_bits_per_mm`** from connect unless a prior successful **`POST /api/v1/rtc/correction/load`** on Ethernet updated it from **`R_DC_GET_HEAD_PARA`** (ct5 header parameter **1**, K xy [bit/mm]).
 - **Unit tests:** `backend/tests/test_dxf_rif_list_mapper.cpp`
 - **Integration:** optional hardware test still via `LASERDESK_RTC6_HOST` (no automated assertion on list content yet).
 

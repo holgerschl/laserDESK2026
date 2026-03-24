@@ -74,6 +74,13 @@ ParsedAnswer parse_answer_telegram(const std::uint8_t* data, std::size_t len,
   return r;
 }
 
+bool try_parse_seq_sync_answer(const ParsedAnswer& a, std::uint32_t& last_seq_out) {
+  if (!a.ok || a.pl_words.empty()) return false;
+  // rtc6_rif_wrapper.cpp (RTC ctor): seqnum = answ.payload.buffer[0] + 1;
+  last_seq_out = a.pl_words[0];
+  return true;
+}
+
 std::string describe_last_error(std::uint32_t last_error) {
   if (last_error_invalid_telegram(last_error)) {
     return "invalid Command Telegram (LastError bit 31)";

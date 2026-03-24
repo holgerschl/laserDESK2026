@@ -23,7 +23,7 @@ TEST(EthernetRtcIntegration, ConnectAndGetStatus) {
   cfg.mode = RtcConnectConfig::Mode::Ethernet;
   cfg.host = host;
   cfg.port = port;
-  cfg.tgm_format = 0;
+  cfg.tgm_format = 1;
   cfg.recv_timeout_ms = 2000;
   ASSERT_FALSE(rtc.connect(cfg).has_value());
 

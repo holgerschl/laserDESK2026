@@ -18,8 +18,8 @@ struct RtcConnectConfig {
   std::string host;
   /// UDP port (same as conventional DLL transmission; default 5020 — confirm with eth_get_port_numbers).
   int port{5020};
-  /// TGM format field; must match eth_set_remote_tgm_format on the board (RAW is typical).
-  std::uint32_t tgm_format{0};
+  /// TGM header `format`; must match `eth_set_remote_tgm_format` (SCANLAB `telegrams.h`: RAW = 1).
+  std::uint32_t tgm_format{1u};
   int recv_timeout_ms{800};
   /// Shown in GET /rtc/status when set (operator-supplied; board identity query is future work).
   std::string expected_package_tag;
@@ -33,6 +33,16 @@ struct RtcConnectConfig {
   /// Arguments to `R_DC_CONFIG_LIST` (1) — same as SCANLAB Remote Interface `config_list`.
   std::uint32_t rif_config_list_mem1{1u};
   std::uint32_t rif_config_list_mem2{2u};
+};
+
+/// `R_DC_LOAD_CORRECTION_FILE` + `R_DC_SELECT_COR_TABLE` (see `rtc6_rif_wrapper.cpp` / `telegrams.h`).
+struct CorrectionFileLoadParams {
+  std::uint32_t table_no{0};
+  std::uint32_t dim{2};
+  std::uint32_t head_a{1};
+  std::uint32_t head_b{1};
+  /// If set, sends `R_DC_NUMBER_OF_COR_TABLES` before upload (optional board setup).
+  std::optional<std::uint32_t> number_of_tables;
 };
 
 /// Mirrors OpenAPI RtcStatusResponse / mock-rtc-specification.md
@@ -49,6 +59,8 @@ struct RtcStatus {
   /// Set when a DXF-derived job is loaded (Phase G).
   std::optional<std::size_t> active_dxf_line_count;
   std::optional<std::string> active_dxf_source_name;
+  /// Mock: last loaded correction label; Ethernet: omitted (board holds table).
+  std::optional<std::string> correction_file_hint;
 };
 
 inline const char* kHealthOk = "ok";

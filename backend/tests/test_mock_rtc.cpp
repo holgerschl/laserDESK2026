@@ -3,7 +3,9 @@
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 #include <variant>
+#include <vector>
 
+using laserdesk::rtc::CorrectionFileLoadParams;
 using laserdesk::rtc::MockRtcClient;
 using laserdesk::rtc::RtcConnectConfig;
 
@@ -71,6 +73,18 @@ TEST(MockRtc, DisconnectResets) {
   rtc.disconnect();
   auto st = rtc.get_status();
   ASSERT_TRUE(std::holds_alternative<laserdesk::rtc::RtcError>(st));
+}
+
+TEST(MockRtc, LoadCorrectionFileAfterConnect) {
+  MockRtcClient rtc;
+  ASSERT_FALSE(rtc.connect(RtcConnectConfig{RtcConnectConfig::Mode::Mock}).has_value());
+  CorrectionFileLoadParams p;
+  p.table_no = 0;
+  std::vector<std::uint8_t> blob{0x01, 0x02, 0x03};
+  ASSERT_FALSE(rtc.load_correction_file(blob, p).has_value());
+  auto st = std::get<laserdesk::rtc::RtcStatus>(rtc.get_status());
+  ASSERT_TRUE(st.correction_file_hint.has_value());
+  EXPECT_NE(st.correction_file_hint->find("mock:"), std::string::npos);
 }
 
 TEST(MockRtc, LoadDxfJobStartStop) {

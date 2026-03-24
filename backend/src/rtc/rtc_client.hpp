@@ -4,10 +4,12 @@
 
 #include <nlohmann/json.hpp>
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
 #include <variant>
+#include <vector>
 
 namespace laserdesk::rtc {
 
@@ -26,6 +28,10 @@ class IRtcClient {
   virtual std::optional<RtcError> load_dxf_job(const nlohmann::json& job_document) = 0;
   virtual std::optional<RtcError> start_execution() = 0;
   virtual std::optional<RtcError> stop_execution() = 0;
+
+  /// Upload `.ct5` / correction blob via Remote Interface (Ethernet); no-op success on mock.
+  virtual std::optional<RtcError> load_correction_file(const std::vector<std::uint8_t>& file_bytes,
+                                                      const CorrectionFileLoadParams& params) = 0;
 };
 
 std::unique_ptr<IRtcClient> make_mock_rtc_client();

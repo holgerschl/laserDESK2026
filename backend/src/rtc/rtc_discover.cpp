@@ -27,15 +27,29 @@ bool parse_ipv4(const std::string& s, std::uint32_t& out_host_order, std::string
 
 bool probe_rtc_at(const std::string& ip, std::uint16_t port, std::uint32_t tgm_format, int timeout_ms,
                   nlohmann::json& host_obj) {
-  constexpr std::uint32_t kSeq = 1u;
-  std::vector<std::uint8_t> pkt =
-      rif::build_command_telegram(kSeq, tgm_format, {rif::kRdcGetStatus});
   rif::UdpRifChannel udp;
   if (!udp.open(ip, port).empty()) return false;
+
+  std::uint32_t cmd_seq = 1u;
+  {
+    constexpr std::uint32_t kSyncHdrSeq = 0u;
+    std::vector<std::uint8_t> sync_pkt =
+        rif::build_command_telegram(kSyncHdrSeq, tgm_format, {rif::kRifSeqSyncPayload});
+    std::vector<std::uint8_t> raw_sync;
+    if (udp.request_response(sync_pkt, timeout_ms, raw_sync).empty()) {
+      rif::ParsedAnswer sync_ans =
+          rif::parse_answer_telegram(raw_sync.data(), raw_sync.size(), kSyncHdrSeq, tgm_format);
+      std::uint32_t last_board = 0;
+      if (rif::try_parse_seq_sync_answer(sync_ans, last_board)) cmd_seq = last_board + 1u;
+    }
+  }
+
+  std::vector<std::uint8_t> pkt =
+      rif::build_command_telegram(cmd_seq, tgm_format, {rif::kRdcGetStatus});
   std::vector<std::uint8_t> raw;
   std::string io = udp.request_response(pkt, timeout_ms, raw);
   if (!io.empty()) return false;
-  rif::ParsedAnswer ans = rif::parse_answer_telegram(raw.data(), raw.size(), kSeq, tgm_format);
+  rif::ParsedAnswer ans = rif::parse_answer_telegram(raw.data(), raw.size(), cmd_seq, tgm_format);
   if (!ans.ok || ans.pl_words.size() < 4u) return false;
   if (ans.pl_words[1] != rif::kRdcGetStatus) return false;
   if (ans.last_error != 0u) return false;
@@ -77,8 +91,9 @@ int handle_rtc_discover_json(const nlohmann::json& body, nlohmann::json& out) {
     return 400;
   }
   const std::uint32_t tgm_format =
-      body.contains("tgm_format") && body["tgm_format"].is_number_unsigned() ? body["tgm_format"].get<std::uint32_t>()
-                                                                              : 0u;
+      body.contains("tgm_format") && body["tgm_format"].is_number_unsigned()
+          ? body["tgm_format"].get<std::uint32_t>()
+          : rif::kTgmFormatRaw;
   int timeout_ms = body.contains("timeout_ms") && body["timeout_ms"].is_number_integer() ? body["timeout_ms"].get<int>()
                                                                                        : 120;
   if (timeout_ms < 30) timeout_ms = 30;

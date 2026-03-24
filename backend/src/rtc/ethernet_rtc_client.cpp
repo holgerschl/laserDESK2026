@@ -4,6 +4,13 @@
 #include "job/rtc_job_plan.hpp"
 #include "job_id.hpp"
 
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <limits>
+#include <vector>
+
 namespace laserdesk::rtc {
 
 namespace {
@@ -23,6 +30,15 @@ std::optional<RtcError> check_answer(rif::ParsedAnswer& a, std::uint32_t expecte
     return RtcError{"RTC_INTERNAL", rif::describe_last_error(a.last_error)};
   }
   return std::nullopt;
+}
+
+/// RTC6 answer payload: `[LastError, CmdId, …]`; `get_head_para` returns IEEE double in two `uint32_t` words
+/// (same packing as `rtc6_rif_wrapper.cpp` `as_double`).
+bool try_decode_double_return(const rif::ParsedAnswer& a, double& out) {
+  if (a.pl_words.size() < 4u) return false;
+  std::uint32_t parts[2] = {a.pl_words[2], a.pl_words[3]};
+  std::memcpy(&out, parts, sizeof(out));
+  return true;
 }
 
 }  // namespace
@@ -99,13 +115,30 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
   package_tag_ = cfg.expected_package_tag;
   bios_tag_ = cfg.expected_bios_eth_tag;
   dxf_rif_list_upload_ = cfg.dxf_rif_list_upload;
-  dxf_rif_bits_per_mm_ = cfg.dxf_rif_bits_per_mm > 0.0 ? cfg.dxf_rif_bits_per_mm : 128.0;
+  connect_default_bits_per_mm_ = cfg.dxf_rif_bits_per_mm > 0.0 ? cfg.dxf_rif_bits_per_mm : 128.0;
+  dxf_rif_bits_per_mm_ = connect_default_bits_per_mm_;
   rif_config_list_mem1_ = cfg.rif_config_list_mem1;
   rif_config_list_mem2_ = cfg.rif_config_list_mem2;
 
   std::string oerr = udp_.open(cfg.host, static_cast<std::uint16_t>(cfg.port));
   if (!oerr.empty()) {
     return err("RTC_CONNECTION_REFUSED", oerr);
+  }
+
+  seq_ = 0;
+  // rtc6_rif_wrapper.cpp RTC(): send_recv({0x12345678}) with header seqnum 0, then
+  // seqnum = answ.payload.buffer[0] + 1. Align before GET_STATUS so we follow the board counter.
+  {
+    constexpr std::uint32_t kSyncHdrSeq = 0u;
+    std::vector<std::uint8_t> sync_pkt =
+        rif::build_command_telegram(kSyncHdrSeq, format_, {rif::kRifSeqSyncPayload});
+    std::vector<std::uint8_t> raw_sync;
+    if (udp_.request_response(sync_pkt, timeout_ms_, raw_sync).empty()) {
+      rif::ParsedAnswer sync_ans =
+          rif::parse_answer_telegram(raw_sync.data(), raw_sync.size(), kSyncHdrSeq, format_);
+      std::uint32_t last_board = 0;
+      if (rif::try_parse_seq_sync_answer(sync_ans, last_board)) seq_ = last_board;
+    }
   }
 
   rif::ParsedAnswer ans;
@@ -136,7 +169,7 @@ void EthernetRtcClient::disconnect() {
   dxf_line_count_.reset();
   dxf_source_name_.reset();
   dxf_rif_list_upload_ = false;
-  dxf_rif_bits_per_mm_ = 128.0;
+  dxf_rif_bits_per_mm_ = connect_default_bits_per_mm_;
   rif_config_list_mem1_ = 1u;
   rif_config_list_mem2_ = 2u;
 }
@@ -295,6 +328,89 @@ std::optional<RtcError> EthernetRtcClient::stop_execution() {
     return e;
   }
   state_ = State::Loaded;
+  return std::nullopt;
+}
+
+std::optional<RtcError> EthernetRtcClient::load_correction_file(const std::vector<std::uint8_t>& file_bytes,
+                                                                const CorrectionFileLoadParams& params) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (state_ == State::Disconnected) {
+    return err("RTC_NOT_CONNECTED", "RTC session not established");
+  }
+  if (state_ == State::Running) {
+    return err("RTC_BUSY", "Cannot load correction file while running");
+  }
+  if (state_ == State::Error) {
+    return err("RTC_INTERNAL", "RTC in error state; disconnect or reset");
+  }
+  if (file_bytes.empty()) return err("RTC_INTERNAL", "correction file is empty");
+
+  rif::ParsedAnswer ans;
+  if (params.number_of_tables.has_value()) {
+    if (auto e = send_remote_control({rif::kRdcNumberOfCorTables, *params.number_of_tables}, ans)) {
+      return e;
+    }
+    if (auto e = check_answer(ans, rif::kRdcNumberOfCorTables, 2u)) return e;
+  }
+
+  // rtc6_rif_wrapper.cpp load_correction_file — chunk size matches TGM payload minus 3 header words.
+  constexpr std::uint32_t kPayloadMax = rif::kTgmMaxTelegramBytes - rif::kTgmHeaderBytes;
+  constexpr std::uint32_t kMaxCorrData = kPayloadMax - 3u * static_cast<std::uint32_t>(sizeof(std::uint32_t));
+
+  for (std::uint32_t offset = 0; offset < file_bytes.size();) {
+    const std::uint32_t rem = static_cast<std::uint32_t>(file_bytes.size() - offset);
+    std::uint32_t chunk = (std::min)(rem, kMaxCorrData);
+    chunk = (chunk / 4u) * 4u;
+    if (chunk == 0u) chunk = rem;
+
+    const std::size_t n_words = (static_cast<std::size_t>(chunk) + 3u) / 4u;
+    std::vector<std::uint32_t> words(3u + n_words);
+    words[0] = rif::kRdcLoadCorrectionFile;
+    words[1] = offset;
+    words[2] = chunk;
+    std::memcpy(words.data() + 3, file_bytes.data() + offset, chunk);
+
+    if (auto e = send_remote_control(words, ans)) return e;
+    if (auto e = check_answer(ans, rif::kRdcLoadCorrectionFile, 2u)) return e;
+    offset += chunk;
+  }
+
+  constexpr std::uint32_t kFinalizeOffset = std::numeric_limits<std::uint32_t>::max();
+  const std::uint32_t no_dim =
+      (params.table_no & 0xFFFFu) | ((params.dim & 0xFFFFu) << 16u);
+  if (auto e = send_remote_control({rif::kRdcLoadCorrectionFile, kFinalizeOffset, no_dim}, ans)) {
+    return e;
+  }
+  if (auto e = check_answer(ans, rif::kRdcLoadCorrectionFile, 2u)) return e;
+
+  if (auto e = send_remote_control({rif::kRdcSelectCorTable, params.head_a, params.head_b}, ans)) {
+    return e;
+  }
+  if (auto e = check_answer(ans, rif::kRdcSelectCorTable, 2u)) return e;
+
+  // Manual Ch. 10 p. 465: `get_head_para(HeadNo, ParaNo)` — ParaNo 1 = K xy [bit/mm] (ct5 header, p. 191).
+  std::vector<std::uint32_t> head_nos;
+  if (params.head_a != 0u) head_nos.push_back(1u);
+  if (params.head_b != 0u) head_nos.push_back(2u);
+  if (head_nos.empty()) {
+    head_nos.push_back(1u);
+    head_nos.push_back(2u);
+  }
+  constexpr std::uint32_t kParaKxyBitsPerMm = 1u;
+  for (std::uint32_t head_no : head_nos) {
+    if (auto e = send_remote_control({rif::kRdcGetHeadPara, head_no, kParaKxyBitsPerMm}, ans)) {
+      (void)e;
+      continue;
+    }
+    if (check_answer(ans, rif::kRdcGetHeadPara, 4u)) continue;
+    double k = 0.0;
+    if (!try_decode_double_return(ans, k)) continue;
+    if (k > 0.0 && std::isfinite(k)) {
+      dxf_rif_bits_per_mm_ = k;
+      break;
+    }
+  }
+
   return std::nullopt;
 }
 

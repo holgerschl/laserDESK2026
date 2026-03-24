@@ -23,6 +23,9 @@ class BackendSession {
   int handle_post_rtc_connect(const nlohmann::json& body, nlohmann::json& err_out);
   int handle_post_rtc_disconnect();
 
+  /// Multipart: field `file` (binary). Optional form fields: table_no, dim, head_a, head_b, number_of_tables.
+  int handle_post_rtc_correction_load(const httplib::Request& req, nlohmann::json& err_out);
+
   int handle_post_minimal_demo_job(const nlohmann::json& body, nlohmann::json& out,
                                    nlohmann::json& err_out);
   int handle_post_minimal_demo_run(nlohmann::json& err_out);

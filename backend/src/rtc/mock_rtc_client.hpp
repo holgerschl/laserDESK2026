@@ -18,6 +18,8 @@ class MockRtcClient final : public IRtcClient {
   std::optional<RtcError> load_dxf_job(const nlohmann::json& job_document) override;
   std::optional<RtcError> start_execution() override;
   std::optional<RtcError> stop_execution() override;
+  std::optional<RtcError> load_correction_file(const std::vector<std::uint8_t>& file_bytes,
+                                               const CorrectionFileLoadParams& params) override;
 
  private:
   enum class State {
@@ -38,6 +40,7 @@ class MockRtcClient final : public IRtcClient {
   std::optional<std::size_t> dxf_line_count_;
   std::optional<std::string> dxf_source_name_;
   std::optional<RtcError> latched_error_;
+  std::optional<std::string> correction_hint_;
 };
 
 }  // namespace laserdesk::rtc

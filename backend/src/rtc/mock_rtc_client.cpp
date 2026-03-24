@@ -42,6 +42,7 @@ RtcStatus MockRtcClient::build_status() const {
   if (latched_error_) s.last_error = latched_error_;
   if (dxf_line_count_) s.active_dxf_line_count = dxf_line_count_;
   if (dxf_source_name_) s.active_dxf_source_name = dxf_source_name_;
+  if (correction_hint_) s.correction_file_hint = correction_hint_;
   return s;
 }
 
@@ -67,6 +68,7 @@ void MockRtcClient::disconnect() {
   current_job_id_.clear();
   dxf_line_count_.reset();
   dxf_source_name_.reset();
+  correction_hint_.reset();
 }
 
 std::variant<RtcStatus, RtcError> MockRtcClient::get_status() const {
@@ -150,6 +152,25 @@ std::optional<RtcError> MockRtcClient::stop_execution() {
     return err("RTC_NOT_RUNNING", "Execution is not running");
   }
   state_ = State::Loaded;
+  return std::nullopt;
+}
+
+std::optional<RtcError> MockRtcClient::load_correction_file(const std::vector<std::uint8_t>& file_bytes,
+                                                            const CorrectionFileLoadParams& params) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (state_ == State::Disconnected) {
+    return err("RTC_NOT_CONNECTED", "RTC session not established");
+  }
+  if (state_ == State::Running) {
+    return err("RTC_BUSY", "Cannot load correction file while running");
+  }
+  if (state_ == State::Error) {
+    return err("RTC_INTERNAL", "RTC in error state; disconnect or reset");
+  }
+  if (file_bytes.empty()) return err("RTC_INTERNAL", "correction file is empty");
+  (void)params;
+  correction_hint_ =
+      "mock: " + std::to_string(file_bytes.size()) + " bytes (table " + std::to_string(params.table_no) + ")";
   return std::nullopt;
 }
 

@@ -47,6 +47,8 @@ export interface RtcStatusJson {
 	last_error?: { code: string; message: string };
 	dxf_line_count?: number;
 	dxf_source_name?: string;
+	/** Mock: last upload hint; real RTC: usually omitted */
+	correction_file_hint?: string;
 }
 
 export interface ApiErrorBody {
@@ -117,6 +119,15 @@ export async function postRtcDiscover(body: {
 
 export async function postRtcDisconnect(): Promise<void> {
 	const res = await apiFetch(`${getApiBase()}/rtc/disconnect`, { method: 'POST' });
+	if (!res.ok) throw new Error(await readError(res));
+}
+
+/** Multipart: `file` + optional fields table_no, dim, head_a, head_b, number_of_tables (strings). */
+export async function postRtcCorrectionLoad(form: FormData): Promise<void> {
+	const res = await apiFetch(`${getApiBase()}/rtc/correction/load`, {
+		method: 'POST',
+		body: form
+	});
 	if (!res.ok) throw new Error(await readError(res));
 }
 

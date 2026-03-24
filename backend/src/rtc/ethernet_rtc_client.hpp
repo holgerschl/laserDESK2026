@@ -26,6 +26,8 @@ class EthernetRtcClient final : public IRtcClient {
   std::optional<RtcError> load_dxf_job(const nlohmann::json& job_document) override;
   std::optional<RtcError> start_execution() override;
   std::optional<RtcError> stop_execution() override;
+  std::optional<RtcError> load_correction_file(const std::vector<std::uint8_t>& file_bytes,
+                                               const CorrectionFileLoadParams& params) override;
 
  private:
   enum class State { Disconnected, ConnectedIdle, Loaded, Running, Error };
@@ -50,6 +52,8 @@ class EthernetRtcClient final : public IRtcClient {
   std::optional<std::size_t> dxf_line_count_;
   std::optional<std::string> dxf_source_name_;
   bool dxf_rif_list_upload_{false};
+  /// From `POST /rtc/connect` (`dxf_rif_bits_per_mm`); restored on disconnect; baseline if correction K_xy is 0.
+  double connect_default_bits_per_mm_{128.0};
   double dxf_rif_bits_per_mm_{128.0};
   std::uint32_t rif_config_list_mem1_{1u};
   std::uint32_t rif_config_list_mem2_{2u};

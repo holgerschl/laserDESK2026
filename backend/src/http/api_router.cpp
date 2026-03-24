@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
+#include <vector>
 
 namespace laserdesk::http_api {
 
@@ -20,6 +21,7 @@ nlohmann::json error_json(const rtc::RtcError& e) {
 }
 
 constexpr std::size_t kMaxDxfUploadBytes = 20u * 1024u * 1024u;
+constexpr std::size_t kMaxCorrectionFileBytes = 16u * 1024u * 1024u;
 
 std::optional<std::string> read_file_all(const std::string& path) {
   std::ifstream in(path, std::ios::binary);
@@ -80,6 +82,7 @@ nlohmann::json BackendSession::handle_get_rtc_status() const {
   if (r.last_error) j["last_error"] = error_json(*r.last_error);
   if (r.active_dxf_line_count) j["dxf_line_count"] = *r.active_dxf_line_count;
   if (r.active_dxf_source_name) j["dxf_source_name"] = *r.active_dxf_source_name;
+  if (r.correction_file_hint) j["correction_file_hint"] = *r.correction_file_hint;
   return j;
 }
 
@@ -146,6 +149,55 @@ int BackendSession::handle_post_rtc_disconnect() {
   std::lock_guard<std::mutex> lock(mutex_);
   if (rtc_) rtc_->disconnect();
   rtc_.reset();
+  return 204;
+}
+
+namespace {
+
+std::uint32_t parse_u32_param(const httplib::Request& req, const char* key, std::uint32_t default_v) {
+  if (!req.has_param(key)) return default_v;
+  const std::string s = req.get_param_value(key);
+  if (s.empty()) return default_v;
+  char* end = nullptr;
+  unsigned long v = std::strtoul(s.c_str(), &end, 10);
+  if (end == s.c_str() || v > 0xFFFFFFFFUL) return default_v;
+  return static_cast<std::uint32_t>(v);
+}
+
+}  // namespace
+
+int BackendSession::handle_post_rtc_correction_load(const httplib::Request& req, nlohmann::json& err_out) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!rtc_) {
+    err_out = error_json(rtc::RtcError{"RTC_NOT_CONNECTED", "RTC session not established"});
+    return 409;
+  }
+  if (!req.has_file("file")) {
+    err_out = error_json(
+        rtc::RtcError{"RTC_INTERNAL", "multipart form field \"file\" is required (.ct5 / correction data)"});
+    return 400;
+  }
+  const httplib::MultipartFormData& f = req.get_file_value("file");
+  if (f.content.size() > kMaxCorrectionFileBytes) {
+    err_out = error_json(rtc::RtcError{"RTC_INTERNAL", "correction file too large (max 16 MiB)"});
+    return 413;
+  }
+  std::vector<std::uint8_t> bytes(f.content.begin(), f.content.end());
+
+  rtc::CorrectionFileLoadParams p;
+  p.table_no = parse_u32_param(req, "table_no", 0u);
+  p.dim = parse_u32_param(req, "dim", 2u);
+  p.head_a = parse_u32_param(req, "head_a", 1u);
+  p.head_b = parse_u32_param(req, "head_b", 1u);
+  if (req.has_param("number_of_tables")) {
+    const std::string nt = req.get_param_value("number_of_tables");
+    if (!nt.empty()) p.number_of_tables = parse_u32_param(req, "number_of_tables", 1u);
+  }
+
+  if (auto e = rtc_->load_correction_file(bytes, p)) {
+    err_out = error_json(*e);
+    return 409;
+  }
   return 204;
 }
 
@@ -364,6 +416,13 @@ void register_api_routes(httplib::Server& svr, BackendSession& session) {
 
   svr.Post("/api/v1/rtc/disconnect", [&](const httplib::Request&, httplib::Response& res) {
     res.status = session.handle_post_rtc_disconnect();
+  });
+
+  svr.Post("/api/v1/rtc/correction/load", [&](const httplib::Request& req, httplib::Response& res) {
+    nlohmann::json err;
+    int code = session.handle_post_rtc_correction_load(req, err);
+    res.status = code;
+    if (code != 204) res.set_content(err.dump(), "application/json");
   });
 
   svr.Post("/api/v1/rtc/discover", [&](const httplib::Request& req, httplib::Response& res) {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	import * as api from '$lib/api/laserdesk';
 	import type { DiscoveredRtcHost } from '$lib/api/laserdesk';
 
@@ -26,7 +27,7 @@
 	let mode = $state<PanelMode>('mock');
 	let ethHost = $state('192.168.1.50');
 	let ethPort = $state(5020);
-	let tgmFormat = $state(0);
+	let tgmFormat = $state(1);
 	let busy = $state(false);
 	let err = $state<string | null>(null);
 	let hint = $state<string | null>(null);
@@ -41,6 +42,16 @@
 	let discoverErr = $state<string | null>(null);
 	let discoverResults = $state<DiscoveredRtcHost[]>([]);
 	let discoverMeta = $state<{ scanned: number; elapsed_ms: number } | null>(null);
+
+	let correctionOpen = $state(false);
+	let correctionBusy = $state(false);
+	let correctionErr = $state<string | null>(null);
+	let corTableNo = $state(0);
+	let corDim = $state(2);
+	let corHeadA = $state(1);
+	let corHeadB = $state(1);
+	let corNumberOfTables = $state('');
+	let corFileInput = $state<HTMLInputElement | null>(null);
 
 	function clearMsgs() {
 		err = null;
@@ -139,6 +150,79 @@
 		closeDiscover();
 		hint = `Set board address to ${h.ip} (status ${h.remote_status}, pos ${h.remote_pos}). Click Connect (real RTC).`;
 	}
+
+	function openCorrection() {
+		correctionErr = null;
+		correctionOpen = true;
+	}
+
+	function closeCorrection() {
+		correctionOpen = false;
+	}
+
+	function appendCorrectionFormFields(fd: FormData) {
+		fd.append('table_no', String(corTableNo));
+		fd.append('dim', String(corDim));
+		fd.append('head_a', String(corHeadA));
+		fd.append('head_b', String(corHeadB));
+		const nt = corNumberOfTables.trim();
+		if (nt !== '') fd.append('number_of_tables', nt);
+	}
+
+	async function postCorrectionMultipart(fd: FormData, successHint: string) {
+		await api.postRtcCorrectionLoad(fd);
+		closeCorrection();
+		hint = successHint;
+		await notifyChanged();
+	}
+
+	async function submitCorrection() {
+		correctionErr = null;
+		const f = corFileInput?.files?.[0];
+		if (!f) {
+			correctionErr = 'Bitte eine Korrekturdatei wählen (z. B. .ct5).';
+			return;
+		}
+		const fd = new FormData();
+		fd.append('file', f, f.name);
+		appendCorrectionFormFields(fd);
+
+		correctionBusy = true;
+		try {
+			await postCorrectionMultipart(
+				fd,
+				'Korrekturdatei an die RTC übertragen, Tabelle aktiviert (R_DC_SELECT_COR_TABLE). Status aktualisieren.'
+			);
+		} catch (e) {
+			correctionErr = e instanceof Error ? e.message : String(e);
+		} finally {
+			correctionBusy = false;
+		}
+	}
+
+	async function loadBuiltinCorFromDemo(filename: string) {
+		correctionErr = null;
+		correctionBusy = true;
+		try {
+			const res = await fetch(`${base}/demo/correction/${encodeURIComponent(filename)}`);
+			if (!res.ok) {
+				throw new Error(`Beispieldatei nicht geladen (HTTP ${res.status}).`);
+			}
+			const buf = await res.arrayBuffer();
+			const file = new File([buf], filename, { type: 'application/octet-stream' });
+			const fd = new FormData();
+			fd.append('file', file, filename);
+			appendCorrectionFormFields(fd);
+			await postCorrectionMultipart(
+				fd,
+				`Beispiel ${filename} übertragen und Tabelle ausgewählt (wie manuell gewählte Parameter unten).`
+			);
+		} catch (e) {
+			correctionErr = e instanceof Error ? e.message : String(e);
+		} finally {
+			correctionBusy = false;
+		}
+	}
 </script>
 
 <div class="ldk-card ldk-rtc-panel" data-testid="rtc-connection-panel">
@@ -232,6 +316,13 @@
 			disabled={busy || disconnectDisabled}
 			data-testid="disconnect-rtc"
 			onclick={doDisconnect}>Disconnect</button
+		>
+		<button
+			type="button"
+			class="ldk-btn secondary"
+			disabled={busy}
+			data-testid="rtc-correction-open"
+			onclick={openCorrection}>Korrekturdatei laden…</button
 		>
 	</div>
 </div>
@@ -336,6 +427,127 @@
 	</div>
 {/if}
 
+{#if correctionOpen}
+	<div
+		class="ldk-modal-backdrop"
+		role="presentation"
+		onclick={closeCorrection}
+		onkeydown={(e) => e.key === 'Escape' && closeCorrection()}
+	>
+		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+		<div
+			class="ldk-modal ldk-modal-wide"
+			role="dialog"
+			tabindex="-1"
+			aria-modal="true"
+			aria-labelledby="rtc-correction-title"
+			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
+		>
+			<h2 id="rtc-correction-title" class="ldk-modal-title">Korrekturdatei (.ct5)</h2>
+			<p class="ldk-muted" style="margin-top:0;font-size:0.88rem">
+				Nach <strong>Connect</strong> (Mock oder echte RTC): Datei wird per Remote Interface mit
+				<code>R_DC_LOAD_CORRECTION_FILE</code> in Blöcken übertragen, danach
+				<code>R_DC_SELECT_COR_TABLE</code> (wie SCANLAB-Wrapper). Optional zuerst
+				<code>R_DC_NUMBER_OF_COR_TABLES</code>.
+			</p>
+			<div class="ldk-field">
+				<label for="cor-file">Datei</label>
+				<input
+					id="cor-file"
+					bind:this={corFileInput}
+					type="file"
+					class="ldk-input"
+					accept=".ct5,.ctb,application/octet-stream"
+					disabled={correctionBusy}
+				/>
+			</div>
+			<div class="ldk-row" style="flex-wrap:wrap;gap:0.5rem;align-items:center;margin-bottom:0.5rem">
+				<button
+					type="button"
+					class="ldk-btn secondary"
+					disabled={correctionBusy}
+					data-testid="rtc-correction-sample-cor1to1"
+					onclick={() => loadBuiltinCorFromDemo('Cor_1to1.ct5')}>Beispiel Cor_1to1.ct5 verwenden</button
+				>
+				<a
+					href="{base}/demo/correction/Cor_1to1.ct5"
+					class="ldk-muted"
+					style="font-size:0.85rem"
+					download="Cor_1to1.ct5"
+					target="_blank"
+					rel="noopener noreferrer">Nur herunterladen</a
+				>
+			</div>
+			<div class="ldk-row" style="flex-wrap:wrap;gap:0.5rem;align-items:center;margin-bottom:0.5rem">
+				<button
+					type="button"
+					class="ldk-btn secondary"
+					disabled={correctionBusy}
+					data-testid="rtc-correction-sample-d2-823"
+					onclick={() => loadBuiltinCorFromDemo('D2_823.ct5')}>Beispiel D2_823.ct5 verwenden</button
+				>
+				<a
+					href="{base}/demo/correction/D2_823.ct5"
+					class="ldk-muted"
+					style="font-size:0.85rem"
+					download="D2_823.ct5"
+					target="_blank"
+					rel="noopener noreferrer">Nur herunterladen</a
+				>
+			</div>
+			<div class="ldk-row" style="gap:0.75rem;flex-wrap:wrap">
+				<div class="ldk-field ldk-field-grow">
+					<label for="cor-table">Tabellen-Index (No)</label>
+					<input
+						id="cor-table"
+						type="number"
+						class="ldk-input"
+						bind:value={corTableNo}
+						disabled={correctionBusy}
+						min="0"
+					/>
+				</div>
+				<div class="ldk-field ldk-field-grow">
+					<label for="cor-dim">Dim</label>
+					<input id="cor-dim" type="number" class="ldk-input" bind:value={corDim} disabled={correctionBusy} min="1" />
+				</div>
+				<div class="ldk-field ldk-field-grow">
+					<label for="cor-ha">Kopf A</label>
+					<input id="cor-ha" type="number" class="ldk-input" bind:value={corHeadA} disabled={correctionBusy} min="0" />
+				</div>
+				<div class="ldk-field ldk-field-grow">
+					<label for="cor-hb">Kopf B</label>
+					<input id="cor-hb" type="number" class="ldk-input" bind:value={corHeadB} disabled={correctionBusy} min="0" />
+				</div>
+			</div>
+			<div class="ldk-field">
+				<label for="cor-nt">Anzahl Tabellen (optional, leer = weglassen)</label>
+				<input
+					id="cor-nt"
+					type="text"
+					class="ldk-input"
+					placeholder="z. B. 1"
+					bind:value={corNumberOfTables}
+					disabled={correctionBusy}
+					autocomplete="off"
+				/>
+			</div>
+			{#if correctionErr}
+				<p class="ldk-error" role="alert">{correctionErr}</p>
+			{/if}
+			<div class="ldk-modal-actions">
+				<button type="button" class="ldk-btn" disabled={correctionBusy} onclick={submitCorrection}
+					>Hochladen &amp; auswählen</button
+				>
+				<button type="button" class="ldk-btn secondary" disabled={correctionBusy} onclick={closeCorrection}
+					>Abbrechen</button
+				>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <style>
 	.ldk-rtc-panel-title {
 		margin: 0 0 0.25rem;
@@ -402,6 +614,9 @@
 		justify-content: center;
 		z-index: 80;
 		padding: 1rem;
+	}
+	.ldk-modal-wide {
+		max-width: 36rem;
 	}
 	.ldk-modal {
 		background: #fff;
