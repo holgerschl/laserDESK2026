@@ -7,11 +7,15 @@ Maps **Remote Control** (`R_DC_*`) and **list** (`R_LC_*`) IDs used in this repo
 | ID | Constant (`telegram_raw.hpp`) | Where used |
 |----|------------------------------|------------|
 | 1 | `kRdcConfigList` | `EthernetRtcClient::load_dxf_job` (optional, with `dxf_rif_list_upload`) |
-| 4 | `kRdcGetInputPointer` | `load_dxf_job`, `get_status` flow |
-| 11 | `kRdcSetMaxCount` | `start_execution` (before `kRdcExecuteListPos`; repeat count from API `repeat_count`) |
+| 3 | `kRdcSetStartListPos` | `load_dxf_job`: before `kRdcLoadListPos` (same `ListNo`, `Pos` as `get_input_pointer`) — wrapper §6.4.1 |
+| 4 | `kRdcGetInputPointer` | `load_dxf_job` (before `kRdcLoadListPos` and list stream), `get_status` flow |
+| 6 | `kRdcLoadListPos` | `load_dxf_job`: `load_list(ListNo, Pos)` after input pointer — manual §6.4.1 / Appendix A ID 6 |
+| 11 | `kRdcSetMaxCount` | `start_execution` before execute; payload from API `repeat_count` (RTC6 Ch.10 `set_max_counts` is **External Starts**; not the same as “repeat this list N times” — see backend `rtc_client.hpp`) |
 | 15 | `kRdcExecuteListPos` | `start_execution` (list no from `POST /rtc/connect` **`rif_execute_list_no`**, default = **`rif_config_list_mem1`**) |
 | 16 | `kRdcStopExecution` | `stop_execution` |
-| 31 | `kRdcGetStatus` | `connect`, `get_status`, `rtc_discover` probe |
+| 31 | `kRdcGetStatus` | `connect`, `get_status`, `rtc_discover` probe. **`get_status`** Status word bits (BUSY / PAUSED / …): `rif/get_status_bits.hpp`. Ethernet: if session is **`running`** and **`repeat_count` was 1**, `get_status` may set internal FSM back to **`loaded`** when all list-execution busy bits are clear; for **`repeat_count` > 1**, session stays **`running`** until **`POST /rtc/stop`** (or disconnect). |
+| 142 | `kRdcGetRtcVersion` | `connect`: best-effort probe; fills `package_version_reported` if `expected_package_tag` empty (SCANLAB `RIF_test` RI path) |
+| 143 | `kRdcGetBiosVersion` | `connect`: best-effort; fills `bios_eth_reported` if `expected_bios_eth_tag` empty |
 | 38 | `kRdcGetHeadPara` | `load_correction_file` (ParaNo 1 → K xy bit/mm) |
 | 130 | `kRdcSelectCorTable` | `load_correction_file` |
 | 154 | `kRdcLoadCorrectionFile` | `load_correction_file` |
@@ -24,7 +28,7 @@ Emitted as RAW command telegrams when `dxf_rif_list_upload` is enabled (`remote_
 | ID | Constant | Role |
 |----|----------|------|
 | 259 | `kLcEndOfList` | Terminates streamed list |
-| 312 | `kLcMarkXyztAbs` | Segment end marks |
+| 312 | `kLcMarkXyztAbs` | Segment end marks; planar DXF uses Z = **`0x7FFFFFFF`** (`NO_Z_MOVE`, vendor `rtc6_rif_wrapper`) for 2D segments |
 | 321 | `kLcJumpXyAbs` | Segment jumps |
 
 ## Roadmap / not wired in MVP Ethernet client

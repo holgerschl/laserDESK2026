@@ -210,6 +210,20 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
     }
   }
 
+  // SCANLAB RIF template queries board identity after handshake (`get_rtc_version` / `get_bios_version`).
+  // Best-effort: fill connect tags when the client left them empty; never fail connect on probe errors.
+  {
+    auto probe_u32 = [&](std::uint32_t cmd, std::string& tag_slot) {
+      if (!tag_slot.empty()) return;
+      rif::ParsedAnswer pa;
+      if (send_remote_control({cmd}, pa)) return;
+      if (check_answer(pa, cmd, 3u, format_)) return;
+      if (pa.pl_words.size() >= 3u) tag_slot = std::to_string(pa.pl_words[2]);
+    };
+    probe_u32(rif::kRdcGetRtcVersion, package_tag_);
+    probe_u32(rif::kRdcGetBiosVersion, bios_tag_);
+  }
+
   state_ = State::ConnectedIdle;
   last_job_id_.clear();
   last_job_label_.clear();
@@ -350,8 +364,15 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
   }
   list_exec_pos = ans.pl_words[2];
 
-  // Manual §6.4.1 / `rtc6_rif_wrapper::load_list` — initialize protected loading at this pointer
-  // before streaming `R_LC_*` telegrams (may be required for list execution to see the program).
+  // Wrapper list-loading pattern (manual §6.4.1): set_start_list_pos then load_list at the same address.
+  if (auto e = send_remote_control({rif::kRdcSetStartListPos, rif_execute_list_no_, list_exec_pos}, ans)) {
+    return e;
+  }
+  if (auto e = check_answer(ans, rif::kRdcSetStartListPos, 2u, format_)) {
+    return e;
+  }
+
+  // Manual §6.4.1 / `rtc6_rif_wrapper::load_list` — protected loading before streaming `R_LC_*` telegrams.
   if (auto e = send_remote_control({rif::kRdcLoadListPos, rif_execute_list_no_, list_exec_pos}, ans)) {
     return e;
   }

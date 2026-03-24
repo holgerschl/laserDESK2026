@@ -27,7 +27,7 @@ Use with `laserdesk_backend` **ethernet** mode and the RTC6 manual **§16 Append
 
 1. Start backend: `laserdesk_backend --port 8080`.
 2. `POST /api/v1/rtc/connect` with `{"mode":"ethernet","host":"<board-ip>","port":<udp>}`.
-3. On success: `GET /api/v1/rtc/status` should show `rtc_mode: ethernet` and, after a successful `R_DC_GET_STATUS`, `remote_status` / `remote_pos` if present.
+3. On success: `GET /api/v1/rtc/status` should show `rtc_mode: ethernet` and, after DXF load + run, `remote_status` / `remote_pos` when the client successfully queries `R_DC_GET_STATUS`. After a **single** run (`repeat_count` 1), `connection_state` may return to **`loaded`** when the board reports idle list-execution bits (`docs/rtc/rif-command-coverage.md`). For **`repeat_count` > 1**, expect **`running`** until `POST /api/v1/rtc/stop`.
 
 ### If correction load returns `ERROR_HEADER_FORMAT` / LastError `0x10`
 

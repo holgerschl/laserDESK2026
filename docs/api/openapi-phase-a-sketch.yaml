@@ -116,7 +116,11 @@ paths:
         - name: repeat_count
           in: query
           required: false
-          description: How many times the list runs (ethernet sends R_DC_SET_MAX_COUNT then R_DC_EXECUTE_LIST_POS)
+          description: >-
+            Passed to R_DC_SET_MAX_COUNT before R_DC_EXECUTE_LIST_POS. RTC6 manual Ch.10 describes
+            set_max_counts in terms of External Starts, not necessarily “run this list N times”. Ethernet
+            idle sync (running→loaded via GET /rtc/status) only applies when repeat_count is 1; for
+            repeat_count > 1 use POST /rtc/stop. See docs/rtc/rif-command-coverage.md.
           schema:
             type: integer
             minimum: 1
@@ -219,7 +223,7 @@ components:
           description: false if real hardware failed version pin check
         remote_status:
           type: integer
-          description: Optional; last R_DC_GET_STATUS Status (ethernet)
+          description: Optional; last R_DC_GET_STATUS Status word (ethernet); bit layout Ch.10 get_status — backend/src/rtc/rif/get_status_bits.hpp
         remote_pos:
           type: integer
           description: Optional; last R_DC_GET_STATUS Pos (ethernet)

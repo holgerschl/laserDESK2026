@@ -17,6 +17,8 @@ constexpr std::uint32_t kTgmFormatRaw = 1u;
 
 /// Remote Control Command IDs (manual §16.10.9; numeric values match SCANLAB package `telegrams.h`).
 constexpr std::uint32_t kRdcConfigList = 1u;
+/// `set_start_list_pos(ListNo, Pos)` — Appendix A ID 3; aligns list write/start address before `load_list` (wrapper §6.4.1).
+constexpr std::uint32_t kRdcSetStartListPos = 3u;
 constexpr std::uint32_t kRdcGetInputPointer = 4u;
 /// `load_list(ListNo, Pos)` — manual §16.10.9 Appendix A; initializes protected list loading (before `R_LC_*` stream).
 constexpr std::uint32_t kRdcLoadListPos = 6u;
@@ -26,6 +28,9 @@ constexpr std::uint32_t kRdcSetMaxCount = 11u;
 constexpr std::uint32_t kRdcExecuteListPos = 15u;
 constexpr std::uint32_t kRdcStopExecution = 16u;
 constexpr std::uint32_t kRdcGetStatus = 31u;
+/// `get_rtc_version()` / `get_bios_version()` — template `RIF_test.cpp` RI path queries these after connect.
+constexpr std::uint32_t kRdcGetRtcVersion = 142u;
+constexpr std::uint32_t kRdcGetBiosVersion = 143u;
 /// Manual Ch. 10 / `telegrams.h` — `get_head_para(HeadNo, ParaNo)`; ParaNo 1 = K xy [bit/mm] (ct5 header).
 constexpr std::uint32_t kRdcGetHeadPara = 38u;
 constexpr std::uint32_t kRdcSelectCorTable = 130u;

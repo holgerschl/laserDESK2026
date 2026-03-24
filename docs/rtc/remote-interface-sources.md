@@ -56,7 +56,7 @@ The **RTC6 software package** ZIP from SCANLAB (e.g. linked from the Projektplan
 | TGM_HEADER + RAW payload (little-endian `uint32_t`) | `backend/src/rtc/rif/telegram_raw.*` |
 | UDP send / receive (manual §16.10.8) | `backend/src/rtc/rif/udp_channel.*` — **Asio** UDP IPv4 (Schritt „Socket“ im [1089-Plan](handbuch-1089-remote-interface-plan.md); kein Winsock im Quelltext). Optional lokale Bind-Adresse: `udp_local_bind` am Connect. |
 | Befehls-Abdeckung `R_DC_*` / `R_LC_*` | [`rif-command-coverage.md`](rif-command-coverage.md) |
-| Remote Control IDs used for MVP slice | `R_DC_GET_STATUS` (31), `R_DC_GET_INPUT_POINTER` (4), `R_DC_EXECUTE_LIST_POS` (15, list 1 pos 0), `R_DC_STOP_EXECUTION` (16) — see `telegram_raw.hpp` |
+| Remote Control IDs used for MVP slice | See [`rif-command-coverage.md`](rif-command-coverage.md): includes **`R_DC_CONFIG_LIST`** (1), **`R_DC_GET_INPUT_POINTER`** (4), **`R_DC_LOAD_LIST_POS`** (6), **`R_DC_SET_MAX_COUNT`** (11), **`R_DC_EXECUTE_LIST_POS`** (15), **`R_DC_STOP_EXECUTION`** (16), **`R_DC_GET_STATUS`** (31), correction path (38, 130, 154, 155) — `telegram_raw.hpp` |
 | Correction load + **K xy** readback | `POST /api/v1/rtc/correction/load` → `R_DC_LOAD_CORRECTION_FILE` (154), `R_DC_SELECT_COR_TABLE` (130), then **`R_DC_GET_HEAD_PARA`** (38) ParaNo **1** — `backend/src/rtc/ethernet_rtc_client.cpp` |
 | `IRtcClient` over Ethernet | `backend/src/rtc/ethernet_rtc_client.*` (connect: seq sync per wrapper, then `R_DC_GET_STATUS`) |
 | Subnet discover | `backend/src/rtc/rtc_discover.cpp` (same seq sync + `GET_STATUS` per host) |
