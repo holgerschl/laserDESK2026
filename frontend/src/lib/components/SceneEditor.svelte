@@ -268,8 +268,9 @@
 	const editorTooltipResetView =
 		'Fit the full 100×100 mm scene in the view (centered). Mouse wheel: zoom toward cursor. Space+drag or middle mouse: pan.';
 
-	let editorAxis = $derived.by(() => {
-		const layout = fixedStageLayout(stageWidth, stageHeight);
+	/** Tick geometry for mm axes (shared by Konva draw; same world/mm convention as entities). */
+	function buildEditorAxisSpec(sw: number, sh: number) {
+		const layout = fixedStageLayout(sw, sh);
 		const previewStroke = Math.max(Math.max(layout.w, layout.h) * 0.0024, 0.055);
 		const axisStroke = Math.max(previewStroke * 0.65, 0.065);
 		const labelSize = Math.max(Math.max(layout.w, layout.h) * 0.034, 0.65);
@@ -296,7 +297,7 @@
 			xAxisInView,
 			yAxisInView
 		};
-	});
+	}
 
 	function worldLineEndpointsFromKonva(line: KonvaLine): {
 		x0: number;
@@ -563,6 +564,141 @@
 					listening: false
 				});
 				viewport.add(rubber);
+			}
+		}
+
+		/** Axes / ticks / labels in the same viewport Group as the grid (identical pan & zoom). */
+		{
+			const ax = buildEditorAxisSpec(stageWidth, stageHeight);
+			const L = ax.layout;
+			const yBottom = konvaY(0);
+			const dash = [ax.axisStroke * 3, ax.axisStroke * 2];
+			const add = (n: KonvaShape) => {
+				n.listening(false);
+				viewport.add(n);
+			};
+			add(
+				new K.Rect({
+					x: L.minX,
+					y: konvaY(L.maxY),
+					width: L.w,
+					height: L.h,
+					stroke: '#cbd5e1',
+					strokeWidth: ax.axisStroke,
+					fillEnabled: false
+				})
+			);
+			for (const xt of ax.xs) {
+				if (xt < L.minX - 1e-9 || xt > L.maxX + 1e-9) continue;
+				add(
+					new K.Line({
+						points: [xt, yBottom, xt, yBottom + ax.tickLen],
+						stroke: '#94a3b8',
+						strokeWidth: ax.axisStroke,
+						lineCap: 'square'
+					})
+				);
+				const tx = new K.Text({
+					x: xt,
+					y: yBottom + ax.tickLen + ax.tickFont * 0.92,
+					text: fmtMmLabel(xt),
+					fontSize: ax.tickFont,
+					fontFamily: 'system-ui, Segoe UI, sans-serif',
+					fill: '#64748b',
+					align: 'center',
+					verticalAlign: 'middle'
+				});
+				tx.offsetX(tx.width() / 2);
+				tx.offsetY(tx.height() / 2);
+				add(tx);
+			}
+			for (const yt of ax.ysW) {
+				const ky = konvaY(yt);
+				if (ky < L.minY - 1e-9 || ky > ax.bottomY + 1e-9) continue;
+				add(
+					new K.Line({
+						points: [L.minX - ax.tickLen, ky, L.minX, ky],
+						stroke: '#94a3b8',
+						strokeWidth: ax.axisStroke,
+						lineCap: 'square'
+					})
+				);
+				const ty = new K.Text({
+					x: L.minX - ax.tickLen - ax.tickFont * 0.25,
+					y: ky + ax.tickFont * 0.32,
+					text: fmtMmLabel(yt),
+					fontSize: ax.tickFont,
+					fontFamily: 'system-ui, Segoe UI, sans-serif',
+					fill: '#64748b',
+					align: 'right',
+					verticalAlign: 'middle'
+				});
+				ty.offsetX(ty.width());
+				ty.offsetY(ty.height() / 2);
+				add(ty);
+			}
+			if (ax.xAxisInView) {
+				add(
+					new K.Line({
+						points: [L.minX, yBottom, L.maxX, yBottom],
+						stroke: '#94a3b8',
+						strokeWidth: ax.axisStroke,
+						dash,
+						lineCap: 'square'
+					})
+				);
+			}
+			if (ax.yAxisInView) {
+				add(
+					new K.Line({
+						points: [0, konvaY(L.maxY), 0, konvaY(L.minY)],
+						stroke: '#94a3b8',
+						strokeWidth: ax.axisStroke,
+						dash,
+						lineCap: 'square'
+					})
+				);
+			}
+			if (ax.xAxisInView && ax.yAxisInView) {
+				add(
+					new K.Circle({
+						x: 0,
+						y: yBottom,
+						radius: Math.max(ax.axisStroke * 2.2, 0.35),
+						fill: '#64748b'
+					})
+				);
+			}
+			if (ax.xAxisInView) {
+				const t = new K.Text({
+					x: L.maxX - ax.labelSize * 0.15,
+					y: yBottom + ax.labelSize * 0.85,
+					text: '+X',
+					fontSize: ax.labelSize,
+					fontFamily: 'system-ui, Segoe UI, sans-serif',
+					fontStyle: 'bold',
+					fill: '#64748b',
+					align: 'right',
+					verticalAlign: 'middle'
+				});
+				t.offsetX(t.width());
+				t.offsetY(t.height() / 2);
+				add(t);
+			}
+			if (ax.yAxisInView) {
+				const t = new K.Text({
+					x: ax.labelSize * 0.35,
+					y: konvaY(L.maxY) + ax.labelSize * 0.95,
+					text: '+Y',
+					fontSize: ax.labelSize,
+					fontFamily: 'system-ui, Segoe UI, sans-serif',
+					fontStyle: 'bold',
+					fill: '#64748b',
+					align: 'left',
+					verticalAlign: 'middle'
+				});
+				t.offsetY(t.height() / 2);
+				add(t);
 			}
 		}
 
@@ -1582,131 +1718,10 @@
 		data-testid="editor-stage-wrap"
 	>
 		<div bind:this={container} class="konva-host"></div>
-		<!--
-			Same affine as Konva viewport Group: x' = zoom*x + panX, y' = zoom*y + panY (user units = stage px; viewBox 1:1 with explicit width/height).
-			Do not use CSS transform on the root <svg> — it can hide the overlay in some browsers. %-sized SVG without fixed px desyncs from Konva; keep width/height = stage.
-		-->
-		<svg
-			class="editor-coords-svg"
-			data-testid="editor-coords-svg"
-			width={displayWidth}
-			height={displayHeight}
-			viewBox="{editorAxis.layout.minX} {editorAxis.layout.minY} {editorAxis.layout.w} {editorAxis.layout.h}"
-			preserveAspectRatio="xMinYMin meet"
-			overflow="visible"
-			role="img"
-			aria-label="Scene editor axes with millimetre ticks"
-		>
-			<g
-				class="editor-coords"
-				pointer-events="none"
-				aria-hidden="true"
-				transform="matrix({viewZoom} 0 0 {viewZoom} {viewPanX} {viewPanY})"
-			>
-				<rect
-					x={editorAxis.layout.minX}
-					y={editorAxis.layout.minY}
-					width={editorAxis.layout.w}
-					height={editorAxis.layout.h}
-					fill="none"
-					stroke="#cbd5e1"
-					stroke-width={editorAxis.axisStroke}
-				/>
-				{#each editorAxis.xs as xt (xt)}
-					{#if xt >= editorAxis.layout.minX - 1e-9 && xt <= editorAxis.layout.maxX + 1e-9}
-						<line
-							x1={xt}
-							y1={editorAxis.bottomY}
-							x2={xt}
-							y2={editorAxis.bottomY + editorAxis.tickLen}
-							stroke="#94a3b8"
-							stroke-width={editorAxis.axisStroke}
-						/>
-						<text
-							x={xt}
-							y={editorAxis.bottomY + editorAxis.tickLen + editorAxis.tickFont * 0.92}
-							fill="#64748b"
-							font-size={editorAxis.tickFont}
-							font-family="system-ui, Segoe UI, sans-serif"
-							text-anchor="middle">{fmtMmLabel(xt)}</text>
-					{/if}
-				{/each}
-				{#each editorAxis.ysW as yt (yt)}
-					{@const ys = editorAxis.layout.flip(yt)}
-					{#if ys >= editorAxis.layout.minY - 1e-9 && ys <= editorAxis.bottomY + 1e-9}
-						<line
-							x1={editorAxis.layout.minX - editorAxis.tickLen}
-							y1={ys}
-							x2={editorAxis.layout.minX}
-							y2={ys}
-							stroke="#94a3b8"
-							stroke-width={editorAxis.axisStroke}
-						/>
-						<text
-							x={editorAxis.layout.minX - editorAxis.tickLen - editorAxis.tickFont * 0.25}
-							y={ys + editorAxis.tickFont * 0.32}
-							fill="#64748b"
-							font-size={editorAxis.tickFont}
-							font-family="system-ui, Segoe UI, sans-serif"
-							text-anchor="end">{fmtMmLabel(yt)}</text>
-					{/if}
-				{/each}
-				{#if editorAxis.xAxisInView}
-					<line
-						x1={editorAxis.layout.minX}
-						y1={editorAxis.y0}
-						x2={editorAxis.layout.maxX}
-						y2={editorAxis.y0}
-						stroke="#94a3b8"
-						stroke-width={editorAxis.axisStroke}
-						stroke-dasharray={`${editorAxis.axisStroke * 3} ${editorAxis.axisStroke * 2}`}
-					/>
-				{/if}
-				{#if editorAxis.yAxisInView}
-					<line
-						x1="0"
-						y1={editorAxis.layout.minY}
-						x2="0"
-						y2={editorAxis.layout.minY + editorAxis.layout.h}
-						stroke="#94a3b8"
-						stroke-width={editorAxis.axisStroke}
-						stroke-dasharray={`${editorAxis.axisStroke * 3} ${editorAxis.axisStroke * 2}`}
-					/>
-				{/if}
-				{#if editorAxis.xAxisInView && editorAxis.yAxisInView}
-					<circle
-						cx="0"
-						cy={editorAxis.y0}
-						r={Math.max(editorAxis.axisStroke * 2.2, 0.35)}
-						fill="#64748b"
-					/>
-				{/if}
-				{#if editorAxis.xAxisInView}
-					<text
-						x={editorAxis.layout.maxX - editorAxis.labelSize * 0.15}
-						y={editorAxis.y0 + editorAxis.labelSize * 0.85}
-						fill="#64748b"
-						font-size={editorAxis.labelSize}
-						font-family="system-ui, Segoe UI, sans-serif"
-						text-anchor="end"
-						font-weight="600">+X</text>
-				{/if}
-				{#if editorAxis.yAxisInView}
-					<text
-						x={editorAxis.labelSize * 0.35}
-						y={editorAxis.layout.minY + editorAxis.labelSize * 0.95}
-						fill="#64748b"
-						font-size={editorAxis.labelSize}
-						font-family="system-ui, Segoe UI, sans-serif"
-						text-anchor="start"
-						font-weight="600">+Y</text>
-				{/if}
-			</g>
-		</svg>
 	</div>
 	<p class="ldk-muted editor-coords-caption">
-		Axes and tick labels use <strong>millimetres</strong>; origin at (0, 0); <strong>+Y</strong> points up on screen (same
-		convention as the DXF demo).
+		Axes and tick labels are drawn in Konva (same pan/zoom as the grid). Units: <strong>millimetres</strong>; origin (0, 0);
+		<strong>+Y</strong> up on screen (same convention as the DXF demo).
 	</p>
 </div>
 
@@ -1747,15 +1762,6 @@
 		z-index: 0;
 		overflow: hidden;
 		background: #fafbfc;
-	}
-	.editor-coords-svg {
-		position: absolute;
-		left: 0;
-		top: 0;
-		z-index: 1;
-		pointer-events: none;
-		display: block;
-		box-sizing: border-box;
 	}
 	.editor-stage-stack.editor-space-pan {
 		cursor: grab;
