@@ -54,17 +54,17 @@ struct RtcConnectConfig {
 
 /// `R_DC_LOAD_CORRECTION_FILE` + `R_DC_SELECT_COR_TABLE` (see `rtc6_rif_wrapper.cpp` / `telegrams.h`).
 struct CorrectionFileLoadParams {
-  std::uint32_t table_no{0};
+  /// RTC6 manual `load_correction_file` parameter **No**: allowed **[1…8]** (not 0). Packed into finalize
+  /// telegram word 3 (low 16 bits) per §16.10.6 note (4).
+  std::uint32_t table_no{1};
   std::uint32_t dim{2};
   std::uint32_t head_a{1};
   std::uint32_t head_b{1};
   /// If set, sends `R_DC_NUMBER_OF_COR_TABLES` before upload. If unset, Ethernet sends 1 (some firmware
   /// requires this before the first `R_DC_LOAD_CORRECTION_FILE` data chunk).
   std::optional<std::uint32_t> number_of_tables;
-  /// Third `uint32_t` in the `R_DC_LOAD_CORRECTION_FILE` **finalize** telegram (after offset `0xFFFFFFFF`).
-  /// Data chunks use `(table_no & 0xFFFF) | (dim << 16)` as the length word; some boards reject that for
-  /// finalize and expect `0`. If unset, Ethernet tries `no_dim` first, then `0` when `LastError` is
-  /// `ERROR_HEADER_FORMAT` (0x10).
+  /// Override third word of **finalize** only (`Offset = UINT_MAX`): default `(table_no & 0xFFFF) | (dim << 16)`
+  /// per manual §16.10.6 (4). Normally leave unset.
   std::optional<std::uint32_t> finalize_arg3;
 };
 

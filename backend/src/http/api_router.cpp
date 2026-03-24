@@ -216,7 +216,7 @@ int BackendSession::handle_post_rtc_correction_load(const httplib::Request& req,
   std::vector<std::uint8_t> bytes(f.content.begin(), f.content.end());
 
   rtc::CorrectionFileLoadParams p;
-  p.table_no = parse_u32_param(req, "table_no", 0u);
+  p.table_no = parse_u32_param(req, "table_no", 1u);
   p.dim = parse_u32_param(req, "dim", 2u);
   p.head_a = parse_u32_param(req, "head_a", 1u);
   p.head_b = parse_u32_param(req, "head_b", 1u);

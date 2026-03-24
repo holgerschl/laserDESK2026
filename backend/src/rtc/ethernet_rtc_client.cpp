@@ -31,13 +31,11 @@ std::optional<RtcError> check_answer(rif::ParsedAnswer& a, std::uint32_t expecte
   if (a.last_error != 0u) {
     std::string msg = rif::describe_last_error(a.last_error);
     if ((a.last_error & (1u << 4u)) != 0u) {
-      msg += " — ERROR_HEADER_FORMAT (bit 4). If GET_STATUS already works with the same session, "
-             "this is not only a RAW vs NONE mismatch: correction uses near-max UDP telegrams; "
-             "some firmware reports length/sequence issues as HEADER_FORMAT. Try "
-             "number_of_tables (e.g. 1) before upload, `dim` matching the .ct5 (2 vs 3), "
-             "query finalize_arg3=0 to force the finalize telegram third word to zero, a smaller .ct5, "
-             "or BIOS-ETH/firmware update. "
-             "Otherwise align client tgm_format with eth_set_remote_tgm_format (NONE=0, RAW=1). "
+      msg += " — ERROR_HEADER_FORMAT (bit 4): header TGM `format` must match "
+             "`eth_set_remote_tgm_format` (see manual §16.10.7). If GET_STATUS already works with the "
+             "same session, check correction **table_no** is **1…8** in the finalize Size word (manual "
+             "`load_correction_file` No; default was wrong if 0), **dim** vs .ct5 (2/3), chunk size, "
+             "number_of_tables, or BIOS-ETH/firmware. "
              "Sent format was ";
       msg += std::to_string(telegram_format);
       msg += ".";
@@ -414,6 +412,11 @@ std::optional<RtcError> EthernetRtcClient::load_correction_file(const std::vecto
     return err("RTC_INTERNAL", "RTC in error state; disconnect or reset");
   }
   if (file_bytes.empty()) return err("RTC_INTERNAL", "correction file is empty");
+  if (params.table_no < 1u || params.table_no > 8u) {
+    return err("RTC_INTERNAL",
+               "correction table_no (RTC6 load_correction_file No) must be 1..8; see manual §10 "
+               "load_correction_file and §16.10.6 note (4) finalize Size word low 16 bits");
+  }
 
   rif::ParsedAnswer ans;
   if (params.number_of_tables.has_value()) {
@@ -470,28 +473,17 @@ std::optional<RtcError> EthernetRtcClient::load_correction_file(const std::vecto
   }
 
   constexpr std::uint32_t kFinalizeOffset = std::numeric_limits<std::uint32_t>::max();
-  const std::uint32_t no_dim =
-      (params.table_no & 0xFFFFu) | ((params.dim & 0xFFFFu) << 16u);
-
-  auto finalize_send_and_check = [&](std::uint32_t third_word,
-                                     const char* step) -> std::optional<RtcError> {
-    if (auto e = with_correction_stage(
-            step, send_remote_control({rif::kRdcLoadCorrectionFile, kFinalizeOffset, third_word}, ans))) {
-      return e;
-    }
-    return with_correction_stage(step, check_answer(ans, rif::kRdcLoadCorrectionFile, 2u, format_));
-  };
-
-  if (params.finalize_arg3.has_value()) {
-    if (auto e = finalize_send_and_check(*params.finalize_arg3, "finalize(explicit arg3)")) return e;
-  } else {
-    if (auto e = finalize_send_and_check(no_dim, "finalize")) {
-      if (ans.ok && (ans.last_error & (1u << 4u)) != 0u) {
-        if (auto e2 = finalize_send_and_check(0u, "finalize(w3=0)")) return e2;
-      } else {
-        return e;
-      }
-    }
+  const std::uint32_t no_dim = params.finalize_arg3.value_or(
+      (params.table_no & 0xFFFFu) | ((params.dim & 0xFFFFu) << 16u));
+  if (auto e = with_correction_stage(
+          params.finalize_arg3 ? "finalize(explicit arg3)" : "finalize",
+          send_remote_control({rif::kRdcLoadCorrectionFile, kFinalizeOffset, no_dim}, ans))) {
+    return e;
+  }
+  if (auto e = with_correction_stage(
+          params.finalize_arg3 ? "finalize(explicit arg3)" : "finalize",
+          check_answer(ans, rif::kRdcLoadCorrectionFile, 2u, format_))) {
+    return e;
   }
 
   if (auto e = with_correction_stage(

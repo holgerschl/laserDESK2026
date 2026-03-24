@@ -48,7 +48,7 @@
 	let correctionOpen = $state(false);
 	let correctionBusy = $state(false);
 	let correctionErr = $state<string | null>(null);
-	let corTableNo = $state(0);
+	let corTableNo = $state(1);
 	let corDim = $state(2);
 	let corHeadA = $state(1);
 	let corHeadB = $state(1);
@@ -560,7 +560,9 @@
 						class="ldk-input"
 						bind:value={corTableNo}
 						disabled={correctionBusy}
-						min="0"
+						min="1"
+						max="8"
+						title="RTC6 manual: No must be 1…8 for load_correction_file / finalize telegram"
 					/>
 				</div>
 				<div class="ldk-field ldk-field-grow">
