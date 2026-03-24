@@ -178,6 +178,12 @@ button:focus-visible {
 	word-break: normal;
 }
 
+/** Cross-tab BroadcastChannel log on /rtc */
+.ldk-pre.ldk-rtc-activity-log {
+	max-height: min(45vh, 22rem);
+	min-height: 8rem;
+}
+
 .ldk-error {
 	color: #a30f0f;
 	font-size: 0.9rem;

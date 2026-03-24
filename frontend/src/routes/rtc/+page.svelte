@@ -69,11 +69,30 @@
 
 	async function refresh() {
 		try {
-			const [h, s] = await Promise.all([api.getHealth(), api.getRtcStatus()]);
+			const h = await api.getHealth();
 			healthText = JSON.stringify(h, null, 2);
+		} catch (e) {
+			healthText = e instanceof Error ? e.message : String(e);
+		}
+		try {
+			const s = await api.getRtcStatus();
 			statusText = JSON.stringify(s, null, 2);
 		} catch (e) {
 			statusText = e instanceof Error ? e.message : String(e);
+		}
+		try {
+			const rif = await api.getRtcRifLog();
+			const lines = rif.lines ?? [];
+			if (rif.hint && lines.length === 0) {
+				rifLogText = `(${rif.hint})`;
+			} else if (lines.length === 0) {
+				rifLogText =
+					'(no outbound RIF lines in this session yet — Ethernet: lines appear after UDP telegrams are sent; mock session stays empty)';
+			} else {
+				rifLogText = lines.join('\n');
+			}
+		} catch (e) {
+			rifLogText = `RIF log: ${e instanceof Error ? e.message : String(e)}`;
 		}
 	}
 </script>
@@ -139,5 +158,5 @@
 
 <div class="ldk-card">
 	<h2 style="margin:0 0 0.35rem;font-size:0.95rem">Activity log</h2>
-	<pre class="ldk-pre" data-testid="rtc-channel-log">{logLines.join('\n')}</pre>
+	<pre class="ldk-pre ldk-rtc-activity-log" data-testid="rtc-channel-log">{logLines.join('\n')}</pre>
 </div>

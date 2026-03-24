@@ -366,7 +366,7 @@
 									: !rtcConnected
 										? 'Connect first'
 										: !canStartJob
-											? 'Load a job first'
+											? 'Load a job first (previous step: register minimal demo job until RTC status is loaded)'
 											: undefined}
 							onclick={() => doRun()}>Start</button
 						>
@@ -379,6 +379,14 @@
 							onclick={() => doStop()}>Stop</button
 						>
 					</div>
+					{#if rtcConnected && !jobRunning && !canStartJob}
+						<p class="ldk-muted" style="margin:0.45rem 0 0;font-size:0.82rem" data-testid="run-start-hint">
+							<strong>Start</strong> is enabled only when RTC status is <code>loaded</code>. Use the
+							<strong>Load job</strong> step and click <em>Register minimal demo job</em>, then open
+							<strong>Run</strong> again. Current RTC state:
+							<code>{connectionState}</code>{#if !jobId} · register a job to get a job id{/if}.
+						</p>
+					{/if}
 				{:else if step.kind === 'status'}
 					<div class="ldk-row" style="margin-bottom:0.45rem">
 						<button
