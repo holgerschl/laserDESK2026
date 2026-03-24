@@ -216,6 +216,7 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
   dxf_line_count_.reset();
   dxf_source_name_.reset();
   dxf_list_execute_start_pos_.reset();
+  execution_repeat_count_ = 1u;
   return std::nullopt;
 }
 
@@ -258,8 +259,11 @@ std::variant<RtcStatus, RtcError> EthernetRtcClient::get_status() {
     return s;
   }
   // RTC6 manual Ch. 10 `get_status`: when list execution status bits are all clear, marking/list
-  // output is idle — align session FSM so UI can offer Start again without requiring Stop.
-  if (state_ == State::Running && ans.pl_words.size() >= 3u) {
+  // output is idle. Only auto-clear `Running` for single-shot starts (`repeat_count` 1). For higher
+  // API repeat values we cannot infer “all repeats done” from idle samples alone (`R_DC_SET_MAX_COUNT`
+  // is External Starts per Ch.10, not confirmed as list body repeats) — user must Stop or we’d flip
+  // to Loaded between repeats / when the list never actually ran.
+  if (state_ == State::Running && execution_repeat_count_ == 1u && ans.pl_words.size() >= 3u) {
     const std::uint32_t st = ans.pl_words[2];
     if ((st & rif::kRdcGetStatusListExecutionBusyMask) == 0u) {
       state_ = State::Loaded;
@@ -346,6 +350,15 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
   }
   list_exec_pos = ans.pl_words[2];
 
+  // Manual §6.4.1 / `rtc6_rif_wrapper::load_list` — initialize protected loading at this pointer
+  // before streaming `R_LC_*` telegrams (may be required for list execution to see the program).
+  if (auto e = send_remote_control({rif::kRdcLoadListPos, rif_execute_list_no_, list_exec_pos}, ans)) {
+    return e;
+  }
+  if (auto e = check_answer(ans, rif::kRdcLoadListPos, 3u, format_)) {
+    return e;
+  }
+
   job::RtcJobPlan plan;
   std::string perr;
   if (!job::parse_rtc_job_plan_from_dxf_json(job_document, plan, perr)) {
@@ -374,6 +387,7 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
   last_job_label_.clear();
   last_job_id_.clear();
   dxf_list_execute_start_pos_ = list_exec_pos;
+  execution_repeat_count_ = 1u;
   state_ = State::Loaded;
   return std::nullopt;
 }
@@ -408,6 +422,7 @@ std::optional<RtcError> EthernetRtcClient::start_execution(std::uint32_t repeat_
   if (auto e = check_answer(ans, rif::kRdcExecuteListPos, 2u, format_)) {
     return e;
   }
+  execution_repeat_count_ = counts;
   state_ = State::Running;
   return std::nullopt;
 }
@@ -427,6 +442,7 @@ std::optional<RtcError> EthernetRtcClient::stop_execution() {
   if (auto e = check_answer(ans, rif::kRdcStopExecution, 2u, format_)) {
     return e;
   }
+  execution_repeat_count_ = 1u;
   state_ = State::Loaded;
   return std::nullopt;
 }

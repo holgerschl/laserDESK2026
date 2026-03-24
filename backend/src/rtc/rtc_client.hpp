@@ -26,7 +26,8 @@ class IRtcClient {
   virtual std::variant<std::string, RtcError> load_minimal_job(const std::string& label) = 0;
   /// Load parsed DXF job document (same shape as GET /jobs/dxf/{id}) into the RTC session.
   virtual std::optional<RtcError> load_dxf_job(const nlohmann::json& job_document) = 0;
-  /// `repeat_count`: how many times the list should run (`R_DC_SET_MAX_COUNT` before `R_DC_EXECUTE_LIST_POS`).
+  /// `repeat_count` passed to `R_DC_SET_MAX_COUNT` before `R_DC_EXECUTE_LIST_POS`. RTC6 Ch.10 describes
+  /// `set_max_counts` primarily for External Starts; Ethernet auto-idle (Running→Loaded) only when this is 1.
   virtual std::optional<RtcError> start_execution(std::uint32_t repeat_count = 1u) = 0;
   virtual std::optional<RtcError> stop_execution() = 0;
 

@@ -18,7 +18,10 @@ constexpr std::uint32_t kTgmFormatRaw = 1u;
 /// Remote Control Command IDs (manual §16.10.9; numeric values match SCANLAB package `telegrams.h`).
 constexpr std::uint32_t kRdcConfigList = 1u;
 constexpr std::uint32_t kRdcGetInputPointer = 4u;
-/// List execution repeat / max count (`set_max_counts` in `rtc6_rif_wrapper.cpp`).
+/// `load_list(ListNo, Pos)` — manual §16.10.9 Appendix A; initializes protected list loading (before `R_LC_*` stream).
+constexpr std::uint32_t kRdcLoadListPos = 6u;
+/// Remote control ID 11 — maps to DLL `set_max_counts`. RTC6 manual Ch.10 defines this for **External Starts**
+/// (and `get_counts`), not proven here as “repeat this list N times”; see `EthernetRtcClient::start_execution`.
 constexpr std::uint32_t kRdcSetMaxCount = 11u;
 constexpr std::uint32_t kRdcExecuteListPos = 15u;
 constexpr std::uint32_t kRdcStopExecution = 16u;

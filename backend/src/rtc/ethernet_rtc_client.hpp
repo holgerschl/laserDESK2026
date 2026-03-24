@@ -68,6 +68,9 @@ class EthernetRtcClient final : public IRtcClient {
   std::uint32_t rif_config_list_mem2_{2u};
   /// First argument to `R_DC_EXECUTE_LIST_POS` (see `RtcConnectConfig::rif_execute_list_no`).
   std::uint32_t rif_execute_list_no_{1u};
+  /// Last `repeat_count` passed to `start_execution` (API / `R_DC_SET_MAX_COUNT`). Used to avoid treating
+  /// intermittent `get_status` idle as “job finished” when the session was started with repeats > 1.
+  std::uint32_t execution_repeat_count_{1u};
 };
 
 }  // namespace laserdesk::rtc
