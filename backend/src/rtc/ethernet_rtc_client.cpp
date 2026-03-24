@@ -98,6 +98,7 @@ RtcStatus EthernetRtcClient::build_status(const rif::ParsedAnswer* g) const {
   }
   if (dxf_line_count_) s.active_dxf_line_count = dxf_line_count_;
   if (dxf_source_name_) s.active_dxf_source_name = dxf_source_name_;
+  s.rif_execute_list_no = rif_execute_list_no_;
   s.rif_udp_timeout_count = rif_metric_udp_timeouts_;
   s.rif_udp_spurious_datagrams = rif_metric_spurious_datagrams_;
   s.rif_connect_status_retries_used = rif_last_connect_status_retries_;
@@ -147,6 +148,7 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
   dxf_rif_bits_per_mm_ = connect_default_bits_per_mm_;
   rif_config_list_mem1_ = cfg.rif_config_list_mem1;
   rif_config_list_mem2_ = cfg.rif_config_list_mem2;
+  rif_execute_list_no_ = cfg.rif_execute_list_no.has_value() ? *cfg.rif_execute_list_no : cfg.rif_config_list_mem1;
   rif_metric_udp_timeouts_ = 0;
   rif_metric_spurious_datagrams_ = 0;
   rif_last_connect_status_retries_ = 0;
@@ -230,6 +232,7 @@ void EthernetRtcClient::disconnect() {
   dxf_rif_bits_per_mm_ = connect_default_bits_per_mm_;
   rif_config_list_mem1_ = 1u;
   rif_config_list_mem2_ = 2u;
+  rif_execute_list_no_ = 1u;
   rif_metric_udp_timeouts_ = 0;
   rif_metric_spurious_datagrams_ = 0;
   rif_last_connect_status_retries_ = 0;
@@ -390,7 +393,7 @@ std::optional<RtcError> EthernetRtcClient::start_execution(std::uint32_t repeat_
   // List commands are streamed at the board's current input pointer (see `load_dxf_job`). Running from
   // pos 0 executes the wrong region when the pointer is non-zero — typical symptom: no galvo motion.
   const std::uint32_t exec_pos = dxf_list_execute_start_pos_.value_or(0u);
-  if (auto e = send_remote_control({rif::kRdcExecuteListPos, rif_config_list_mem1_, exec_pos}, ans)) {
+  if (auto e = send_remote_control({rif::kRdcExecuteListPos, rif_execute_list_no_, exec_pos}, ans)) {
     return e;
   }
   if (auto e = check_answer(ans, rif::kRdcExecuteListPos, 2u, format_)) {

@@ -51,6 +51,9 @@ struct RtcConnectConfig {
   /// Arguments to `R_DC_CONFIG_LIST` (1) — same as SCANLAB Remote Interface `config_list`.
   std::uint32_t rif_config_list_mem1{1u};
   std::uint32_t rif_config_list_mem2{2u};
+  /// First word of `R_DC_EXECUTE_LIST_POS` (15) — which list to run. If unset at REST connect, defaults to
+  /// `rif_config_list_mem1` (same list targeted by `config_list` on many setups).
+  std::optional<std::uint32_t> rif_execute_list_no;
 };
 
 /// `R_DC_LOAD_CORRECTION_FILE` + `R_DC_SELECT_COR_TABLE` (see `rtc6_rif_wrapper.cpp` / `telegrams.h`).
@@ -91,6 +94,8 @@ struct RtcStatus {
   std::optional<std::uint64_t> rif_udp_spurious_datagrams;
   /// Ethernet: extra `R_DC_GET_STATUS` attempts during last connect after the first try (retries only).
   std::optional<std::uint32_t> rif_connect_status_retries_used;
+  /// Ethernet: `R_DC_EXECUTE_LIST_POS` list index in use for this session (`POST /rtc/connect`).
+  std::optional<std::uint32_t> rif_execute_list_no;
 };
 
 inline const char* kHealthOk = "ok";

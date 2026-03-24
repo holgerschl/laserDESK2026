@@ -53,6 +53,8 @@ export interface RtcStatusJson {
 	rif_udp_timeout_count?: number;
 	rif_udp_spurious_datagrams?: number;
 	rif_connect_status_retries_used?: number;
+	/** Ethernet: first argument of R_DC_EXECUTE_LIST_POS used for this session */
+	rif_execute_list_no?: number;
 }
 
 export interface ApiErrorBody {

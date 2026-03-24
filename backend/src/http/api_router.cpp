@@ -106,6 +106,7 @@ nlohmann::json BackendSession::handle_get_rtc_status() const {
   if (r.rif_udp_timeout_count) j["rif_udp_timeout_count"] = *r.rif_udp_timeout_count;
   if (r.rif_udp_spurious_datagrams) j["rif_udp_spurious_datagrams"] = *r.rif_udp_spurious_datagrams;
   if (r.rif_connect_status_retries_used) j["rif_connect_status_retries_used"] = *r.rif_connect_status_retries_used;
+  if (r.rif_execute_list_no) j["rif_execute_list_no"] = *r.rif_execute_list_no;
   return j;
 }
 
@@ -157,6 +158,8 @@ int BackendSession::handle_post_rtc_connect(const nlohmann::json& body, nlohmann
       cfg.rif_config_list_mem1 = body["rif_config_list_mem1"].get<std::uint32_t>();
     if (body.contains("rif_config_list_mem2") && body["rif_config_list_mem2"].is_number_unsigned())
       cfg.rif_config_list_mem2 = body["rif_config_list_mem2"].get<std::uint32_t>();
+    if (body.contains("rif_execute_list_no") && body["rif_execute_list_no"].is_number_unsigned())
+      cfg.rif_execute_list_no = body["rif_execute_list_no"].get<std::uint32_t>();
     if (auto e = rtc_->connect(cfg)) {
       err_out = error_json(*e);
       rtc_.reset();

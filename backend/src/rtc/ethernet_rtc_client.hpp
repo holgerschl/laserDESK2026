@@ -66,6 +66,8 @@ class EthernetRtcClient final : public IRtcClient {
   double dxf_rif_bits_per_mm_{128.0};
   std::uint32_t rif_config_list_mem1_{1u};
   std::uint32_t rif_config_list_mem2_{2u};
+  /// First argument to `R_DC_EXECUTE_LIST_POS` (see `RtcConnectConfig::rif_execute_list_no`).
+  std::uint32_t rif_execute_list_no_{1u};
 };
 
 }  // namespace laserdesk::rtc
