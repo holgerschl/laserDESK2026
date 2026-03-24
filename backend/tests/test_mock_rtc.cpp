@@ -43,11 +43,10 @@ TEST(MockRtc, LoadStartStopFlow) {
   EXPECT_EQ(st1.connection_state, "loaded");
 
   ASSERT_FALSE(rtc.start_execution().has_value());
-  EXPECT_EQ(std::get<laserdesk::rtc::RtcStatus>(rtc.get_status()).connection_state, "loaded");
+  EXPECT_EQ(std::get<laserdesk::rtc::RtcStatus>(rtc.get_status()).connection_state, "running");
 
-  auto stop_err = rtc.stop_execution();
-  ASSERT_TRUE(stop_err.has_value());
-  EXPECT_EQ(stop_err->code, "RTC_NOT_RUNNING");
+  ASSERT_FALSE(rtc.stop_execution().has_value());
+  EXPECT_EQ(std::get<laserdesk::rtc::RtcStatus>(rtc.get_status()).connection_state, "loaded");
 }
 
 TEST(MockRtc, StartWithoutLoadFails) {
@@ -99,6 +98,7 @@ TEST(MockRtc, LoadDxfJobStartStop) {
   ASSERT_TRUE(st.active_dxf_line_count.has_value());
   EXPECT_EQ(*st.active_dxf_line_count, 2u);
   ASSERT_FALSE(rtc.start_execution().has_value());
+  EXPECT_EQ(std::get<laserdesk::rtc::RtcStatus>(rtc.get_status()).connection_state, "running");
+  ASSERT_FALSE(rtc.stop_execution().has_value());
   EXPECT_EQ(std::get<laserdesk::rtc::RtcStatus>(rtc.get_status()).connection_state, "loaded");
-  ASSERT_TRUE(rtc.stop_execution().has_value());
 }

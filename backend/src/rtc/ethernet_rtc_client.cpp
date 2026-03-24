@@ -242,10 +242,16 @@ std::variant<RtcStatus, RtcError> EthernetRtcClient::get_status() const {
   }
   rif::ParsedAnswer ans;
   if (auto e = send_remote_control({rif::kRdcGetStatus}, ans)) {
-    return *e;
+    // Still report session FSM (e.g. running) so REST/UI can offer Stop; transient UDP loss while the
+    // list executes must not map to `connection_state: disconnected` in api_router.
+    RtcStatus s = build_status(nullptr);
+    s.last_error = *e;
+    return s;
   }
   if (auto e = check_answer(ans, rif::kRdcGetStatus, 4u, format_)) {
-    return *e;
+    RtcStatus s = build_status(nullptr);
+    s.last_error = *e;
+    return s;
   }
   return build_status(&ans);
 }

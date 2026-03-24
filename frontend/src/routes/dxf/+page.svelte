@@ -162,10 +162,11 @@
 		if (!id) return;
 		await withBusy(async () => {
 			await api.postJobsDxfRun(id, runRepeatCount);
+			rtcState = 'running';
 			await refreshRtc();
 			hint = 'Execution started.';
 			rtcLog(
-				`DXF demo: POST /jobs/dxf/…/run?repeat_count=${runRepeatCount} — ethernet: R_DC_SET_MAX_COUNT + R_DC_EXECUTE_LIST_POS; mock: unchanged`
+				`DXF demo: POST /jobs/dxf/…/run?repeat_count=${runRepeatCount} — ethernet: R_DC_SET_MAX_COUNT + R_DC_EXECUTE_LIST_POS`
 			);
 		});
 	}

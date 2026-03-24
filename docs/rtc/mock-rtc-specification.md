@@ -16,7 +16,7 @@ Names are indicative; exact C++ signatures belong in `backend/` during Phase B.
 | `disconnect()` | Tear down session. | — |
 | `get_status()` | Return connection, run state, synthetic versions. | `RTC_NOT_CONNECTED` |
 | `load_minimal_job(handle)` | Prepare internal “list” / job metaphor for MVP demo. | `RTC_INVALID_HANDLE`, `RTC_BUSY` |
-| `start_execution()` | Start list execution (Ethernet: **RUNNING** until stop or board idle). Mock: stay **LOADED** (instant “list finished”). | `RTC_NOT_READY`, `RTC_ALREADY_RUNNING` |
+| `start_execution()` | Start list execution (**RUNNING** until `stop_execution()` or, on Ethernet, board idle when polled). Mock matches Ethernet here so **Stop** stays available in the UI. | `RTC_NOT_READY`, `RTC_ALREADY_RUNNING` |
 | `stop_execution()` | Halt; return to loaded or idle. | `RTC_NOT_RUNNING` |
 | `reset_errors()` | Clear latched error (optional for MVP). | — |
 
@@ -37,8 +37,7 @@ Transitions:
 ```
 DISCONNECTED --connect()--> CONNECTED_IDLE
 CONNECTED_IDLE --load_minimal_job()--> LOADED
-LOADED --start_execution()--> RUNNING  (Ethernet; real board)
-LOADED --start_execution()--> LOADED   (Mock: immediate end-of-list)
+LOADED --start_execution()--> RUNNING  (Mock + Ethernet)
 RUNNING --stop_execution()--> LOADED
 LOADED --disconnect()--> DISCONNECTED
 CONNECTED_IDLE --disconnect()--> DISCONNECTED

@@ -138,9 +138,9 @@ std::optional<RtcError> MockRtcClient::start_execution(std::uint32_t repeat_coun
   if (state_ != State::Loaded) {
     return err("RTC_NOT_READY", "Load a job before start");
   }
-  // Real hardware runs the list asynchronously; when execution finishes, status is
-  // again "loaded" with the job still in memory. Mock simulates immediate end-of-list.
-  state_ = State::Loaded;
+  // Match Ethernet: session stays running until Stop (or disconnect). Immediate "list finished"
+  // made the UI keep Stop disabled while real boards could still be busy.
+  state_ = State::Running;
   return std::nullopt;
 }
 

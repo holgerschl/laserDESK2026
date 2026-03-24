@@ -177,6 +177,8 @@
 		if (!id) return;
 		await withBusy(async () => {
 			await api.postJobsDxfRun(id, runRepeatCount);
+			// Keep Stop enabled if the next GET /rtc/status fails briefly (e.g. busy RTC during list).
+			rtcState = 'running';
 			await refreshRtc();
 			hint = 'Execution started.';
 			rtcLog(`Scene editor: POST /jobs/dxf/…/run (repeat_count=${runRepeatCount})`);

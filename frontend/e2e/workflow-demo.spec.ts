@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 const E2E_API = 'http://127.0.0.1:18080/api/v1';
 
 test.describe('Reference minimal-demo workflow', () => {
-	test('connect mock, load job, run, mock returns to loaded when list ends', async ({ page }) => {
+	test('connect mock, load job, run, stop', async ({ page }) => {
 		await page.request.post(`${E2E_API}/rtc/disconnect`);
 
 		await page.goto('/workflow');
@@ -47,8 +47,14 @@ test.describe('Reference minimal-demo workflow', () => {
 		);
 		await page.getByTestId('start-run').click();
 		await runWait;
+		await expect(page.getByTestId('stop-run')).toBeEnabled();
+
+		const stopWait = page.waitForResponse(
+			(r) => r.url().includes('/api/v1/jobs/minimal-demo/stop') && r.status() === 204
+		);
+		await page.getByTestId('stop-run').click();
+		await stopWait;
 		await expect(page.getByTestId('start-run')).toBeEnabled();
-		await expect(page.getByTestId('stop-run')).toBeDisabled();
 
 		await page.getByRole('button', { name: 'RTC status' }).click();
 		await page.getByTestId('refresh-status').click();
