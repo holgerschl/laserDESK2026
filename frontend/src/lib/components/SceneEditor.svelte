@@ -270,8 +270,8 @@
 
 	let editorAxis = $derived.by(() => {
 		const layout = fixedStageLayout(stageWidth, stageHeight);
-		const previewStroke = Math.max(Math.max(layout.w, layout.h) * 0.004, 0.09);
-		const axisStroke = Math.max(previewStroke * 0.7, 0.1);
+		const previewStroke = Math.max(Math.max(layout.w, layout.h) * 0.0024, 0.055);
+		const axisStroke = Math.max(previewStroke * 0.65, 0.065);
 		const labelSize = Math.max(Math.max(layout.w, layout.h) * 0.034, 0.65);
 		const y0 = layout.flip(0);
 		const tickStepX = niceMmStep(layout.w);
@@ -335,14 +335,14 @@
 
 	/** Shapes live in a zoom-scaled Group; use world units ≈ target screen px / viewZoom for hairline look. */
 	function entityStrokeWorld(sel: boolean): number {
-		const targetPx = sel ? 1.65 : 1.1;
-		return Math.max(0.06, targetPx / viewZoom);
+		const targetPx = sel ? 1.05 : 0.72;
+		return Math.max(0.045, targetPx / viewZoom);
 	}
 	function hitStrokeWorld(): number {
-		return Math.max(6 / viewZoom, 0.55);
+		return Math.max(5 / viewZoom, 0.42);
 	}
 	function rubberStrokeWorld(): number {
-		return Math.max(0.08, 1.05 / viewZoom);
+		return Math.max(0.055, 0.72 / viewZoom);
 	}
 
 	function redraw() {
@@ -366,7 +366,7 @@
 			const stepY = niceMmStep(layout.h);
 			const yKTop = konvaY(layout.maxY);
 			const yKBot = konvaY(layout.minY);
-			const hair = Math.max(0.5 / viewZoom, 0.12);
+			const hair = Math.max(0.34 / viewZoom, 0.075);
 			const gridShape = new K.Shape({
 				listening: false,
 				sceneFunc(ctx) {
@@ -374,7 +374,7 @@
 					ctx.lineJoin = 'miter';
 					ctx.beginPath();
 					ctx.strokeStyle = 'rgba(100, 116, 139, 0.4)';
-					ctx.lineWidth = hair * 1.65;
+					ctx.lineWidth = hair * 1.12;
 					for (
 						let x = Math.ceil(layout.minX / stepX - 1e-9) * stepX;
 						x <= layout.maxX + 1e-9;
@@ -1016,9 +1016,10 @@
 					resizeEnabled: true,
 					keepRatio: singleArc,
 					borderStroke: '#246',
-					borderStrokeWidth: Math.max(0.45, 1 / viewZoom),
+					borderStrokeWidth: Math.max(0.28, 0.68 / viewZoom),
 					anchorFill: '#fff',
 					anchorStroke: '#246',
+					anchorStrokeWidth: Math.max(0.28, 0.68 / viewZoom),
 					boundBoxFunc: (_old, nbox) => {
 						if (selectedIndices.length === 1) {
 							const only = drawn[selectedIndices[0]!];
@@ -1049,7 +1050,7 @@
 					radius: hr,
 					fill: '#f59e0b',
 					stroke: '#92400e',
-					strokeWidth: Math.max(0.5, 1 / viewZoom),
+					strokeWidth: Math.max(0.32, 0.68 / viewZoom),
 					listening: true
 				});
 				knob.on('mousedown', (e) => {
@@ -1123,8 +1124,8 @@
 			measureStageWrap();
 			const K = (await import('konva')).default;
 			konvaLib = K;
-			const w0 = Math.max(displayWidth, 320);
-			const h0 = Math.max(displayHeight, 240);
+			const w0 = Math.max(32, displayWidth);
+			const h0 = Math.max(32, displayHeight);
 			stage = new K.Stage({
 				container,
 				width: w0,
@@ -1729,7 +1730,8 @@
 		display: block;
 		flex: 1 1 auto;
 		width: 100%;
-		min-height: min(70vh, 42rem);
+		/* Allow flex/grid to shrink; in-flow canvas intrinsic height used to force unbounded growth. */
+		min-height: 0;
 		margin-top: 0.3rem;
 		border: 1px solid #d8dee6;
 		border-radius: 6px;
@@ -1737,8 +1739,13 @@
 		background: #fafbfc;
 	}
 	.konva-host {
-		position: relative;
+		position: absolute;
+		left: 0;
+		top: 0;
+		right: 0;
+		bottom: 0;
 		z-index: 0;
+		overflow: hidden;
 		background: #fafbfc;
 	}
 	.editor-coords-svg {
