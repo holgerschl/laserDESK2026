@@ -212,6 +212,7 @@ std::optional<RtcError> EthernetRtcClient::connect(const RtcConnectConfig& cfg) 
   last_job_label_.clear();
   dxf_line_count_.reset();
   dxf_source_name_.reset();
+  dxf_list_execute_start_pos_.reset();
   return std::nullopt;
 }
 
@@ -224,6 +225,7 @@ void EthernetRtcClient::disconnect() {
   last_job_label_.clear();
   dxf_line_count_.reset();
   dxf_source_name_.reset();
+  dxf_list_execute_start_pos_.reset();
   dxf_rif_list_upload_ = false;
   dxf_rif_bits_per_mm_ = connect_default_bits_per_mm_;
   rif_config_list_mem1_ = 1u;
@@ -272,6 +274,7 @@ std::variant<std::string, RtcError> EthernetRtcClient::load_minimal_job(const st
   last_job_id_ = make_demo_job_id();
   dxf_line_count_.reset();
   dxf_source_name_.reset();
+  dxf_list_execute_start_pos_.reset();
   state_ = State::Loaded;
   return last_job_id_;
 }
@@ -305,7 +308,9 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
         "explicit \"dxf_rif_list_upload\": true.");
   }
 
+  dxf_list_execute_start_pos_.reset();
   rif::ParsedAnswer ans;
+  std::uint32_t list_exec_pos = 0u;
 
   if (auto e = send_remote_control(
           {rif::kRdcConfigList, rif_config_list_mem1_, rif_config_list_mem2_}, ans)) {
@@ -321,6 +326,7 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
   if (auto e = check_answer(ans, rif::kRdcGetInputPointer, 3u, format_)) {
     return e;
   }
+  list_exec_pos = ans.pl_words[2];
 
   job::RtcJobPlan plan;
   std::string perr;
@@ -349,6 +355,7 @@ std::optional<RtcError> EthernetRtcClient::load_dxf_job(const nlohmann::json& jo
   dxf_source_name_ = job_document.value("source_name", "dxf");
   last_job_label_.clear();
   last_job_id_.clear();
+  dxf_list_execute_start_pos_ = list_exec_pos;
   state_ = State::Loaded;
   return std::nullopt;
 }
@@ -374,7 +381,10 @@ std::optional<RtcError> EthernetRtcClient::start_execution(std::uint32_t repeat_
   if (auto e = check_answer(ans, rif::kRdcSetMaxCount, 2u, format_)) {
     return e;
   }
-  if (auto e = send_remote_control({rif::kRdcExecuteListPos, 1u, 0u}, ans)) {
+  // List commands are streamed at the board's current input pointer (see `load_dxf_job`). Running from
+  // pos 0 executes the wrong region when the pointer is non-zero — typical symptom: no galvo motion.
+  const std::uint32_t exec_pos = dxf_list_execute_start_pos_.value_or(0u);
+  if (auto e = send_remote_control({rif::kRdcExecuteListPos, rif_config_list_mem1_, exec_pos}, ans)) {
     return e;
   }
   if (auto e = check_answer(ans, rif::kRdcExecuteListPos, 2u, format_)) {

@@ -57,6 +57,9 @@ class EthernetRtcClient final : public IRtcClient {
   std::string last_job_id_;
   std::optional<std::size_t> dxf_line_count_;
   std::optional<std::string> dxf_source_name_;
+  /// After `load_dxf_job`: first word of `R_DC_GET_INPUT_POINTER` answer (payload `pl_words[2]`) — list
+  /// memory index where streamed `R_LC_*` commands begin; must be passed to `R_DC_EXECUTE_LIST_POS` pos arg.
+  std::optional<std::uint32_t> dxf_list_execute_start_pos_;
   bool dxf_rif_list_upload_{false};
   /// From `POST /rtc/connect` (`dxf_rif_bits_per_mm`); restored on disconnect; baseline if correction K_xy is 0.
   double connect_default_bits_per_mm_{128.0};
